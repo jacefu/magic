@@ -18,7 +18,12 @@ export async function login(
     homeserver,
   };
 
-  // Re-init with credentials and crypto
+  // Each loginWithPassword creates a new server-side device ID. Clear the
+  // IndexedDB crypto store so initRustCrypto() doesn't throw
+  // "account in store doesn't match the account in the constructor".
+  tempClient.stopClient();
+  await tempClient.clearStores().catch(() => {});
+
   await initClient({
     homeserver: session.homeserver,
     accessToken: session.accessToken,
@@ -50,8 +55,10 @@ export async function restoreSession(): Promise<boolean> {
 
 export async function logout(): Promise<void> {
   try {
-    const client = getClient();
-    await client.logout(true);
+    const c = getClient();
+    await c.logout(true);
+    c.stopClient();
+    await c.clearStores().catch(() => {});
   } catch {
     // silence
   }
