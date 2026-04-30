@@ -2,6 +2,8 @@ import { resolve } from "path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
 
 export default defineConfig({
   main: {
@@ -25,7 +27,10 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, "src/renderer"),
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), wasm(), topLevelAwait()],
+    optimizeDeps: {
+      exclude: ["@matrix-org/matrix-sdk-crypto-wasm"],
+    },
     build: {
       outDir: "dist/renderer",
       rollupOptions: {
