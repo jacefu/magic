@@ -1,46 +1,110 @@
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "path";
 
-function createWindow(): void {
-  const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+import { registerIPCHandlers } from "./ipc/registry.js";
+import { createWindowHandlers } from "./ipc/window.js";
+import { createSettingsHandlers } from "./ipc/settings.js";
+import { createShellHandlers } from "./ipc/shell.js";
+import { createAppHandlers } from "./ipc/app.js";
+import { createNotifyHandlers } from "./ipc/notify.js";
+
+import { createTray, destroyTray } from "./services/tray.js";
+import { restoreWindowBounds, trackWindowState } from "./services/window-state.js";
+
+import { settingsStore } from "./store.js";
+
+let mainWindow: BrowserWindow | null = null;
+
+function createWindow(): BrowserWindow {
+  const bounds = restoreWindowBounds();
+
+  const win = new BrowserWindow({
+    ...bounds,
     minWidth: 960,
     minHeight: 600,
     show: false,
-    titleBarStyle: "hiddenInset",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    trafficLightPosition: { x: 12, y: 12 },
+    backgroundColor: "#111827",
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: false,
+      spellcheck: true,
     },
   });
 
-  mainWindow.on("ready-to-show", () => {
-    mainWindow.show();
+  trackWindowState(win);
+
+  win.on("ready-to-show", () => {
+    if (settingsStore.get("startMinimized")) {
+      // stay hidden in tray
+    } else {
+      win.show();
+      win.focus();
+    }
   });
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.on("maximize", () => win.webContents.send("window:state-changed", "maximized"));
+  win.on("unmaximize", () => win.webContents.send("window:state-changed", "normal"));
+  win.on("enter-full-screen", () => win.webContents.send("window:state-changed", "fullscreen"));
+  win.on("leave-full-screen", () => win.webContents.send("window:state-changed", "normal"));
+
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: "deny" };
   });
 
+  win.webContents.on("will-navigate", (event, url) => {
+    const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
+    if (rendererUrl && !url.startsWith(rendererUrl)) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   if (!app.isPackaged && process.env["ELECTRON_RENDERER_URL"]) {
-    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+    win.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    win.loadFile(join(__dirname, "../renderer/index.html"));
   }
+
+  return win;
 }
 
 app.whenReady().then(() => {
-  createWindow();
+  mainWindow = createWindow();
+
+  registerIPCHandlers(mainWindow, [
+    createWindowHandlers(),
+    createSettingsHandlers(),
+    createShellHandlers(),
+    createAppHandlers(),
+    createNotifyHandlers(),
+  ]);
+
+  createTray(mainWindow);
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      mainWindow = createWindow();
+    }
   });
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  // keep running in tray
+});
+
+app.on("before-quit", () => {
+  destroyTray();
+});
+
+app.on("web-contents-created", (_, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: "deny" }));
 });

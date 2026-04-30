@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@magic/shared-types": "workspace:*",
-    "electron": "^36.0.0"
+    "electron": "^36.0.0",
+    "electron-store": "^10.1.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.0",
