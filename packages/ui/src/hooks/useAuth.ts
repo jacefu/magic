@@ -52,9 +52,8 @@ export function useAuth() {
       });
       await startSyncAndBridge(authStore, cleanupRef);
     } catch (err: any) {
-      const message = parseLoginError(err);
-      authStore.setError(message);
-      authStore.setStage("unauthenticated");
+      authStore.setError(parseLoginError(err));
+      // setError already sets stage to "error"; AuthGuard renders LoginPage with error shown
     }
   }, []);
 
@@ -112,7 +111,7 @@ async function startSyncAndBridge(
     await startSync();
   } catch (err: any) {
     authStore.setError(`同步启动失败: ${err.message}`);
-    authStore.setStage("error");
+    // setError already sets stage to "error"
   }
 }
 
