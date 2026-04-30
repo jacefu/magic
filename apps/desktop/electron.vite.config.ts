@@ -10,6 +10,7 @@ export default defineConfig({
       outDir: "dist/main",
       rollupOptions: {
         input: resolve(__dirname, "src/main/index.ts"),
+        output: { format: "es", entryFileNames: "[name].mjs" },
       },
     },
   },

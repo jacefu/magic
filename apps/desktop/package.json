@@ -2,7 +2,7 @@
   "name": "@magic/desktop",
   "version": "0.0.1",
   "private": true,
-  "main": "./dist/main/index.js",
+  "main": "./dist/main/index.mjs",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
