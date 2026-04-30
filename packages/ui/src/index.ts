@@ -22,8 +22,24 @@ export { JoinRoomDialog } from "./rooms/JoinRoomDialog.js";
 // Common
 export { DialogOverlay } from "./common/DialogOverlay.js";
 
+// Chat
+export { ChatView } from "./chat/ChatView.js";
+export { ChatHeader } from "./chat/ChatHeader.js";
+export { ChatTimeline } from "./chat/ChatTimeline.js";
+export { MessageBubble } from "./chat/MessageBubble.js";
+export { MessageContent } from "./chat/MessageContent.js";
+export { TextMessage } from "./chat/TextMessage.js";
+export { ImageMessage } from "./chat/ImageMessage.js";
+export { FileMessage } from "./chat/FileMessage.js";
+export { DateSeparator } from "./chat/DateSeparator.js";
+export { TypingIndicator } from "./chat/TypingIndicator.js";
+export { NewMessageButton } from "./chat/NewMessageButton.js";
+export { EmptyRoom } from "./chat/EmptyRoom.js";
+
 // Hooks
 export { useAuth } from "./hooks/useAuth.js";
 export { useElectronAPI, isElectron } from "./hooks/useElectronAPI.js";
 export { useFilteredRooms } from "./hooks/useFilteredRooms.js";
 export type { RoomGroup } from "./hooks/useFilteredRooms.js";
+export { useTimeline } from "./hooks/useTimeline.js";
+export type { TimelineItem } from "./hooks/useTimeline.js";

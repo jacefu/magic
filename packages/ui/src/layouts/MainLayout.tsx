@@ -1,6 +1,7 @@
 import { useAuthStore } from "@magic/matrix-client";
 import { useAuth } from "../hooks/useAuth.js";
 import { RoomList } from "../rooms/RoomList.js";
+import { ChatView } from "../chat/ChatView.js";
 
 export function MainLayout() {
   const { userId, homeserver } = useAuthStore();
@@ -34,14 +35,7 @@ export function MainLayout() {
         </div>
       </aside>
 
-      <main className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-medium text-gray-300">选择一个房间</h2>
-          <p className="mt-2 text-sm text-gray-500">
-            从左侧列表中选择一个房间开始聊天
-          </p>
-        </div>
-      </main>
+      <ChatView />
     </div>
   );
 }

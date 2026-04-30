@@ -22,12 +22,17 @@
   "dependencies": {
     "@magic/matrix-client": "workspace:*",
     "@magic/shared-types": "workspace:*",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-markdown": "^9.1.0",
+    "react-syntax-highlighter": "^15.6.6",
+    "react-virtuoso": "^4.18.6",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.0.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "happy-dom": "^20.9.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.0",
