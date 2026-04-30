@@ -1,0 +1,7 @@
+{
+  "extends": "../../packages/config/tsconfig/node.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src/main/**/*", "src/preload/index.ts", "electron.vite.config.ts"]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "magic-client",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.17.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:desktop": "turbo run dev --filter=@magic/desktop",
+    "dev:web": "turbo run dev --filter=@magic/web",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint -- --fix",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,cjs,json,md}\"",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.8.0",
+    "prettier": "^3.5.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}

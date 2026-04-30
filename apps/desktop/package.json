@@ -1,0 +1,30 @@
+{
+  "name": "@magic/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist release"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "@magic/shared-types": "workspace:*",
+    "electron": "^36.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.4.0",
+    "electron-builder": "^26.9.0",
+    "electron-vite": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.2.0",
+    "typescript": "^5.8.0"
+  }
+}

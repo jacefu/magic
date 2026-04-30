@@ -1,0 +1,24 @@
+appId: com.magic.client
+productName: MAGIC Client
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - "!node_modules/**/*"
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  notarize: false
+win:
+  target:
+    - nsis
+  nsis:
+    oneClick: false
+    allowToChangeInstallationDirectory: true
+publish:
+  provider: github
+  owner: magic-platform
+  repo: magic-client

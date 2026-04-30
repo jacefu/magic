@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --color-magic-primary: #2563eb;
+  --color-magic-secondary: #7c3aed;
+  --color-magic-accent: #06b6d4;
+  --color-magic-surface: #111827;
+  --color-magic-surface-alt: #1f2937;
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+}

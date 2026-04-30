@@ -1,0 +1,11 @@
+{
+  "extends": "../../packages/config/tsconfig/react.json",
+  "compilerOptions": {
+    "outDir": "dist/renderer",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/renderer/src/*"]
+    }
+  },
+  "include": ["src/renderer/src/**/*", "src/preload/*.d.ts"]
+}
