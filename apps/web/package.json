@@ -13,7 +13,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@magic/matrix-client": "workspace:*",
     "@magic/shared-types": "workspace:*",
+    "@magic/ui": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

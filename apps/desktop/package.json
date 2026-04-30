@@ -11,7 +11,9 @@
     "clean": "rm -rf dist release"
   },
   "dependencies": {
+    "@magic/matrix-client": "workspace:*",
     "@magic/shared-types": "workspace:*",
+    "@magic/ui": "workspace:*",
     "electron": "^36.0.0",
     "electron-store": "^10.1.0"
   },

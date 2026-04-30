@@ -33,6 +33,8 @@ export {
 export { bridgeToStores } from "./bridge.js";
 
 // Zustand stores
+export { useAuthStore } from "./stores/authStore.js";
+export type { AuthStage, AuthUser } from "./stores/authStore.js";
 export { useSyncStore } from "./stores/syncStore.js";
 export { useRoomStore } from "./stores/roomStore.js";
 export { useTypingStore } from "./stores/typingStore.js";

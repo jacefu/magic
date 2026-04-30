@@ -8,3 +8,9 @@
   --color-magic-surface-alt: #1f2937;
   --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); width: 40%; }
+  50% { transform: translateX(60%); width: 60%; }
+  100% { transform: translateX(200%); width: 40%; }
+}

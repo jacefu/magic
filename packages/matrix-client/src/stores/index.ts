@@ -1,3 +1,5 @@
+export { useAuthStore } from "./authStore.js";
+export type { AuthStage, AuthUser } from "./authStore.js";
 export { useSyncStore } from "./syncStore.js";
 export { useRoomStore } from "./roomStore.js";
 export { useTypingStore } from "./typingStore.js";
