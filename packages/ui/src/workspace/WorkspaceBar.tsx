@@ -17,16 +17,7 @@ export function WorkspaceBar() {
   const [activeId, setActiveId] = useState("main");
 
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center bg-[#1E1F22]">
-      {/* Top drag region — clears the macOS traffic lights and lets the
-          user drag the window from this corner. h-7 = 28px matches the
-          drag spacer in MainLayout's column 2. */}
-      <div
-        className="h-7 w-full shrink-0"
-        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
-      />
-
-      <div className="flex flex-col items-center gap-1.5 pb-2 pt-1">
+    <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 bg-[#1E1F22] py-3">
       {/* DM entry */}
       <WorkspaceIcon
         initial={defaultWorkspaces[0].initial}
@@ -60,7 +51,6 @@ export function WorkspaceBar() {
         variant="add"
         onClick={() => {}}
       />
-      </div>
     </div>
   );
 }
