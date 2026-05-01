@@ -53,7 +53,12 @@ export const MentionItem = memo(function MentionItem({
         />
         {member.isAgent && member.agentStatus && (
           <span className="absolute -bottom-0.5 -right-0.5">
-            <AgentStatusDot status={member.agentStatus} size="sm" />
+            <AgentStatusDot
+              status={
+                member.agentStatus === "online" ? "active" : member.agentStatus
+              }
+              size="sm"
+            />
           </span>
         )}
       </div>

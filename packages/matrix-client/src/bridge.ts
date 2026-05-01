@@ -19,6 +19,8 @@ import { useRoomStore } from "./stores/roomStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
 import { useAgentStore } from "./stores/agentStore.js";
 import { serializeEvent } from "./serializers.js";
+import { bridgePresence } from "./presence.js";
+import { fetchAgentRegistry } from "./agent-registry.js";
 
 export function bridgeToStores(client: MatrixClient): () => void {
   const onSync = (
@@ -31,6 +33,12 @@ export function bridgeToStores(client: MatrixClient): () => void {
     if (state === "PREPARED") {
       syncStore.setInitialSyncComplete();
       syncRoomList(client);
+
+      // Best-effort: pull the Worker / Manager registry from the HiClaw
+      // Controller. Failure is silent — agentDetection falls back to
+      // event-driven and pattern-based identification.
+      const controllerUrl = inferControllerUrl(client);
+      if (controllerUrl) void fetchAgentRegistry(controllerUrl);
     }
     if (state === "ERROR" && data?.error) {
       syncStore.setSyncError(data.error.message);
@@ -88,6 +96,8 @@ export function bridgeToStores(client: MatrixClient): () => void {
   client.on(RoomEvent.Timeline, onTimelineMagic);
   client.on(RoomStateEvent.Events, onStateEventMagic);
 
+  const cleanupPresence = bridgePresence(client);
+
   return () => {
     client.off(ClientEvent.Sync, onSync);
     client.off(RoomEvent.Timeline, onTimeline);
@@ -100,7 +110,30 @@ export function bridgeToStores(client: MatrixClient): () => void {
     client.off(RoomEvent.MyMembership, onMembership);
     client.off(RoomEvent.Timeline, onTimelineMagic);
     client.off(RoomStateEvent.Events, onStateEventMagic);
+    cleanupPresence();
   };
+}
+
+/**
+ * Best-effort guess at the HiClaw Controller URL: same hostname as the
+ * Matrix homeserver, port 8080. Override with `window.__MAGIC_CONTROLLER_URL__`.
+ * Returns null when no homeserver URL is available (shouldn't happen post-login).
+ */
+function inferControllerUrl(client: MatrixClient): string | null {
+  if (typeof window !== "undefined") {
+    const overrideUrl = (window as unknown as { __MAGIC_CONTROLLER_URL__?: string })
+      .__MAGIC_CONTROLLER_URL__;
+    if (overrideUrl) return overrideUrl;
+  }
+
+  try {
+    const baseUrl = client.getHomeserverUrl();
+    if (!baseUrl) return null;
+    const url = new URL(baseUrl);
+    return `${url.protocol}//${url.hostname}:8080`;
+  } catch {
+    return null;
+  }
 }
 
 function handleMagicEvent(event: MatrixEvent, room: Room | undefined): void {

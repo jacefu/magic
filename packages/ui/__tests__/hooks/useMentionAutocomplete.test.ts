@@ -20,6 +20,17 @@ function makeMember(overrides: Partial<RoomMember> = {}): RoomMember {
     displayName: "alice",
     avatarMxc: null,
     isAgent: false,
+    agentInfo: {
+      isAgent: false,
+      runtime: null,
+      role: null,
+      status: null,
+      source: "none",
+      tagLabel: null,
+      tagBg: null,
+      tagColor: null,
+      nameColor: "#DBDEE1",
+    },
     powerLevel: 0,
     ...overrides,
   };

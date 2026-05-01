@@ -65,22 +65,13 @@ describe("MessageBubble", () => {
     expect(screen.getByText("me")).toBeTruthy();
   });
 
-  it("renders own sender name in role-admin color", () => {
-    render(
-      <MessageBubble
-        event={makeEvent({ sender: "@me:example.com" })}
-        showSender={true}
-        isOwn={true}
-      />,
-    );
-    expect(screen.getByText("me").className).toContain("text-[#A5B0FC]");
-  });
-
-  it("renders others' sender name in text-normal", () => {
+  it("renders sender name with default color when not an agent", () => {
     render(
       <MessageBubble event={makeEvent()} showSender={true} isOwn={false} />,
     );
-    expect(screen.getByText("alice").className).toContain("text-[#DBDEE1]");
+    // Spec 014: name color is controlled by agentDetection.nameColor; default
+    // for non-agents is #DBDEE1 applied via inline style.
+    expect(screen.getByText("alice").style.color).toBe("#DBDEE1");
   });
 
   it("renders system event as centered text for m.room.member join", () => {

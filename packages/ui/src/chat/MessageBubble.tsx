@@ -2,6 +2,8 @@ import { memo } from "react";
 import type { SerializedMatrixEvent } from "@magic/shared-types";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
 import { MessageContent } from "./MessageContent.js";
+import { AgentTag } from "../agents/AgentTag.js";
+import { getAgentInfo } from "../lib/agentDetection.js";
 
 interface MessageBubbleProps {
   event: SerializedMatrixEvent;
@@ -28,6 +30,7 @@ export const MessageBubble = memo(function MessageBubble({
 
   const time = formatTime(event.timestamp);
   const senderName = extractDisplayName(event.sender);
+  const agentInfo = getAgentInfo(event.sender);
 
   return (
     <div
@@ -43,15 +46,15 @@ export const MessageBubble = memo(function MessageBubble({
 
       <div className="min-w-0 flex-1">
         {showSender && (
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-1">
             <span
-              className={`text-[13px] font-semibold ${
-                isOwn ? "text-[#A5B0FC]" : "text-[#DBDEE1]"
-              }`}
+              className="text-[13px] font-semibold"
+              style={{ color: agentInfo.nameColor }}
             >
               {senderName}
             </span>
-            <span className="text-[10.5px] text-[#6D6F78]">{time}</span>
+            <AgentTag agentInfo={agentInfo} size="sm" />
+            <span className="ml-1 text-[10.5px] text-[#6D6F78]">{time}</span>
           </div>
         )}
         <div className="text-[13.5px] leading-[1.45] text-[#DBDEE1]">

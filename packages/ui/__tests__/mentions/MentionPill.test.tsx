@@ -16,13 +16,17 @@ describe("MentionPill", () => {
   it("uses self-mention styling when userId matches current user", () => {
     render(<MentionPill userId="@me:example.com" displayName="me" />);
     const pill = screen.getByText("@me");
-    expect(pill.className).toContain("bg-brand");
+    // Self-mention uses higher-opacity brand background per design-system § 2.5
+    expect(pill.className).toContain("bg-[rgba(88,101,242,0.35)]");
+    expect(pill.className).toContain("text-white");
   });
 
   it("uses other-mention styling when userId differs", () => {
     render(<MentionPill userId="@alice:example.com" displayName="alice" />);
     const pill = screen.getByText("@alice");
-    expect(pill.className).toContain("text-role-admin");
+    // Other-mention uses lower-opacity brand background + brand text color
+    expect(pill.className).toContain("bg-[rgba(88,101,242,0.25)]");
+    expect(pill.className).toContain("text-[#C9CDFB]");
   });
 
   it("sets title to userId for hover tooltip", () => {

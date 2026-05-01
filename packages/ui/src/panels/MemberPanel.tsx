@@ -1,5 +1,7 @@
 import { useRoomMembers, type RoomMember } from "../hooks/useRoomMembers.js";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
+import { AgentTag } from "../agents/AgentTag.js";
+import { getStatusColor, getHumanOnlineStatus } from "../lib/agentDetection.js";
 
 interface MemberPanelProps {
   roomId: string;
@@ -8,23 +10,31 @@ interface MemberPanelProps {
 export function MemberPanel({ roomId }: MemberPanelProps) {
   const members = useRoomMembers(roomId);
 
-  const online = members.filter(
-    (m) =>
-      m.agentStatus === "active" ||
-      m.agentStatus === "idle" ||
-      !m.isAgent,
-  );
-  const offline = members.filter(
-    (m) => m.isAgent && (m.agentStatus === "offline" || m.agentStatus === "error"),
-  );
+  // Online: any agent reporting online/idle, plus humans whose presence isn't offline.
+  // Offline: agents in offline/error state, and humans without presence data.
+  const online = members.filter((m) => {
+    if (m.isAgent) {
+      return m.agentStatus === "online" || m.agentStatus === "idle";
+    }
+    return getHumanOnlineStatus(m.userId) !== "offline";
+  });
+  const offline = members.filter((m) => {
+    if (m.isAgent) {
+      return (
+        m.agentStatus === "offline" ||
+        m.agentStatus === "error" ||
+        m.agentStatus === null ||
+        m.agentStatus === undefined
+      );
+    }
+    return getHumanOnlineStatus(m.userId) === "offline";
+  });
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      {/* Online */}
       {online.length > 0 && (
         <MemberSection label={`在线 — ${online.length}`} members={online} />
       )}
-      {/* Offline */}
       {offline.length > 0 && (
         <MemberSection label={`离线 — ${offline.length}`} members={offline} />
       )}
@@ -53,24 +63,7 @@ function MemberSection({
 
 function MemberItem({ member }: { member: RoomMember }) {
   const name = member.displayName;
-  const statusColor = member.isAgent
-    ? member.agentStatus === "active"
-      ? "#23A55A"
-      : member.agentStatus === "idle"
-        ? "#F0B232"
-        : member.agentStatus === "error"
-          ? "#F23F43"
-          : "#6D6F78"
-    : "#23A55A";
-
-  const runtimeTag = member.isAgent
-    ? member.agentRuntime?.includes("hermes")
-      ? { text: "HERMES", bg: "rgba(237,66,69,0.25)", color: "#F47B67" }
-      : member.agentRuntime?.includes("qwenpaw") ||
-          member.agentRuntime?.includes("copaw")
-        ? { text: "QWENPAW", bg: "rgba(35,165,90,0.25)", color: "#57F287" }
-        : { text: "AGENT", bg: "rgba(88,101,242,0.25)", color: "#A5B0FC" }
-    : null;
+  const statusColor = getStatusColor(member.userId);
 
   return (
     <div className="group flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-[#35373C]">
@@ -86,17 +79,17 @@ function MemberItem({ member }: { member: RoomMember }) {
       </div>
 
       {/* Name + runtime tag */}
-      <span className="flex-1 truncate text-[12.5px] text-[#949BA4] group-hover:text-[#DBDEE1]">
+      <span
+        className={`flex-1 truncate text-[12.5px] ${
+          member.isAgent ? "" : "text-[#949BA4] group-hover:text-[#DBDEE1]"
+        }`}
+        style={
+          member.isAgent ? { color: member.agentInfo.nameColor } : undefined
+        }
+      >
         {name}
       </span>
-      {runtimeTag && (
-        <span
-          className="shrink-0 rounded-sm px-1 py-px text-[9px] font-bold"
-          style={{ backgroundColor: runtimeTag.bg, color: runtimeTag.color }}
-        >
-          {runtimeTag.text}
-        </span>
-      )}
+      <AgentTag agentInfo={member.agentInfo} size="sm" />
     </div>
   );
 }

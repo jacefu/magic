@@ -86,9 +86,22 @@ export { AgentDashboard } from "./agents/AgentDashboard.js";
 export { AgentStatusGrid } from "./agents/AgentStatusGrid.js";
 export { AgentStatusCard } from "./agents/AgentStatusCard.js";
 export { AgentStatusDot } from "./agents/AgentStatusDot.js";
+export { AgentTag } from "./agents/AgentTag.js";
 export { TaskBoard } from "./agents/TaskBoard.js";
 export { TaskCard } from "./agents/TaskCard.js";
 export { CollaborationGraph } from "./agents/CollaborationGraph.js";
+
+// Agent detection (CRD registry → agentStore → name pattern fallback)
+export {
+  getAgentInfo,
+  getHumanOnlineStatus,
+  getStatusColor,
+} from "./lib/agentDetection.js";
+export type {
+  AgentInfo,
+  AgentRuntime,
+  AgentRole,
+} from "./lib/agentDetection.js";
 
 // Mentions
 export { MentionAutocomplete } from "./mentions/MentionAutocomplete.js";

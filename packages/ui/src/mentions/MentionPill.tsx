@@ -6,7 +6,8 @@ interface MentionPillProps {
   displayName: string;
 }
 
-// Per design-system § 2.5 mention highlight colors:
+// Per design-system § 2.5 mention highlight colors (inline rgba so the
+// values match the spec exactly without going through a token round-trip):
 //   default: rgba(88,101,242,0.25) bg, #C9CDFB text
 //   hover:   rgba(88,101,242,0.45) bg, #FFFFFF text
 //   self:    rgba(88,101,242,0.35) bg, #FFFFFF text
@@ -19,10 +20,10 @@ export const MentionPill = memo(function MentionPill({
 
   return (
     <span
-      className={`inline cursor-pointer rounded px-1 py-0.5 text-sm font-medium transition-colors ${
+      className={`inline cursor-pointer rounded-[3px] px-[2px] font-medium transition-colors ${
         isMe
-          ? "bg-brand/35 text-white"
-          : "bg-brand/25 text-role-admin hover:bg-brand/45 hover:text-text-normal"
+          ? "bg-[rgba(88,101,242,0.35)] text-white hover:bg-[rgba(88,101,242,0.55)]"
+          : "bg-[rgba(88,101,242,0.25)] text-[#C9CDFB] hover:bg-[rgba(88,101,242,0.45)] hover:text-white"
       }`}
       title={userId}
     >

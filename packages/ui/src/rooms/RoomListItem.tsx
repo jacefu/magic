@@ -1,5 +1,14 @@
-import { memo } from "react";
-import type { RoomData } from "@magic/matrix-client";
+import { memo, useMemo } from "react";
+import {
+  getClient,
+  hasClient,
+  useAgentRegistryStore,
+  useAgentStore,
+  useAuthStore,
+  usePresenceStore,
+  type RoomData,
+} from "@magic/matrix-client";
+import { getStatusColor } from "../lib/agentDetection.js";
 import { UnreadBadge } from "./UnreadBadge.js";
 
 interface RoomListItemProps {
@@ -8,10 +17,24 @@ interface RoomListItemProps {
   onSelect: () => void;
 }
 
+/** Find the non-self member of a DM room. Returns null if not a DM or no peer. */
+function useDmPeerId(roomId: string, isDirect: boolean): string | null {
+  const currentUserId = useAuthStore((s) => s.userId);
+  return useMemo(() => {
+    if (!isDirect || !currentUserId || !hasClient()) return null;
+    const room = getClient().getRoom(roomId);
+    if (!room) return null;
+    const peer = room
+      .getJoinedMembers()
+      .find((m) => m.userId !== currentUserId);
+    return peer?.userId ?? null;
+  }, [roomId, isDirect, currentUserId]);
+}
+
 // Discord-channel layout per design-system § 7.2:
 //   - 30px row height, padding 5px 10px, 1px gap
 //   - Group rooms: # prefix + name (single line)
-//   - DMs: 8px status dot + name
+//   - DMs: 8px status dot + name (color from agentDetection)
 //   - default text #949BA4, hover #DBDEE1 + bg #35373C, active white + bg #404249,
 //     unread #DBDEE1 + font-weight 600
 //   - UnreadBadge on the right
@@ -23,9 +46,16 @@ export const RoomListItem = memo(function RoomListItem({
   const isUnread = room.unreadCount > 0;
   const name = room.name || "未命名房间";
 
-  // No presence tracking for humans yet — DMs always show green.
-  // (Worker agents have their own MemberPanel with real status dots.)
-  const dmStatusColor = "#23A55A";
+  // Subscribe to the stores that feed getStatusColor so the dot recolors live.
+  useAgentStore((s) => s.agents);
+  useAgentRegistryStore((s) => s.agents);
+  useAgentRegistryStore((s) => s.loaded);
+  usePresenceStore((s) => s.presences);
+
+  const dmPeerId = useDmPeerId(room.roomId, room.isDirect);
+  const dmStatusColor = dmPeerId
+    ? getStatusColor(dmPeerId, room.roomId)
+    : "#6D6F78";
 
   return (
     <button
