@@ -12,11 +12,13 @@ interface MessageBubbleProps {
   onReply?: (eventId: string) => void;
 }
 
-// Discord-flat layout per design-system § 7.3:
+// Discord-flat layout:
 //   - No bubble background; messages flow as plain rows
-//   - 36px avatar gutter (left), only filled on the first message of a group
-//   - Continuation rows indent under the gutter (avatar + 12px gap)
-//   - Sender name uses role color; same-row baseline timestamp
+//   - 40px avatar gutter (left), only filled on the first message of a group
+//   - 16px gap between avatar gutter and content
+//   - Continuation rows indent under the gutter (avatar + 16px gap)
+//   - Sender name 15px semibold in role color; baseline timestamp 12px muted
+//   - Body 15px / line-height 1.55
 //   - Whole row gets bg #35373C on hover
 export const MessageBubble = memo(function MessageBubble({
   event,
@@ -34,30 +36,30 @@ export const MessageBubble = memo(function MessageBubble({
 
   return (
     <div
-      className={`group relative flex gap-3 px-4 transition-colors duration-100 hover:bg-[#35373C]
-                  ${showSender ? "mt-3" : "mt-0.5"}`}
+      className={`group relative flex gap-4 px-4 transition-colors duration-100 hover:bg-[#35373C]
+                  ${showSender ? "mt-4" : "mt-0.5"}`}
     >
-      {/* Avatar gutter — 36px wide */}
-      <div className="w-9 shrink-0 pt-0.5">
+      {/* Avatar gutter — 40px wide */}
+      <div className="w-10 shrink-0 pt-0.5">
         {showSender && (
-          <RoomAvatar name={senderName} avatarMxc={null} isDirect size={36} />
+          <RoomAvatar name={senderName} avatarMxc={null} isDirect size={40} />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
         {showSender && (
-          <div className="flex items-baseline gap-1">
+          <div className="mb-0.5 flex items-baseline gap-1.5">
             <span
-              className="text-[13px] font-semibold"
+              className="text-[15px] font-semibold leading-snug"
               style={{ color: agentInfo.nameColor }}
             >
               {senderName}
             </span>
             <AgentTag agentInfo={agentInfo} size="sm" />
-            <span className="ml-1 text-[10.5px] text-[#6D6F78]">{time}</span>
+            <span className="ml-1 text-xs text-[#949BA4]">{time}</span>
           </div>
         )}
-        <div className="text-[13.5px] leading-[1.45] text-[#DBDEE1]">
+        <div className="text-[15px] leading-[1.55] text-[#DBDEE1]">
           <MessageContent event={event} isOwn={isOwn} />
         </div>
       </div>
@@ -141,5 +143,27 @@ function extractDisplayName(userId: string): string {
 
 function formatTime(ts: number): string {
   const date = new Date(ts);
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  const now = new Date();
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+
+  if (sameCalendarDay(date, now)) return `${hh}:${mm}`;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameCalendarDay(date, yesterday)) return `昨天 ${hh}:${mm}`;
+
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${hh}:${mm}`;
+}
+
+function sameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
 }

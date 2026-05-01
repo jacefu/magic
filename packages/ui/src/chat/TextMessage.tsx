@@ -72,9 +72,20 @@ export function TextMessage({ body, formattedBody, isOwn }: TextMessageProps) {
 
   return (
     <div
-      className="prose prose-sm prose-invert max-w-none break-words
-                 prose-p:my-0.5 prose-pre:my-1 prose-code:text-xs
-                 prose-a:text-text-link prose-a:underline"
+      className="prose prose-invert max-w-none break-words
+                 text-[15px] leading-[1.55]
+                 prose-p:my-0 prose-p:leading-[1.55]
+                 prose-pre:my-1.5 prose-code:text-[13px]
+                 prose-strong:text-[#DBDEE1] prose-strong:font-semibold
+                 prose-em:text-[#DBDEE1]
+                 prose-headings:my-2 prose-headings:font-semibold prose-headings:text-[#DBDEE1]
+                 prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px]
+                 prose-ul:my-1 prose-ol:my-1 prose-li:my-0
+                 prose-blockquote:my-1.5 prose-blockquote:border-l-[3px]
+                 prose-blockquote:border-[#4E5058] prose-blockquote:pl-3
+                 prose-blockquote:text-[#B5BAC1] prose-blockquote:not-italic
+                 prose-a:text-text-link prose-a:no-underline hover:prose-a:underline
+                 prose-hr:my-2 prose-hr:border-[#3F4147]"
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {source}

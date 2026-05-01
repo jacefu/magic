@@ -20,7 +20,7 @@ export const MentionPill = memo(function MentionPill({
 
   return (
     <span
-      className={`inline cursor-pointer rounded-[3px] px-[2px] font-medium transition-colors ${
+      className={`inline-block cursor-pointer rounded-[4px] px-1 py-px font-medium leading-tight transition-colors ${
         isMe
           ? "bg-[rgba(88,101,242,0.35)] text-white hover:bg-[rgba(88,101,242,0.55)]"
           : "bg-[rgba(88,101,242,0.25)] text-[#C9CDFB] hover:bg-[rgba(88,101,242,0.45)] hover:text-white"
