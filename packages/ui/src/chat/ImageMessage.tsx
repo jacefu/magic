@@ -7,52 +7,56 @@ interface ImageMessageProps {
   info?: Record<string, unknown>;
 }
 
-export function ImageMessage({ body, url, info }: ImageMessageProps) {
+export function ImageMessage({ body, url }: ImageMessageProps) {
   const [showFullSize, setShowFullSize] = useState(false);
+  const [thumbError, setThumbError] = useState(false);
+  const [fullError, setFullError] = useState(false);
 
-  const thumbUrl = useAuthenticatedMedia(url, 400, 300, "scale");
+  const thumbUrl = useAuthenticatedMedia(url, 800, 600, "scale");
   const fullUrl = useAuthenticatedMedia(showFullSize ? url : null);
-
-  const width = (info?.w as number) ?? 300;
-  const height = (info?.h as number) ?? 200;
-  const aspectRatio = width / height;
-  const displayWidth = Math.min(width, 400);
-  const displayHeight = displayWidth / aspectRatio;
 
   return (
     <>
       <button
-        onClick={() => setShowFullSize(true)}
-        className="block overflow-hidden rounded-lg"
+        onClick={() => {
+          setShowFullSize(true);
+          setFullError(false);
+        }}
+        className="block"
       >
-        {thumbUrl ? (
+        {thumbUrl && !thumbError ? (
           <img
             src={thumbUrl}
             alt={body}
             loading="lazy"
-            className="max-w-full object-cover"
-            style={{ width: displayWidth, height: displayHeight, maxHeight: 300 }}
+            className="block rounded-lg"
+            style={{ maxWidth: 400, maxHeight: 300, width: "auto", height: "auto" }}
+            onError={() => setThumbError(true)}
           />
         ) : (
-          <div
-            className="flex items-center justify-center bg-gray-800 text-xs text-gray-500"
-            style={{ width: displayWidth, height: displayHeight, maxHeight: 300 }}
-          >
-            加载中…
+          <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-gray-800 text-xs text-gray-500">
+            {thumbError ? "图片加载失败" : "加载中…"}
           </div>
         )}
       </button>
 
-      {showFullSize && fullUrl && (
+      {showFullSize && (
         <div
           className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/80"
           onClick={() => setShowFullSize(false)}
         >
-          <img
-            src={fullUrl}
-            alt={body}
-            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-          />
+          {fullUrl && !fullError ? (
+            <img
+              src={fullUrl}
+              alt={body}
+              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+              onError={() => setFullError(true)}
+            />
+          ) : (
+            <div className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white">
+              {fullError ? "图片加载失败" : "加载中…"}
+            </div>
+          )}
         </div>
       )}
     </>
