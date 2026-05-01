@@ -2,17 +2,19 @@ import { useState } from "react";
 import { AgentStatusGrid } from "./AgentStatusGrid.js";
 import { TaskBoard } from "./TaskBoard.js";
 import { CollaborationGraph } from "./CollaborationGraph.js";
+import { SoulMemoryEditor } from "../editors/SoulMemoryEditor.js";
 
 interface AgentDashboardProps {
   roomId: string;
 }
 
-type TabKey = "agents" | "tasks" | "graph";
+type TabKey = "agents" | "tasks" | "graph" | "soul";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "agents", label: "Agent 状态" },
   { key: "tasks", label: "任务看板" },
   { key: "graph", label: "协作图" },
+  { key: "soul", label: "SOUL/MEMORY" },
 ];
 
 export function AgentDashboard({ roomId }: AgentDashboardProps) {
@@ -36,10 +38,23 @@ export function AgentDashboard({ roomId }: AgentDashboardProps) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3">
-        {activeTab === "agents" && <AgentStatusGrid roomId={roomId} />}
-        {activeTab === "tasks" && <TaskBoard roomId={roomId} />}
-        {activeTab === "graph" && <CollaborationGraph roomId={roomId} />}
+      <div className="min-h-0 flex-1">
+        {activeTab === "agents" && (
+          <div className="h-full overflow-y-auto p-3">
+            <AgentStatusGrid roomId={roomId} />
+          </div>
+        )}
+        {activeTab === "tasks" && (
+          <div className="h-full overflow-y-auto p-3">
+            <TaskBoard roomId={roomId} />
+          </div>
+        )}
+        {activeTab === "graph" && (
+          <div className="h-full overflow-y-auto p-3">
+            <CollaborationGraph roomId={roomId} />
+          </div>
+        )}
+        {activeTab === "soul" && <SoulMemoryEditor roomId={roomId} />}
       </div>
     </div>
   );

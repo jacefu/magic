@@ -22,8 +22,10 @@
   "dependencies": {
     "@magic/matrix-client": "workspace:*",
     "@magic/shared-types": "workspace:*",
+    "@monaco-editor/react": "^4.7.0",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.6",
+    "monaco-editor": "^0.52.2",
     "react": "^19.0.0",
     "react-markdown": "^9.1.0",
     "react-syntax-highlighter": "^15.6.6",

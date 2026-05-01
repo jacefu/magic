@@ -63,6 +63,7 @@ export { useAgentStatus } from "./hooks/useAgentStatus.js";
 export type { AgentWithEffectiveStatus } from "./hooks/useAgentStatus.js";
 export { useTaskBoard } from "./hooks/useTaskBoard.js";
 export type { TaskColumn } from "./hooks/useTaskBoard.js";
+export { useSoulMemory } from "./hooks/useSoulMemory.js";
 export type { UploadTask } from "./hooks/useFileUpload.js";
 export { useDragDrop } from "./hooks/useDragDrop.js";
 export { usePasteFile } from "./hooks/usePasteFile.js";
@@ -75,6 +76,13 @@ export { AgentStatusDot } from "./agents/AgentStatusDot.js";
 export { TaskBoard } from "./agents/TaskBoard.js";
 export { TaskCard } from "./agents/TaskCard.js";
 export { CollaborationGraph } from "./agents/CollaborationGraph.js";
+
+// Editors
+export { SoulMemoryEditor } from "./editors/SoulMemoryEditor.js";
+export { MonacoWrapper } from "./editors/MonacoWrapper.js";
+export { DiffViewer } from "./editors/DiffViewer.js";
+export { EditorToolbar } from "./editors/EditorToolbar.js";
+export { EditorMeta } from "./editors/EditorMeta.js";
 
 // Crypto
 export { EncryptionBadge } from "./crypto/EncryptionBadge.js";
