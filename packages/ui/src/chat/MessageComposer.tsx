@@ -98,15 +98,6 @@ export function MessageComposer({
 
         {/* Right-side icon cluster */}
         <div className="flex shrink-0 items-center gap-1">
-          <ComposerIconButton title="赠送 Nitro">
-            <GiftIcon />
-          </ComposerIconButton>
-          <ComposerIconButton title="GIF">
-            <GifIcon />
-          </ComposerIconButton>
-          <ComposerIconButton title="贴纸">
-            <StickerIcon />
-          </ComposerIconButton>
           <ComposerIconButton title="emoji">
             <EmojiIcon />
           </ComposerIconButton>
@@ -154,28 +145,6 @@ function PlusCircleIcon() {
   return (
     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
-    </svg>
-  );
-}
-
-function GiftIcon() {
-  return (
-    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M20 7h-2.586l1.793-1.793-1.414-1.414L15 6.586V4h-2v2.586l-2.793-2.793-1.414 1.414L10.586 7H4a1 1 0 00-1 1v3a1 1 0 001 1v8a2 2 0 002 2h12a2 2 0 002-2v-8a1 1 0 001-1V8a1 1 0 00-1-1zm-7 13h-2v-7h2v7zm-8-9V9h6v2H5zm14 0h-6V9h6v2z" />
-    </svg>
-  );
-}
-
-function GifIcon() {
-  return (
-    <span className="text-[10px] font-bold leading-none">GIF</span>
-  );
-}
-
-function StickerIcon() {
-  return (
-    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M21.84 11.05c-.16-.71-1.06-1.05-1.69-.66l-.39.24c-.66.41-1.51-.06-1.51-.84V8.05c0-1.66-1.34-3-3-3h-1.74c-.78 0-1.25-.85-.84-1.51l.24-.39c.39-.63.05-1.53-.66-1.69-3.17-.74-7 .14-9.5 2.65-2.51 2.5-3.39 6.33-2.65 9.5.16.71 1.06 1.05 1.69.66l.39-.24c.66-.41 1.51.06 1.51.84v1.74c0 1.66 1.34 3 3 3h1.74c.78 0 1.25.85.84 1.51l-.24.39c-.39.63-.05 1.53.66 1.69 3.17.74 7-.14 9.5-2.65 2.51-2.5 3.39-6.33 2.65-9.5z" />
     </svg>
   );
 }

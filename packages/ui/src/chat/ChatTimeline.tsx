@@ -21,8 +21,6 @@ interface ChatTimelineProps {
   onReply?: (eventId: string) => void;
 }
 
-const START_INDEX = 100_000;
-
 export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
   const currentUserId = useAuthStore((s) => s.userId);
   const unreadMarker = useUnreadMarker(roomId, currentUserId);
@@ -72,12 +70,21 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
 
   return (
     <div className="relative flex-1">
+      {/*
+        key={roomId} forces a fresh Virtuoso instance per room so
+        `initialTopMostItemIndex` re-evaluates and the view starts at
+        the latest message every time we open a room.
+        `followOutput` keeps the view pinned to the bottom on append
+        (new message arrives or user just sent), but only when the user
+        was already at the bottom — scrolling up to read history won't
+        get yanked back down.
+      */}
       <Virtuoso
+        key={roomId}
         ref={virtuosoRef}
         style={{ height: "100%" }}
         data={items}
-        firstItemIndex={START_INDEX - items.length}
-        initialTopMostItemIndex={items.length - 1}
+        initialTopMostItemIndex={Math.max(0, items.length - 1)}
         startReached={handleStartReached}
         followOutput={(isBottom) => (isBottom ? "smooth" : false)}
         atBottomStateChange={setIsAtBottom}

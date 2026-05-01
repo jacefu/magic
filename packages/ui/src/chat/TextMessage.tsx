@@ -57,18 +57,25 @@ export function TextMessage({
       );
     },
     a({ href, children }) {
-      if (href && href.startsWith("https://matrix.to/#/@")) {
+      // matrix.to mention links — note: the @ in the userId is often
+      // URL-encoded as %40, especially when the userId itself contains a
+      // colon (e.g. a homeserver hostname like "host:port"). Decode
+      // first, then check the @ prefix.
+      if (href && href.startsWith("https://matrix.to/#/")) {
         const userId = decodeURIComponent(
           href.replace("https://matrix.to/#/", ""),
         );
-        const raw =
-          childrenToString(children) ||
-          userId.match(/^@([^:]+)/)?.[1] ||
-          userId;
-        // Defensive: older messages may have @-prefixed link text. Strip
-        // it so MentionPill (which prepends @ itself) doesn't double up.
-        const displayName = raw.startsWith("@") ? raw.slice(1) : raw;
-        return <MentionPill userId={userId} displayName={displayName} />;
+        if (userId.startsWith("@")) {
+          const raw =
+            childrenToString(children) ||
+            userId.match(/^@([^:]+)/)?.[1] ||
+            userId;
+          // Defensive: older messages may have @-prefixed link text.
+          // Strip it so MentionPill (which prepends @ itself) doesn't
+          // double up.
+          const displayName = raw.startsWith("@") ? raw.slice(1) : raw;
+          return <MentionPill userId={userId} displayName={displayName} />;
+        }
       }
       return (
         <a href={href} target="_blank" rel="noopener noreferrer">

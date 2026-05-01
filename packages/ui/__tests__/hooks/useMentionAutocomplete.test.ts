@@ -159,8 +159,8 @@ describe("useMentionAutocomplete", () => {
     // suppressed and alice is at index 0
     const inserted = result.current.selectCandidate(0);
     expect(inserted).not.toBeNull();
-    expect(inserted!.newValue).toBe("hi [@alice](@alice:x) ");
-    expect(inserted!.newCursorPos).toBe("hi [@alice](@alice:x) ".length);
+    expect(inserted!.newValue).toBe("hi @alice ");
+    expect(inserted!.newCursorPos).toBe("hi @alice ".length);
   });
 
   it("selectCandidate inserts @全体 for room candidate", () => {

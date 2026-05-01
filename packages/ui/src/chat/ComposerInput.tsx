@@ -12,9 +12,12 @@ interface ComposerInputProps {
 }
 
 const MAX_ROWS = 6;
-const LINE_HEIGHT = 20;
-const MIN_HEIGHT = LINE_HEIGHT + 8;
-const MAX_HEIGHT = LINE_HEIGHT * MAX_ROWS + 8;
+const LINE_HEIGHT = 22;
+// MIN_HEIGHT == LINE_HEIGHT (single line, no extra padding). The parent
+// flex container uses items-center, so this single-line textarea is
+// vertically centered against the icon row's 36px height.
+const MIN_HEIGHT = LINE_HEIGHT;
+const MAX_HEIGHT = LINE_HEIGHT * MAX_ROWS;
 
 export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>(
   function ComposerInput(
@@ -156,8 +159,9 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
           disabled={disabled}
           placeholder={placeholder}
           rows={1}
-          className="w-full resize-none bg-transparent text-[13px] text-[#DBDEE1]
-                     placeholder:text-[#6D6F78] outline-none disabled:opacity-50"
+          className="block w-full resize-none bg-transparent py-0 text-[15px]
+                     text-[#DBDEE1] placeholder:text-[#6D6F78]
+                     outline-none disabled:opacity-50"
           style={{
             minHeight: MIN_HEIGHT,
             maxHeight: MAX_HEIGHT,

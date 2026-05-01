@@ -3,6 +3,7 @@ import {
   sendTextMessage,
   sendReply,
   getClient,
+  hasClient,
   useRoomStore,
   useUIStore,
 } from "@magic/matrix-client";
@@ -47,8 +48,14 @@ export function useComposer({ roomId }: UseComposerOptions) {
     stopTyping();
 
     try {
-      if (hasMentions(text)) {
-        const parsed = parseMentions(text);
+      // Lift any plain "@displayName" references into the placeholder
+      // format `[@displayName](userId)` so parseMentions can pick them
+      // up. The composer textarea contains clean text only — the
+      // mapping back to userIds happens here, against the live room
+      // member list.
+      const resolved = resolveMentionsToPlaceholders(text, roomId);
+      if (hasMentions(resolved)) {
+        const parsed = parseMentions(resolved);
         const content: Record<string, unknown> = {
           msgtype: "m.text",
           body: parsed.body,
@@ -117,3 +124,44 @@ export function useComposer({ roomId }: UseComposerOptions) {
 
 // Exposed for tests
 export const __DRAFTS_INTERNAL__ = drafts;
+
+/**
+ * Convert plain "@<displayName>" references in user-typed text into the
+ * placeholder syntax that `parseMentions` consumes:
+ *   "@alice hello" → "[@alice](@alice:example.com) hello"
+ *
+ * The mapping is read from the room's joined-member list at send time.
+ * Word-boundary checks: "@" must be at start-of-string or preceded by
+ * whitespace, and the matched name must NOT be followed by another
+ * alphanumeric/underscore — avoids hitting "email@example.com" or
+ * partial-prefix collisions. Longest member name wins when multiple
+ * candidates share a prefix.
+ */
+export function resolveMentionsToPlaceholders(
+  text: string,
+  roomId: string,
+): string {
+  if (!hasClient()) return text;
+  const room = getClient().getRoom(roomId);
+  if (!room) return text;
+
+  const members = room.getJoinedMembers().map((m) => ({
+    userId: m.userId,
+    displayName:
+      m.name || m.userId.match(/^@([^:]+)/)?.[1] || m.userId,
+  }));
+  if (members.length === 0) return text;
+
+  members.sort((a, b) => b.displayName.length - a.displayName.length);
+  const pattern = members.map((m) => escapeRegExp(m.displayName)).join("|");
+  const re = new RegExp(`(^|\\s)@(${pattern})(?![A-Za-z0-9_])`, "gu");
+
+  return text.replace(re, (_full, prefix, name) => {
+    const member = members.find((m) => m.displayName === name)!;
+    return `${prefix}[@${name}](${member.userId})`;
+  });
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

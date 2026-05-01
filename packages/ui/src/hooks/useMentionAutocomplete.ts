@@ -79,10 +79,14 @@ export function useMentionAutocomplete({
       const before = inputValue.slice(0, mentionContext.triggerIndex);
       const after = inputValue.slice(cursorPosition);
 
+      // Insert clean "@displayName " (no markdown brackets visible to the
+      // user). The actual userId mapping is recovered at send time by
+      // matching display names against the room's joined-member list —
+      // see `resolveMentionsToPlaceholders` in useComposer.
       const insert =
         candidate.type === "room"
           ? "@全体 "
-          : `[@${candidate.member!.displayName}](${candidate.member!.userId}) `;
+          : `@${candidate.member!.displayName} `;
 
       return {
         newValue: before + insert + after,
