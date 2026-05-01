@@ -3,9 +3,14 @@ import { uploadAndSendFile } from "@magic/matrix-client";
 
 interface ComposerToolbarProps {
   roomId: string;
+  /**
+   * If provided, selected files are routed to the parent for preview/progress UI.
+   * If absent, files are uploaded directly via uploadAndSendFile (legacy path).
+   */
+  onFilesSelected?: (files: File[]) => void;
 }
 
-export function ComposerToolbar({ roomId }: ComposerToolbarProps) {
+export function ComposerToolbar({ roomId, onFilesSelected }: ComposerToolbarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleAttach = useCallback(() => {
@@ -14,16 +19,25 @@ export function ComposerToolbar({ roomId }: ComposerToolbarProps) {
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = ""; // allow re-selecting the same file
-      if (!file) return;
+      const files = Array.from(e.target.files ?? []);
+      e.target.value = "";
+      if (files.length === 0) return;
+
+      if (onFilesSelected) {
+        onFilesSelected(files);
+        return;
+      }
+
+      // Legacy path: upload immediately without preview
       try {
-        await uploadAndSendFile(roomId, file);
+        for (const file of files) {
+          await uploadAndSendFile(roomId, file);
+        }
       } catch (err) {
         console.error("文件上传失败:", err);
       }
     },
-    [roomId],
+    [roomId, onFilesSelected],
   );
 
   return (
@@ -31,6 +45,7 @@ export function ComposerToolbar({ roomId }: ComposerToolbarProps) {
       <input
         ref={inputRef}
         type="file"
+        multiple
         className="hidden"
         onChange={handleFileChange}
       />

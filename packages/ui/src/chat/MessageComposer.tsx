@@ -1,14 +1,21 @@
 import { useEffect } from "react";
 import { useComposer } from "../hooks/useComposer.js";
+import { usePasteFile } from "../hooks/usePasteFile.js";
 import { ComposerInput } from "./ComposerInput.js";
 import { ComposerToolbar } from "./ComposerToolbar.js";
 import { ReplyPreview } from "./ReplyPreview.js";
 
 interface MessageComposerProps {
   roomId: string;
+  onPasteFile?: (file: File) => void;
+  onFilesSelected?: (files: File[]) => void;
 }
 
-export function MessageComposer({ roomId }: MessageComposerProps) {
+export function MessageComposer({
+  roomId,
+  onPasteFile,
+  onFilesSelected,
+}: MessageComposerProps) {
   const {
     value,
     setValue,
@@ -23,6 +30,11 @@ export function MessageComposer({ roomId }: MessageComposerProps) {
   useEffect(() => {
     switchRoom(roomId);
   }, [roomId, switchRoom]);
+
+  usePasteFile({
+    enabled: !!onPasteFile,
+    onPaste: (file) => onPasteFile?.(file),
+  });
 
   return (
     <div className="border-t border-gray-800 bg-magic-surface">
@@ -55,7 +67,7 @@ export function MessageComposer({ roomId }: MessageComposerProps) {
           </button>
         </div>
 
-        <ComposerToolbar roomId={roomId} />
+        <ComposerToolbar roomId={roomId} onFilesSelected={onFilesSelected} />
       </div>
     </div>
   );

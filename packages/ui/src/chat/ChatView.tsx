@@ -3,6 +3,11 @@ import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { ChatHeader } from "./ChatHeader.js";
 import { ChatTimeline } from "./ChatTimeline.js";
 import { MessageComposer } from "./MessageComposer.js";
+import { FileUploadPreview } from "../files/FileUploadPreview.js";
+import { UploadProgressBar } from "../files/UploadProgressBar.js";
+import { DropZoneOverlay } from "../files/DropZoneOverlay.js";
+import { useFileUpload } from "../hooks/useFileUpload.js";
+import { useDragDrop } from "../hooks/useDragDrop.js";
 
 export function ChatView() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
@@ -28,11 +33,63 @@ export function ChatView() {
     );
   }
 
+  return <ChatViewContent roomId={activeRoomId} onReply={handleReply} />;
+}
+
+function ChatViewContent({
+  roomId,
+  onReply,
+}: {
+  roomId: string;
+  onReply: (eventId: string) => void;
+}) {
+  const { tasks, addFiles, startUpload, cancelTask, removeTask } =
+    useFileUpload(roomId);
+
+  const { isDragging, dragProps } = useDragDrop({
+    onDrop: (files) => addFiles(files),
+  });
+
+  const handlePasteFile = useCallback(
+    (file: File) => {
+      addFiles([file]);
+    },
+    [addFiles],
+  );
+
+  const handleFilesSelected = useCallback(
+    (files: File[]) => {
+      addFiles(files);
+    },
+    [addFiles],
+  );
+
+  const handleCancelAll = useCallback(() => {
+    const pending = tasks.filter((t) => t.status === "pending");
+    pending.forEach((t) => removeTask(t.id));
+  }, [tasks, removeTask]);
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <ChatHeader roomId={activeRoomId} />
-      <ChatTimeline roomId={activeRoomId} onReply={handleReply} />
-      <MessageComposer roomId={activeRoomId} />
+    <div className="relative flex flex-1 flex-col overflow-hidden" {...dragProps}>
+      <ChatHeader roomId={roomId} />
+      <ChatTimeline roomId={roomId} onReply={onReply} />
+
+      <UploadProgressBar tasks={tasks} onCancel={cancelTask} />
+
+      <FileUploadPreview
+        tasks={tasks}
+        onConfirm={startUpload}
+        onCancel={handleCancelAll}
+        onRemove={removeTask}
+      />
+
+      <MessageComposer
+        roomId={roomId}
+        onPasteFile={handlePasteFile}
+        onFilesSelected={handleFilesSelected}
+      />
+
+      {isDragging && <DropZoneOverlay />}
     </div>
   );
 }

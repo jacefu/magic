@@ -53,6 +53,15 @@ export { useEncryptionStatus } from "./hooks/useEncryptionStatus.js";
 export { useVerification } from "./hooks/useVerification.js";
 export type { VerificationPhase } from "./hooks/useVerification.js";
 
+// Files
+export { FileUploadPreview } from "./files/FileUploadPreview.js";
+export { UploadProgressBar } from "./files/UploadProgressBar.js";
+export { DropZoneOverlay } from "./files/DropZoneOverlay.js";
+export { useFileUpload } from "./hooks/useFileUpload.js";
+export type { UploadTask } from "./hooks/useFileUpload.js";
+export { useDragDrop } from "./hooks/useDragDrop.js";
+export { usePasteFile } from "./hooks/usePasteFile.js";
+
 // Crypto
 export { EncryptionBadge } from "./crypto/EncryptionBadge.js";
 export { UndecryptedMessage } from "./crypto/UndecryptedMessage.js";
