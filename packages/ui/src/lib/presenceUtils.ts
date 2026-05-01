@@ -1,0 +1,55 @@
+import { getClient, hasClient } from "@magic/matrix-client";
+
+export type OnlineStatus = "online" | "idle" | "offline";
+
+/**
+ * Read a user's online status straight from matrix-js-sdk's `User` object.
+ * The SDK already maintains presence via `/sync` — no extra subscription
+ * or store is needed. Works the same way for humans and Agents because
+ * an Agent is itself a Matrix client kept alive by its container's sync
+ * loop (and stops being "online" the instant `hiclaw worker sleep`
+ * terminates that loop).
+ */
+export function getUserPresence(userId: string): OnlineStatus {
+  if (!hasClient()) return "offline";
+  try {
+    const user = getClient().getUser(userId);
+    if (!user) return "offline";
+
+    switch (user.presence) {
+      case "online":
+        return "online";
+      case "unavailable":
+        return "idle";
+      case "busy":
+        return "online";
+      case "offline":
+      default:
+        return "offline";
+    }
+  } catch {
+    return "offline";
+  }
+}
+
+export function getPresenceColor(status: OnlineStatus): string {
+  switch (status) {
+    case "online":
+      return "#23A55A";
+    case "idle":
+      return "#F0B232";
+    case "offline":
+      return "#6D6F78";
+  }
+}
+
+export function getPresenceLabel(status: OnlineStatus): string {
+  switch (status) {
+    case "online":
+      return "在线";
+    case "idle":
+      return "空闲";
+    case "offline":
+      return "离线";
+  }
+}

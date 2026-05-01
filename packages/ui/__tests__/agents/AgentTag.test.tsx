@@ -8,7 +8,6 @@ function makeInfo(overrides: Partial<AgentInfo> = {}): AgentInfo {
     isAgent: true,
     runtime: "openclaw",
     role: "worker",
-    status: "online",
     source: "crd-api",
     tagLabel: "AGENT",
     tagBg: "rgba(88,101,242,0.25)",

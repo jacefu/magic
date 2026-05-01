@@ -1,30 +1,12 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import {
-  useAgentStore,
-  useAgentRegistryStore,
-  usePresenceStore,
-  useUserActivityStore,
-} from "@magic/matrix-client";
-import {
-  getAgentInfo,
-  getHumanOnlineStatus,
-  getStatusColor,
-} from "../../src/lib/agentDetection.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import { useAgentStore, useAgentRegistryStore } from "@magic/matrix-client";
+import { getAgentInfo } from "../../src/lib/agentDetection.js";
 
 const ROOM = "!r:example.com";
-const NOW = 1_700_000_000_000;
 
 beforeEach(() => {
   useAgentStore.getState().reset();
   useAgentRegistryStore.getState().reset();
-  usePresenceStore.getState().reset();
-  useUserActivityStore.getState().reset();
-  vi.useFakeTimers();
-  vi.setSystemTime(NOW);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 describe("getAgentInfo — layer 1 (CRD registry)", () => {
@@ -60,30 +42,32 @@ describe("getAgentInfo — layer 1 (CRD registry)", () => {
     expect(info.nameColor).toBe("#1ABC9C");
   });
 
-  it("merges live agentStore status into the registry-sourced info", () => {
+  it("uses HERMES tag style for hermes runtime", () => {
     useAgentRegistryStore.getState().setAgents([
       {
-        userId: "@worker-alice:magic.com",
-        name: "alice",
+        userId: "@worker-h:magic.com",
+        name: "h",
         runtime: "hermes",
         role: "worker",
       },
     ]);
-    useAgentStore.getState().upsertAgent(
-      ROOM,
-      {
-        agent_id: "alice-1",
-        status: "active",
-        capabilities: [],
-        current_task_id: null,
-        timestamp: NOW,
-      },
-      "@worker-alice:magic.com",
-    );
-    const info = getAgentInfo("@worker-alice:magic.com", ROOM);
-    expect(info.source).toBe("crd-api");
-    expect(info.status).toBe("online");
+    const info = getAgentInfo("@worker-h:magic.com");
     expect(info.tagLabel).toBe("HERMES");
+    expect(info.tagColor).toBe("#F47B67");
+  });
+
+  it("uses QWENPAW tag style for qwenpaw runtime", () => {
+    useAgentRegistryStore.getState().setAgents([
+      {
+        userId: "@worker-q:magic.com",
+        name: "q",
+        runtime: "qwenpaw",
+        role: "worker",
+      },
+    ]);
+    const info = getAgentInfo("@worker-q:magic.com");
+    expect(info.tagLabel).toBe("QWENPAW");
+    expect(info.tagColor).toBe("#57F287");
   });
 });
 
@@ -97,7 +81,7 @@ describe("getAgentInfo — layer 2 (agentStore fallback)", () => {
         capabilities: [],
         model: "qwenpaw-3.5",
         current_task_id: null,
-        timestamp: NOW,
+        timestamp: Date.now(),
       },
       "@ghost:magic.com",
     );
@@ -108,35 +92,53 @@ describe("getAgentInfo — layer 2 (agentStore fallback)", () => {
     expect(info.tagLabel).toBe("QWENPAW");
   });
 
-  it("flips active→offline when heartbeat is older than 60s", () => {
+  it("infers hermes runtime from model string", () => {
     useAgentStore.getState().upsertAgent(
       ROOM,
       {
-        agent_id: "stale-1",
+        agent_id: "h-1",
+        status: "active",
+        capabilities: [],
+        model: "hermes-7b",
+        current_task_id: null,
+        timestamp: Date.now(),
+      },
+      "@h:magic.com",
+    );
+    const info = getAgentInfo("@h:magic.com", ROOM);
+    expect(info.runtime).toBe("hermes");
+  });
+
+  it("scopes by roomId when one is supplied", () => {
+    useAgentStore.getState().upsertAgent(
+      ROOM,
+      {
+        agent_id: "x-1",
         status: "active",
         capabilities: [],
         current_task_id: null,
-        timestamp: NOW - 120_000,
+        timestamp: Date.now(),
       },
-      "@stale:magic.com",
+      "@x:magic.com",
     );
-    const info = getAgentInfo("@stale:magic.com", ROOM);
-    expect(info.status).toBe("offline");
+    expect(getAgentInfo("@x:magic.com", ROOM).isAgent).toBe(true);
+    expect(getAgentInfo("@x:magic.com", "!other:room").isAgent).toBe(false);
   });
 });
 
-describe("getAgentInfo — layer 3 (name pattern, only on registry error)", () => {
-  it("does NOT use name pattern when registry is still loading", () => {
-    const info = getAgentInfo("@worker-test:magic.com");
-    expect(info.isAgent).toBe(false);
-  });
-
-  it("uses name pattern only when registry has explicitly failed", () => {
-    useAgentRegistryStore.getState().setError("network");
+describe("getAgentInfo — layer 3 (name pattern, CRD-unavailable fallback)", () => {
+  it("uses name pattern when registry hasn't loaded yet", () => {
+    // loaded=false, no error — still allowed by spec § 4.4 ('!loaded || error')
     const info = getAgentInfo("@worker-test:magic.com");
     expect(info.isAgent).toBe(true);
     expect(info.source).toBe("name-pattern");
     expect(info.role).toBe("worker");
+  });
+
+  it("uses name pattern after registry has explicitly errored", () => {
+    useAgentRegistryStore.getState().setError("network");
+    const info = getAgentInfo("@worker-test:magic.com");
+    expect(info.source).toBe("name-pattern");
   });
 
   it("recognizes manager pattern", () => {
@@ -153,144 +155,23 @@ describe("getAgentInfo — layer 3 (name pattern, only on registry error)", () =
     expect(info.tagLabel).toBe("HERMES");
   });
 
+  it("recognizes qwenpaw / copaw patterns", () => {
+    useAgentRegistryStore.getState().setError("network");
+    expect(getAgentInfo("@qwenpaw-1:magic.com").runtime).toBe("qwenpaw");
+    expect(getAgentInfo("@copaw-2:magic.com").runtime).toBe("qwenpaw");
+  });
+
+  it("does NOT use name pattern after a successful registry load", () => {
+    useAgentRegistryStore.getState().setAgents([]); // loaded=true, error=null
+    const info = getAgentInfo("@worker-test:magic.com");
+    expect(info.isAgent).toBe(false);
+    expect(info.source).toBe("none");
+  });
+
   it("returns isAgent=false when nothing matches", () => {
     useAgentRegistryStore.getState().setError("network");
     const info = getAgentInfo("@plainuser:magic.com");
     expect(info.isAgent).toBe(false);
     expect(info.nameColor).toBe("#DBDEE1");
-  });
-});
-
-describe("getHumanOnlineStatus", () => {
-  it("returns offline when no presence data", () => {
-    expect(getHumanOnlineStatus("@a:x")).toBe("offline");
-  });
-
-  it("maps online + currentlyActive → online", () => {
-    usePresenceStore.getState().setPresence("@a:x", {
-      presence: "online",
-      currentlyActive: true,
-    });
-    expect(getHumanOnlineStatus("@a:x")).toBe("online");
-  });
-
-  it("maps online + lastActiveAgo > 5min → idle", () => {
-    usePresenceStore.getState().setPresence("@a:x", {
-      presence: "online",
-      lastActiveAgo: 6 * 60 * 1000,
-    });
-    expect(getHumanOnlineStatus("@a:x")).toBe("idle");
-  });
-
-  it("maps unavailable → idle", () => {
-    usePresenceStore.getState().setPresence("@a:x", { presence: "unavailable" });
-    expect(getHumanOnlineStatus("@a:x")).toBe("idle");
-  });
-
-  it("maps offline → offline", () => {
-    usePresenceStore.getState().setPresence("@a:x", { presence: "offline" });
-    expect(getHumanOnlineStatus("@a:x")).toBe("offline");
-  });
-});
-
-describe("activity fallback (Manager Agents and bots without agent.status)", () => {
-  it("treats a registered Manager as online when they sent a recent message", () => {
-    useAgentRegistryStore.getState().setAgents([
-      {
-        userId: "@manager:magic.com",
-        name: "manager",
-        runtime: "openclaw",
-        role: "manager",
-      },
-    ]);
-    // No agent.status event ever, but they chatted 30s ago.
-    useUserActivityStore.getState().setLastSeen("@manager:magic.com", NOW - 30_000);
-    const info = getAgentInfo("@manager:magic.com");
-    expect(info.isAgent).toBe(true);
-    expect(info.role).toBe("manager");
-    expect(info.status).toBe("online");
-  });
-
-  it("stays offline when activity is older than 5 minutes", () => {
-    useAgentRegistryStore.getState().setAgents([
-      {
-        userId: "@manager:magic.com",
-        name: "manager",
-        runtime: "openclaw",
-        role: "manager",
-      },
-    ]);
-    useUserActivityStore
-      .getState()
-      .setLastSeen("@manager:magic.com", NOW - 6 * 60_000);
-    const info = getAgentInfo("@manager:magic.com");
-    expect(info.status).toBe("offline");
-  });
-
-  it("activity overrides presence=offline (humans)", () => {
-    usePresenceStore.getState().setPresence("@h:x", { presence: "offline" });
-    useUserActivityStore.getState().setLastSeen("@h:x", NOW - 60_000);
-    expect(getHumanOnlineStatus("@h:x")).toBe("online");
-  });
-
-  it("name-pattern Manager picks up activity-based online status", () => {
-    useAgentRegistryStore.getState().setError("network");
-    useUserActivityStore
-      .getState()
-      .setLastSeen("@manager-x:magic.com", NOW - 10_000);
-    const info = getAgentInfo("@manager-x:magic.com");
-    expect(info.source).toBe("name-pattern");
-    expect(info.status).toBe("online");
-  });
-});
-
-describe("getStatusColor", () => {
-  it("uses agent path when user is in registry", () => {
-    useAgentRegistryStore.getState().setAgents([
-      {
-        userId: "@w:m",
-        name: "w",
-        runtime: "openclaw",
-        role: "worker",
-      },
-    ]);
-    // No live agent.status event → status defaults to offline → grey
-    expect(getStatusColor("@w:m")).toBe("#6D6F78");
-  });
-
-  it("returns green when agent is online", () => {
-    useAgentRegistryStore.getState().setAgents([
-      {
-        userId: "@w:m",
-        name: "w",
-        runtime: "openclaw",
-        role: "worker",
-      },
-    ]);
-    useAgentStore.getState().upsertAgent(
-      ROOM,
-      {
-        agent_id: "w",
-        status: "active",
-        capabilities: [],
-        current_task_id: null,
-        timestamp: NOW,
-      },
-      "@w:m",
-    );
-    expect(getStatusColor("@w:m", ROOM)).toBe("#23A55A");
-  });
-
-  it("returns yellow for human idle, green for online, grey for offline", () => {
-    usePresenceStore.getState().setPresence("@h1:m", {
-      presence: "online",
-      currentlyActive: true,
-    });
-    usePresenceStore
-      .getState()
-      .setPresence("@h2:m", { presence: "unavailable" });
-    expect(getStatusColor("@h1:m")).toBe("#23A55A");
-    expect(getStatusColor("@h2:m")).toBe("#F0B232");
-    expect(getStatusColor("@h3:m")).toBe("#6D6F78");
   });
 });

@@ -19,7 +19,6 @@ interface AgentRegistryState {
   error: string | null;
 
   setAgents: (agents: RegisteredAgent[]) => void;
-  setLoaded: (loaded: boolean) => void;
   setError: (error: string | null) => void;
   isAgent: (userId: string) => boolean;
   getAgent: (userId: string) => RegisteredAgent | null;
@@ -37,7 +36,6 @@ export const useAgentRegistryStore = create<AgentRegistryState>((set, get) => ({
     set({ agents: map, loaded: true, error: null });
   },
 
-  setLoaded: (loaded) => set({ loaded }),
   setError: (error) => set({ error, loaded: true }),
 
   isAgent: (userId) => userId in get().agents,

@@ -5,11 +5,12 @@ import {
   useAgentRegistryStore,
   useAgentStore,
   useAuthStore,
-  usePresenceStore,
-  useUserActivityStore,
   type RoomData,
 } from "@magic/matrix-client";
-import { getStatusColor } from "../lib/agentDetection.js";
+import {
+  getUserPresence,
+  getPresenceColor,
+} from "../lib/presenceUtils.js";
 import { isDmRoom } from "../lib/isDmRoom.js";
 import { UnreadBadge } from "./UnreadBadge.js";
 
@@ -36,7 +37,7 @@ function useDmPeerId(roomId: string, isDm: boolean): string | null {
 // Discord-channel layout per design-system § 7.2:
 //   - 30px row height, padding 5px 10px, 1px gap
 //   - Group rooms: # prefix + name (single line)
-//   - DMs: 8px status dot + name (color from agentDetection)
+//   - DMs: 8px status dot + name (color from Matrix presence)
 //   - default text #949BA4, hover #DBDEE1 + bg #35373C, active white + bg #404249,
 //     unread #DBDEE1 + font-weight 600
 //   - UnreadBadge on the right
@@ -48,17 +49,18 @@ export const RoomListItem = memo(function RoomListItem({
   const isUnread = room.unreadCount > 0;
   const name = room.name || "未命名房间";
 
-  // Subscribe to the stores that feed getStatusColor so the dot recolors live.
+  // Subscribe to agent stores so a registry-driven re-tag still re-renders.
+  // Presence itself is read directly from matrix-js-sdk, which doesn't need
+  // a Zustand subscription — but the dot will repaint on the next render
+  // triggered by any of these stores or by the parent list refresh.
   useAgentStore((s) => s.agents);
   useAgentRegistryStore((s) => s.agents);
   useAgentRegistryStore((s) => s.loaded);
-  usePresenceStore((s) => s.presences);
-  useUserActivityStore((s) => s.lastSeen);
 
   const isDm = isDmRoom(room);
   const dmPeerId = useDmPeerId(room.roomId, isDm);
   const dmStatusColor = dmPeerId
-    ? getStatusColor(dmPeerId, room.roomId)
+    ? getPresenceColor(getUserPresence(dmPeerId))
     : "#6D6F78";
 
   return (

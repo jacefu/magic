@@ -53,7 +53,10 @@ export function TextMessage({ body, formattedBody, isOwn }: TextMessageProps) {
         const userId = decodeURIComponent(
           href.replace("https://matrix.to/#/", ""),
         );
-        const displayName = childrenToString(children) || userId;
+        const displayName =
+          childrenToString(children) ||
+          userId.match(/^@([^:]+)/)?.[1] ||
+          userId;
         return <MentionPill userId={userId} displayName={displayName} />;
       }
       return (

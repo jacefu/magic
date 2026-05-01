@@ -92,16 +92,20 @@ export { TaskCard } from "./agents/TaskCard.js";
 export { CollaborationGraph } from "./agents/CollaborationGraph.js";
 
 // Agent detection (CRD registry → agentStore → name pattern fallback)
-export {
-  getAgentInfo,
-  getHumanOnlineStatus,
-  getStatusColor,
-} from "./lib/agentDetection.js";
+export { getAgentInfo } from "./lib/agentDetection.js";
 export type {
   AgentInfo,
   AgentRuntime,
   AgentRole,
 } from "./lib/agentDetection.js";
+
+// Presence (matrix-js-sdk-backed)
+export {
+  getUserPresence,
+  getPresenceColor,
+  getPresenceLabel,
+} from "./lib/presenceUtils.js";
+export type { OnlineStatus } from "./lib/presenceUtils.js";
 
 // Mentions
 export { MentionAutocomplete } from "./mentions/MentionAutocomplete.js";

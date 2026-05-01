@@ -1,6 +1,9 @@
 import { memo } from "react";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
-import { AgentStatusDot } from "../agents/AgentStatusDot.js";
+import {
+  getUserPresence,
+  getPresenceColor,
+} from "../lib/presenceUtils.js";
 import type { MentionCandidate } from "../hooks/useMentionAutocomplete.js";
 
 interface MentionItemProps {
@@ -51,16 +54,13 @@ export const MentionItem = memo(function MentionItem({
           isDirect
           size={28}
         />
-        {member.isAgent && member.agentStatus && (
-          <span className="absolute -bottom-0.5 -right-0.5">
-            <AgentStatusDot
-              status={
-                member.agentStatus === "online" ? "active" : member.agentStatus
-              }
-              size="sm"
-            />
-          </span>
-        )}
+        <span
+          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-bg-primary"
+          style={{
+            backgroundColor: getPresenceColor(getUserPresence(member.userId)),
+          }}
+          aria-hidden
+        />
       </div>
 
       <div className="min-w-0 flex-1">

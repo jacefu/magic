@@ -1,7 +1,10 @@
 import { useRoomMembers, type RoomMember } from "../hooks/useRoomMembers.js";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
 import { AgentTag } from "../agents/AgentTag.js";
-import { getStatusColor, getHumanOnlineStatus } from "../lib/agentDetection.js";
+import {
+  getUserPresence,
+  getPresenceColor,
+} from "../lib/presenceUtils.js";
 
 interface MemberPanelProps {
   roomId: string;
@@ -10,25 +13,16 @@ interface MemberPanelProps {
 export function MemberPanel({ roomId }: MemberPanelProps) {
   const members = useRoomMembers(roomId);
 
-  // Online: any agent reporting online/idle, plus humans whose presence isn't offline.
-  // Offline: agents in offline/error state, and humans without presence data.
+  // Online vs offline grouping comes from Matrix Presence — same source
+  // for humans and Agents (Agents are themselves Matrix clients whose
+  // sync loop the homeserver tracks).
   const online = members.filter((m) => {
-    if (m.isAgent) {
-      return m.agentStatus === "online" || m.agentStatus === "idle";
-    }
-    return getHumanOnlineStatus(m.userId) !== "offline";
+    const status = getUserPresence(m.userId);
+    return status === "online" || status === "idle";
   });
-  const offline = members.filter((m) => {
-    if (m.isAgent) {
-      return (
-        m.agentStatus === "offline" ||
-        m.agentStatus === "error" ||
-        m.agentStatus === null ||
-        m.agentStatus === undefined
-      );
-    }
-    return getHumanOnlineStatus(m.userId) === "offline";
-  });
+  const offline = members.filter(
+    (m) => getUserPresence(m.userId) === "offline",
+  );
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -63,7 +57,7 @@ function MemberSection({
 
 function MemberItem({ member }: { member: RoomMember }) {
   const name = member.displayName;
-  const statusColor = getStatusColor(member.userId);
+  const statusColor = getPresenceColor(getUserPresence(member.userId));
 
   return (
     <div className="group flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-[#35373C]">

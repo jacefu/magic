@@ -24,7 +24,6 @@ function makeMember(overrides: Partial<RoomMember> = {}): RoomMember {
       isAgent: false,
       runtime: null,
       role: null,
-      status: null,
       source: "none",
       tagLabel: null,
       tagBg: null,
