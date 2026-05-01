@@ -25,7 +25,8 @@ export function useTimeline({ roomId, currentUserId }: UseTimelineOptions) {
     let lastTs = 0;
 
     for (const event of timeline) {
-      const isMessage = event.type === "m.room.message";
+      const isMessage =
+        event.type === "m.room.message" || event.type === "m.room.encrypted";
       const isStateEvent = isStateType(event.type);
       if (!isMessage && !isStateEvent) continue;
 

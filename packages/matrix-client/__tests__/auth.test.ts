@@ -5,6 +5,7 @@ const mockClient = {
   initRustCrypto: vi.fn().mockResolvedValue(undefined),
   stopClient: vi.fn(),
   removeAllListeners: vi.fn(),
+  clearStores: vi.fn().mockResolvedValue(undefined),
   loginWithPassword: vi.fn().mockResolvedValue({
     user_id: "@alice:example.com",
     device_id: "DEVICE1",

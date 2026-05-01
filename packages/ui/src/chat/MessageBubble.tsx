@@ -16,8 +16,8 @@ export const MessageBubble = memo(function MessageBubble({
   isOwn,
   onReply,
 }: MessageBubbleProps) {
-  const isSystemEvent = event.type !== "m.room.message";
-  if (isSystemEvent) {
+  const isMessage = event.type === "m.room.message" || event.type === "m.room.encrypted";
+  if (!isMessage) {
     return <SystemEventLine event={event} />;
   }
 

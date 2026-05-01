@@ -49,3 +49,13 @@ export { useTimeline } from "./hooks/useTimeline.js";
 export type { TimelineItem } from "./hooks/useTimeline.js";
 export { useComposer } from "./hooks/useComposer.js";
 export { useTypingNotifier } from "./hooks/useTypingNotifier.js";
+export { useEncryptionStatus } from "./hooks/useEncryptionStatus.js";
+export { useVerification } from "./hooks/useVerification.js";
+export type { VerificationPhase } from "./hooks/useVerification.js";
+
+// Crypto
+export { EncryptionBadge } from "./crypto/EncryptionBadge.js";
+export { UndecryptedMessage } from "./crypto/UndecryptedMessage.js";
+export { VerificationEmojiGrid } from "./crypto/VerificationEmojiGrid.js";
+export { DeviceVerificationDialog } from "./crypto/DeviceVerificationDialog.js";
+export { DeviceListPanel } from "./crypto/DeviceListPanel.js";

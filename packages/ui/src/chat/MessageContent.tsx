@@ -2,6 +2,7 @@ import type { SerializedMatrixEvent } from "@magic/shared-types";
 import { TextMessage } from "./TextMessage.js";
 import { ImageMessage } from "./ImageMessage.js";
 import { FileMessage } from "./FileMessage.js";
+import { UndecryptedMessage } from "../crypto/UndecryptedMessage.js";
 
 interface MessageContentProps {
   event: SerializedMatrixEvent;
@@ -9,6 +10,10 @@ interface MessageContentProps {
 }
 
 export function MessageContent({ event, isOwn }: MessageContentProps) {
+  if (event.type === "m.room.encrypted") {
+    return <UndecryptedMessage />;
+  }
+
   const content = event.content;
   const msgtype = content.msgtype as string;
 

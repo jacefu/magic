@@ -49,3 +49,20 @@ export type { SerializedMember } from "./serializers.js";
 
 // Errors
 export { MagicClientError, AuthError, SyncError, RoomError } from "./errors.js";
+
+// Crypto
+export {
+  bootstrapEncryption,
+  restoreKeyBackup,
+  getDeviceTrustLevel,
+  getOwnDevices,
+  deleteDevice,
+  getRoomEncryptionStatus,
+  startDeviceVerification,
+} from "./crypto.js";
+export type {
+  DeviceTrustLevel,
+  RoomEncryptionStatus,
+  BootstrapResult,
+  DeviceInfo,
+} from "./crypto.js";
