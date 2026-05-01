@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { Components } from "react-markdown";
+import { getClient, hasClient } from "@magic/matrix-client";
 import { MentionPill } from "../mentions/MentionPill.js";
 
 interface TextMessageProps {
@@ -11,12 +12,19 @@ interface TextMessageProps {
   formattedBody?: string;
   format?: string;
   isOwn: boolean;
+  roomId: string;
 }
 
-export function TextMessage({ body, formattedBody, isOwn }: TextMessageProps) {
+export function TextMessage({
+  body,
+  formattedBody,
+  isOwn,
+  roomId,
+}: TextMessageProps) {
+  const members = useRoomMembersForMentions(roomId);
   const source = useMemo(
-    () => injectMentionLinks(body, formattedBody),
-    [body, formattedBody],
+    () => injectMentionLinks(body, formattedBody, members),
+    [body, formattedBody, members],
   );
 
   const components: Components = {
@@ -53,10 +61,13 @@ export function TextMessage({ body, formattedBody, isOwn }: TextMessageProps) {
         const userId = decodeURIComponent(
           href.replace("https://matrix.to/#/", ""),
         );
-        const displayName =
+        const raw =
           childrenToString(children) ||
           userId.match(/^@([^:]+)/)?.[1] ||
           userId;
+        // Defensive: older messages may have @-prefixed link text. Strip
+        // it so MentionPill (which prepends @ itself) doesn't double up.
+        const displayName = raw.startsWith("@") ? raw.slice(1) : raw;
         return <MentionPill userId={userId} displayName={displayName} />;
       }
       return (
@@ -100,29 +111,84 @@ function childrenToString(children: React.ReactNode): string {
   return "";
 }
 
+function useRoomMembersForMentions(
+  roomId: string,
+): Array<{ userId: string; displayName: string }> {
+  return useMemo(() => {
+    if (!hasClient()) return [];
+    try {
+      const room = getClient().getRoom(roomId);
+      if (!room) return [];
+      return room.getJoinedMembers().map((m) => ({
+        userId: m.userId,
+        displayName:
+          m.name || m.userId.match(/^@([^:]+)/)?.[1] || m.userId,
+      }));
+    } catch {
+      return [];
+    }
+  }, [roomId]);
+}
+
 /**
- * Matrix sends `body` as plain text and `formatted_body` as HTML. The HTML
- * is the only place mention `<a>` tags live. To reuse the existing markdown
- * pipeline, scan formatted_body for matrix.to mention anchors and rewrite the
- * matching `@name` substrings in the plain body into markdown link syntax —
- * which then routes through components.a → MentionPill.
+ * Rewrite plain "@name" patterns in `body` into Markdown links so the
+ * `components.a` handler can route them to `<MentionPill>`. Two sources of
+ * name → userId mapping:
+ *   1. <a> anchors in `formatted_body` — explicit autocomplete-driven
+ *      mentions, highest priority.
+ *   2. Joined members of the current room — catches unstructured "@name"
+ *      typed without going through the autocomplete (otherwise the
+ *      mention renders as raw text).
+ *
+ * Word-boundary check: the @ must be at start-of-string or preceded by
+ * whitespace, and the matched name must NOT be followed by an
+ * alphanumeric/underscore. Avoids hitting "email@example.com" or
+ * accidental matches inside longer identifiers.
+ *
+ * Markdown link text uses just the bare display name (no leading "@") —
+ * MentionPill renders the "@" itself.
  */
-function injectMentionLinks(body: string, formattedBody?: string): string {
-  if (!formattedBody) return body;
+export function injectMentionLinks(
+  body: string,
+  formattedBody: string | undefined,
+  members: Array<{ userId: string; displayName: string }>,
+): string {
+  const nameToUserId = new Map<string, string>();
 
-  const linkPattern =
-    /<a\s+href="(https:\/\/matrix\.to\/#\/(@[^"]+))"[^>]*>([^<]+)<\/a>/g;
-  const mentions: Array<{ userId: string; name: string }> = [];
-  for (const m of formattedBody.matchAll(linkPattern)) {
-    mentions.push({ userId: decodeURIComponent(m[2]), name: m[3] });
+  if (formattedBody) {
+    // Matches matrix.to anchors. Allows both literal "@" and the
+    // URL-encoded "%40" form in the href.
+    const linkPattern =
+      /<a\s+href="https:\/\/matrix\.to\/#\/([^"]+)"[^>]*>([^<]+)<\/a>/g;
+    for (const m of formattedBody.matchAll(linkPattern)) {
+      const userId = decodeURIComponent(m[1]);
+      if (!userId.startsWith("@")) continue;
+      // Anchor text may or may not include a leading @ depending on how
+      // the message was composed; normalise it out.
+      const raw = m[2];
+      const name = raw.startsWith("@") ? raw.slice(1) : raw;
+      nameToUserId.set(name, userId);
+    }
   }
-  if (mentions.length === 0) return body;
 
-  let out = body;
-  for (const { userId, name } of mentions) {
-    const target = `@${name}`;
-    const replacement = `[@${name}](https://matrix.to/#/${encodeURIComponent(userId)})`;
-    out = out.split(target).join(replacement);
+  for (const member of members) {
+    if (!nameToUserId.has(member.displayName)) {
+      nameToUserId.set(member.displayName, member.userId);
+    }
   }
-  return out;
+
+  if (nameToUserId.size === 0) return body;
+
+  const names = [...nameToUserId.keys()].sort((a, b) => b.length - a.length);
+  const pattern = names.map(escapeRegExp).join("|");
+  const re = new RegExp(`(^|\\s)@(${pattern})(?![A-Za-z0-9_])`, "gu");
+
+  return body.replace(re, (_full, prefix, name) => {
+    const userId = nameToUserId.get(name)!;
+    return `${prefix}[${name}](https://matrix.to/#/${encodeURIComponent(userId)})`;
+  });
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

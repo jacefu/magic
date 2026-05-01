@@ -31,6 +31,7 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
     currentUserId,
     unreadMarkerEventId: unreadMarker,
   });
+  const unreadCount = useRoomStore((s) => s.rooms[roomId]?.unreadCount ?? 0);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -96,7 +97,13 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
         }}
       />
 
-      {!isAtBottom && <NewMessageButton onClick={scrollToBottom} />}
+      {/* Only surface "↓ 新消息" when (a) the user has scrolled away from the
+          bottom AND (b) the room actually has unread notifications.
+          Otherwise scrolling up to read history shouldn't pretend there
+          are pending messages. */}
+      {!isAtBottom && unreadCount > 0 && (
+        <NewMessageButton onClick={scrollToBottom} />
+      )}
     </div>
   );
 }

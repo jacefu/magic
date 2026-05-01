@@ -67,10 +67,10 @@ export function MessageComposer({
   });
 
   return (
-    <div className="bg-[#313338] px-4 pb-6 pt-2">
+    <div className="bg-[#313338] px-4 pb-3 pt-2">
       {replyEvent && <ReplyPreview event={replyEvent} onCancel={cancelReply} />}
 
-      <div className="flex items-end gap-1 rounded-lg bg-[#383A40] pr-2">
+      <div className="flex items-center gap-1 rounded-lg bg-[#383A40] pr-2">
         {/* + attach button (left, inside field) */}
         <input
           ref={fileInputRef}
@@ -79,12 +79,12 @@ export function MessageComposer({
           className="hidden"
           onChange={handleFileChange}
         />
-        <ComposerIconButton title="附加" onClick={handleAttach} variant="left">
+        <ComposerIconButton title="附加" onClick={handleAttach}>
           <PlusCircleIcon />
         </ComposerIconButton>
 
-        {/* Text input — flex-1 */}
-        <div className="min-w-0 flex-1 self-center py-2">
+        {/* Text input — flex-1, vertically centered against the icon row */}
+        <div className="flex min-w-0 flex-1 items-center">
           <ComposerInput
             ref={inputRef}
             value={value}
@@ -97,7 +97,7 @@ export function MessageComposer({
         </div>
 
         {/* Right-side icon cluster */}
-        <div className="flex shrink-0 items-center gap-1 self-end pb-1.5">
+        <div className="flex shrink-0 items-center gap-1">
           <ComposerIconButton title="赠送 Nitro">
             <GiftIcon />
           </ComposerIconButton>
@@ -133,20 +133,17 @@ function ComposerIconButton({
   children,
   title,
   onClick,
-  variant,
 }: {
   children: React.ReactNode;
   title: string;
   onClick?: () => void;
-  variant?: "left";
 }) {
   return (
     <button
       title={title}
       onClick={onClick}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center text-[#B5BAC1]
-                  transition-colors hover:text-[#DBDEE1]
-                  ${variant === "left" ? "self-end pb-1.5" : ""}`}
+      className="flex h-9 w-9 shrink-0 items-center justify-center text-[#B5BAC1]
+                 transition-colors hover:text-[#DBDEE1]"
     >
       {children}
     </button>

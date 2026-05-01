@@ -7,6 +7,17 @@ beforeEach(() => {
   useAuthStore.setState({ userId: "@me:example.com", homeserver: "h" });
 });
 
+/**
+ * The visible "@displayName" text is wrapped in an inner <span>; the
+ * styled "pill" is the outer span carrying the title attribute and the
+ * brand-tinted classes. Helper: walk up to the labelled element.
+ */
+function getPillRoot(textNode: HTMLElement): HTMLElement {
+  const root = textNode.closest("span[title]");
+  if (!root) throw new Error("pill root not found");
+  return root as HTMLElement;
+}
+
 describe("MentionPill", () => {
   it("renders @displayName", () => {
     render(<MentionPill userId="@alice:example.com" displayName="alice" />);
@@ -15,23 +26,37 @@ describe("MentionPill", () => {
 
   it("uses self-mention styling when userId matches current user", () => {
     render(<MentionPill userId="@me:example.com" displayName="me" />);
-    const pill = screen.getByText("@me");
-    // Self-mention uses higher-opacity brand background per design-system § 2.5
+    const pill = getPillRoot(screen.getByText("@me"));
     expect(pill.className).toContain("bg-[rgba(88,101,242,0.35)]");
     expect(pill.className).toContain("text-white");
   });
 
   it("uses other-mention styling when userId differs", () => {
     render(<MentionPill userId="@alice:example.com" displayName="alice" />);
-    const pill = screen.getByText("@alice");
-    // Other-mention uses lower-opacity brand background + brand text color
+    const pill = getPillRoot(screen.getByText("@alice"));
     expect(pill.className).toContain("bg-[rgba(88,101,242,0.25)]");
     expect(pill.className).toContain("text-[#C9CDFB]");
   });
 
+  it("renders as a rounded rectangle (rounded-md), not a full pill", () => {
+    render(<MentionPill userId="@alice:example.com" displayName="alice" />);
+    const pill = getPillRoot(screen.getByText("@alice"));
+    expect(pill.className).toContain("rounded-md");
+    expect(pill.className).not.toContain("rounded-full");
+  });
+
+  it("includes an inline avatar next to the name", () => {
+    const { container } = render(
+      <MentionPill userId="@alice:example.com" displayName="alice" />,
+    );
+    // 18px avatar slot rendered by RoomAvatar
+    const avatar = container.querySelector('[style*="width: 18"]');
+    expect(avatar).toBeTruthy();
+  });
+
   it("sets title to userId for hover tooltip", () => {
     render(<MentionPill userId="@alice:example.com" displayName="alice" />);
-    const pill = screen.getByText("@alice");
+    const pill = getPillRoot(screen.getByText("@alice"));
     expect(pill.getAttribute("title")).toBe("@alice:example.com");
   });
 });

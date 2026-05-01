@@ -26,6 +26,7 @@ export function MessageContent({ event, isOwn }: MessageContentProps) {
           formattedBody={content.formatted_body as string | undefined}
           format={content.format as string | undefined}
           isOwn={isOwn}
+          roomId={event.roomId}
         />
       );
     case "m.image":
