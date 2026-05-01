@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import type { UploadTask } from "../hooks/useFileUpload.js";
 
 interface FileUploadPreviewProps {
@@ -61,18 +61,19 @@ function FilePreviewItem({
   task: UploadTask;
   onRemove: () => void;
 }) {
-  const preview = useMemo(() => {
-    if (task.file.type.startsWith("image/")) {
-      return URL.createObjectURL(task.file);
-    }
-    return null;
-  }, [task.file]);
+  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!task.file.type.startsWith("image/")) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(task.file);
+    setPreview(url);
     return () => {
-      if (preview) URL.revokeObjectURL(preview);
+      URL.revokeObjectURL(url);
     };
-  }, [preview]);
+  }, [task.file]);
 
   return (
     <div className="flex items-center gap-2.5 rounded-lg bg-magic-surface px-2.5 py-1.5">

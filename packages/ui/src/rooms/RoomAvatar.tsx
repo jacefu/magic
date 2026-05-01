@@ -1,5 +1,5 @@
-import { memo, useMemo } from "react";
-import { mxcToHttp } from "@magic/matrix-client";
+import { memo } from "react";
+import { useAuthenticatedMedia } from "../hooks/useAuthenticatedMedia.js";
 
 interface RoomAvatarProps {
   name: string;
@@ -14,14 +14,7 @@ export const RoomAvatar = memo(function RoomAvatar({
   isDirect,
   size = 36,
 }: RoomAvatarProps) {
-  const avatarUrl = useMemo(() => {
-    if (!avatarMxc) return null;
-    try {
-      return mxcToHttp(avatarMxc, size * 2, size * 2, "crop");
-    } catch {
-      return null;
-    }
-  }, [avatarMxc, size]);
+  const avatarUrl = useAuthenticatedMedia(avatarMxc, size * 2, size * 2, "crop");
 
   const initials = getInitials(name);
   const bgColor = getAvatarColor(name);

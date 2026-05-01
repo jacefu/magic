@@ -17,7 +17,7 @@ export type { CreateRoomOptions } from "./rooms.js";
 export { sendTextMessage, sendReply, sendReadReceipt, sendTyping, paginateBackwards } from "./messages.js";
 
 // Files
-export { uploadAndSendFile, mxcToHttp } from "./files.js";
+export { uploadAndSendFile, mxcToHttp, fetchAuthenticatedMedia } from "./files.js";
 
 // Magic custom events
 export {

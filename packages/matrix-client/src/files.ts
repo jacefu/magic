@@ -38,6 +38,42 @@ export function mxcToHttp(
   return client.mxcUrlToHttp(mxcUri, width, height, resizeMethod ?? "scale", false, true, true);
 }
 
+/**
+ * Fetch a media resource using authenticated media endpoints, returning a
+ * blob URL the renderer can drop into `<img src>`. Falls back to the legacy
+ * unauthenticated URL if the auth fetch fails.
+ *
+ * Caller (typically `useAuthenticatedMedia`) is responsible for revoking the
+ * blob URL when no longer needed.
+ */
+export async function fetchAuthenticatedMedia(
+  mxcUri: string,
+  width?: number,
+  height?: number,
+  resizeMethod?: "crop" | "scale",
+): Promise<string | null> {
+  const client = getClient();
+  const accessToken = client.getAccessToken();
+  const method = resizeMethod ?? "scale";
+
+  const authUrl = client.mxcUrlToHttp(mxcUri, width, height, method, false, true, true);
+  if (authUrl && accessToken) {
+    try {
+      const res = await fetch(authUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+      }
+    } catch {
+      // fall through to legacy URL
+    }
+  }
+
+  return client.mxcUrlToHttp(mxcUri, width, height, method, false, true, false);
+}
+
 function getMessageType(mimeType: string): string {
   if (mimeType.startsWith("image/")) return "m.image";
   if (mimeType.startsWith("video/")) return "m.video";

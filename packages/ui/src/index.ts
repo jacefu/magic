@@ -58,6 +58,7 @@ export { FileUploadPreview } from "./files/FileUploadPreview.js";
 export { UploadProgressBar } from "./files/UploadProgressBar.js";
 export { DropZoneOverlay } from "./files/DropZoneOverlay.js";
 export { useFileUpload } from "./hooks/useFileUpload.js";
+export { useAuthenticatedMedia } from "./hooks/useAuthenticatedMedia.js";
 export type { UploadTask } from "./hooks/useFileUpload.js";
 export { useDragDrop } from "./hooks/useDragDrop.js";
 export { usePasteFile } from "./hooks/usePasteFile.js";

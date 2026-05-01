@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { mxcToHttp } from "@magic/matrix-client";
+import { useState } from "react";
+import { useAuthenticatedMedia } from "../hooks/useAuthenticatedMedia.js";
 
 interface ImageMessageProps {
   body: string;
@@ -10,13 +10,8 @@ interface ImageMessageProps {
 export function ImageMessage({ body, url, info }: ImageMessageProps) {
   const [showFullSize, setShowFullSize] = useState(false);
 
-  const thumbUrl = useMemo(() => {
-    try { return mxcToHttp(url, 400, 300, "scale"); } catch { return null; }
-  }, [url]);
-
-  const fullUrl = useMemo(() => {
-    try { return mxcToHttp(url); } catch { return null; }
-  }, [url]);
+  const thumbUrl = useAuthenticatedMedia(url, 400, 300, "scale");
+  const fullUrl = useAuthenticatedMedia(showFullSize ? url : null);
 
   const width = (info?.w as number) ?? 300;
   const height = (info?.h as number) ?? 200;
@@ -30,17 +25,22 @@ export function ImageMessage({ body, url, info }: ImageMessageProps) {
         onClick={() => setShowFullSize(true)}
         className="block overflow-hidden rounded-lg"
       >
-        <img
-          src={thumbUrl ?? ""}
-          alt={body}
-          loading="lazy"
-          className="max-w-full object-cover"
-          style={{ width: displayWidth, height: displayHeight, maxHeight: 300 }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "";
-            (e.target as HTMLImageElement).alt = "图片加载失败";
-          }}
-        />
+        {thumbUrl ? (
+          <img
+            src={thumbUrl}
+            alt={body}
+            loading="lazy"
+            className="max-w-full object-cover"
+            style={{ width: displayWidth, height: displayHeight, maxHeight: 300 }}
+          />
+        ) : (
+          <div
+            className="flex items-center justify-center bg-gray-800 text-xs text-gray-500"
+            style={{ width: displayWidth, height: displayHeight, maxHeight: 300 }}
+          >
+            加载中…
+          </div>
+        )}
       </button>
 
       {showFullSize && fullUrl && (
