@@ -12,8 +12,12 @@ export function AgentStatusGrid({ roomId }: AgentStatusGridProps) {
 
   if (agents.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-gray-500">
-        当前房间暂无 Agent
+      <div className="space-y-2 px-2 py-8 text-center">
+        <p className="text-sm text-gray-400">当前房间暂无 Agent</p>
+        <p className="text-xs leading-relaxed text-gray-600">
+          只有发布 <code className="rounded bg-gray-800 px-1 py-0.5 text-[10px]">com.magic.agent.status</code> 状态事件的 Worker
+          会出现在这里。普通 Matrix 成员不会被识别为 Agent。
+        </p>
       </div>
     );
   }

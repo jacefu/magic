@@ -78,30 +78,6 @@ export function bridgeToStores(client: MatrixClient): () => void {
   };
   client.on(RoomEvent.MyMembership, onMembership);
 
-  // Magic custom events: agent status, task assignment, heartbeat
-  const handleMagicEvent = (event: MatrixEvent, room: Room | undefined) => {
-    if (!room) return;
-    const type = event.getType();
-    const content = event.getContent();
-    const sender = event.getSender() ?? "";
-
-    if (type === MAGIC_EVENTS.AGENT_STATUS) {
-      const parsed = AgentStatusEvent.safeParse(content);
-      if (parsed.success) {
-        useAgentStore.getState().upsertAgent(room.roomId, parsed.data, sender);
-      }
-    } else if (type === MAGIC_EVENTS.TASK_ASSIGNMENT) {
-      const parsed = TaskAssignmentEvent.safeParse(content);
-      if (parsed.success) {
-        useAgentStore.getState().upsertTask(room.roomId, parsed.data);
-      }
-    } else if (type === MAGIC_EVENTS.HEARTBEAT) {
-      const agentId = (content as { agent_id?: string }).agent_id;
-      if (agentId) {
-        useAgentStore.getState().updateHeartbeat(agentId, event.getTs());
-      }
-    }
-  };
   const onTimelineMagic = (event: MatrixEvent, room: Room | undefined) => {
     handleMagicEvent(event, room);
   };
@@ -127,6 +103,30 @@ export function bridgeToStores(client: MatrixClient): () => void {
   };
 }
 
+function handleMagicEvent(event: MatrixEvent, room: Room | undefined): void {
+  if (!room) return;
+  const type = event.getType();
+  const content = event.getContent();
+  const sender = event.getSender() ?? "";
+
+  if (type === MAGIC_EVENTS.AGENT_STATUS) {
+    const parsed = AgentStatusEvent.safeParse(content);
+    if (parsed.success) {
+      useAgentStore.getState().upsertAgent(room.roomId, parsed.data, sender);
+    }
+  } else if (type === MAGIC_EVENTS.TASK_ASSIGNMENT) {
+    const parsed = TaskAssignmentEvent.safeParse(content);
+    if (parsed.success) {
+      useAgentStore.getState().upsertTask(room.roomId, parsed.data);
+    }
+  } else if (type === MAGIC_EVENTS.HEARTBEAT) {
+    const agentId = (content as { agent_id?: string }).agent_id;
+    if (agentId) {
+      useAgentStore.getState().updateHeartbeat(agentId, event.getTs());
+    }
+  }
+}
+
 function syncRoomList(client: MatrixClient): void {
   const roomStore = useRoomStore.getState();
   for (const room of client.getRooms()) {
@@ -143,6 +143,18 @@ function syncRoomList(client: MatrixClient): void {
       isDirect: !!room.getDMInviter(),
       lastActivityTs: room.getLastActiveTimestamp(),
     });
+
+    // State events that landed during initial sync don't trigger
+    // RoomStateEvent.Events on most paths — backfill them explicitly so the
+    // agent dashboard reflects pre-existing Magic state on first load.
+    const agentEvents = room.currentState.getStateEvents(MAGIC_EVENTS.AGENT_STATUS);
+    for (const event of agentEvents) {
+      handleMagicEvent(event, room);
+    }
+    const taskEvents = room.currentState.getStateEvents(MAGIC_EVENTS.TASK_ASSIGNMENT);
+    for (const event of taskEvents) {
+      handleMagicEvent(event, room);
+    }
   }
 }
 
