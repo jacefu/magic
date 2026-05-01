@@ -74,24 +74,24 @@ function MemberItem({ member }: { member: RoomMember }) {
 
   return (
     <div className="group flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-[#35373C]">
-      {/* Avatar + status */}
+      {/* Avatar with status dot — 8px dot inside 12px ring (panel-bg colored) */}
       <div className="relative">
         <RoomAvatar name={name} avatarMxc={member.avatarMxc} isDirect size={28} />
-        <div className="absolute -bottom-px -right-px flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[#2B2D31]">
+        <div className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#2B2D31]">
           <div
-            className="h-[6px] w-[6px] rounded-full"
+            className="h-2 w-2 rounded-full"
             style={{ backgroundColor: statusColor }}
           />
         </div>
       </div>
 
-      {/* Name + tag */}
+      {/* Name + runtime tag */}
       <span className="flex-1 truncate text-[12.5px] text-[#949BA4] group-hover:text-[#DBDEE1]">
         {name}
       </span>
       {runtimeTag && (
         <span
-          className="shrink-0 rounded-sm px-1 py-px text-[8px] font-bold"
+          className="shrink-0 rounded-sm px-1 py-px text-[9px] font-bold"
           style={{ backgroundColor: runtimeTag.bg, color: runtimeTag.color }}
         >
           {runtimeTag.text}

@@ -54,42 +54,47 @@ describe("RoomListItem", () => {
     expect(screen.queryByText("0")).toBeNull();
   });
 
-  it("shows lock icon for encrypted rooms", () => {
+  it("shows '#' prefix for group rooms", () => {
+    render(<RoomListItem room={makeRoom({ isDirect: false })} isActive={false} onSelect={vi.fn()} />);
+    expect(screen.getByText("#")).toBeTruthy();
+  });
+
+  it("does not render '#' for direct messages", () => {
+    render(<RoomListItem room={makeRoom({ isDirect: true })} isActive={false} onSelect={vi.fn()} />);
+    expect(screen.queryByText("#")).toBeNull();
+  });
+
+  it("renders a status dot for direct messages", () => {
     const { container } = render(
-      <RoomListItem room={makeRoom({ isEncrypted: true })} isActive={false} onSelect={vi.fn()} />,
+      <RoomListItem room={makeRoom({ isDirect: true })} isActive={false} onSelect={vi.fn()} />,
     );
-    const svgs = container.querySelectorAll("svg");
-    expect(svgs.length).toBeGreaterThan(0);
+    expect(container.querySelector('[aria-hidden="true"]')).toBeTruthy();
   });
 
-  it("shows message preview for text messages", () => {
+  it("does not render a message preview line", () => {
     const room = makeRoom({
       lastMessage: {
-        eventId: "$ev1",
+        eventId: "$ev",
         roomId: "!room:example.com",
         type: "m.room.message",
         sender: "@alice:example.com",
-        content: { msgtype: "m.text", body: "Hello world" },
+        content: { msgtype: "m.text", body: "should not appear" },
         timestamp: Date.now(),
       },
     });
     render(<RoomListItem room={room} isActive={false} onSelect={vi.fn()} />);
-    expect(screen.getByText("Hello world")).toBeTruthy();
+    expect(screen.queryByText("should not appear")).toBeNull();
   });
 
-  it("shows '📷 图片' preview for image messages", () => {
-    const room = makeRoom({
-      lastMessage: {
-        eventId: "$ev2",
-        roomId: "!room:example.com",
-        type: "m.room.message",
-        sender: "@alice:example.com",
-        content: { msgtype: "m.image", body: "photo.jpg", url: "mxc://example.com/abc" },
-        timestamp: Date.now(),
-      },
-    });
-    render(<RoomListItem room={room} isActive={false} onSelect={vi.fn()} />);
-    expect(screen.getByText("📷 图片")).toBeTruthy();
+  it("does not render a relative timestamp", () => {
+    render(
+      <RoomListItem
+        room={makeRoom({ lastActivityTs: Date.now() - 30 * 60_000 })}
+        isActive={false}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/分钟前/)).toBeNull();
   });
 
   it("calls onSelect when clicked", () => {

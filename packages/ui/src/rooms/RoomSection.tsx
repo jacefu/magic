@@ -13,6 +13,7 @@ interface RoomSectionProps {
 
 // Section header per design-system § 4.1:
 //   text-[10.5px] font-bold uppercase tracking-[0.04em] text-[#949BA4]
+//   ▾ chevron rotates between expanded/collapsed states
 //   spacing: top 16px, bottom 4px
 export const RoomSection = memo(function RoomSection({
   label,
@@ -26,11 +27,13 @@ export const RoomSection = memo(function RoomSection({
     <div>
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-1 px-2 pt-4 pb-1
+        className="flex w-full items-center gap-1 px-3 pt-4 pb-1
                    text-[10.5px] font-bold uppercase tracking-[0.04em]
                    text-[#949BA4] transition-colors hover:text-[#DBDEE1]"
       >
-        <ChevronIcon collapsed={collapsed} />
+        <span className="inline-block w-3 text-[10px] leading-none">
+          {collapsed ? "▸" : "▾"}
+        </span>
         <span>{label}</span>
         <span className="ml-auto font-medium text-[#6D6F78]">{rooms.length}</span>
       </button>
@@ -50,17 +53,3 @@ export const RoomSection = memo(function RoomSection({
     </div>
   );
 });
-
-function ChevronIcon({ collapsed }: { collapsed: boolean }) {
-  return (
-    <svg
-      className={`h-2.5 w-2.5 transition-transform ${collapsed ? "" : "rotate-90"}`}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2.5}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}

@@ -55,7 +55,7 @@ export function useFilteredRooms() {
 
     if (groupRooms.length > 0) {
       result.push({
-        label: "群聊",
+        label: "AGENT 团队",
         key: "group",
         rooms: groupRooms,
         collapsed: collapsedSections["group"] ?? false,
