@@ -54,6 +54,7 @@ export function MessageComposer({
             onSend={handleSend}
             disabled={isSending}
             placeholder="输入消息…"
+            roomId={roomId}
           />
 
           <button

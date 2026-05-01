@@ -2,10 +2,12 @@ import { useCallback, useRef, useState } from "react";
 import {
   sendTextMessage,
   sendReply,
+  getClient,
   useRoomStore,
   useUIStore,
 } from "@magic/matrix-client";
 import { useTypingNotifier } from "./useTypingNotifier.js";
+import { hasMentions, parseMentions } from "../lib/mentionParser.js";
 
 interface UseComposerOptions {
   roomId: string;
@@ -45,7 +47,25 @@ export function useComposer({ roomId }: UseComposerOptions) {
     stopTyping();
 
     try {
-      if (replyToEventId) {
+      if (hasMentions(text)) {
+        const parsed = parseMentions(text);
+        const content: Record<string, unknown> = {
+          msgtype: "m.text",
+          body: parsed.body,
+          format: "org.matrix.custom.html",
+          formatted_body: parsed.formattedBody,
+          "m.mentions": parsed.mentions,
+        };
+        if (replyToEventId) {
+          content["m.relates_to"] = {
+            "m.in_reply_to": { event_id: replyToEventId },
+          };
+        }
+        const client = getClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await client.sendMessage(roomId, content as any);
+        if (replyToEventId) setReplyTo(null);
+      } else if (replyToEventId) {
         await sendReply(roomId, text, replyToEventId);
         setReplyTo(null);
       } else {

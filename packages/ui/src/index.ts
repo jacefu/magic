@@ -64,6 +64,10 @@ export type { AgentWithEffectiveStatus } from "./hooks/useAgentStatus.js";
 export { useTaskBoard } from "./hooks/useTaskBoard.js";
 export type { TaskColumn } from "./hooks/useTaskBoard.js";
 export { useSoulMemory } from "./hooks/useSoulMemory.js";
+export { useRoomMembers } from "./hooks/useRoomMembers.js";
+export type { RoomMember } from "./hooks/useRoomMembers.js";
+export { useMentionAutocomplete } from "./hooks/useMentionAutocomplete.js";
+export type { MentionCandidate } from "./hooks/useMentionAutocomplete.js";
 export type { UploadTask } from "./hooks/useFileUpload.js";
 export { useDragDrop } from "./hooks/useDragDrop.js";
 export { usePasteFile } from "./hooks/usePasteFile.js";
@@ -76,6 +80,17 @@ export { AgentStatusDot } from "./agents/AgentStatusDot.js";
 export { TaskBoard } from "./agents/TaskBoard.js";
 export { TaskCard } from "./agents/TaskCard.js";
 export { CollaborationGraph } from "./agents/CollaborationGraph.js";
+
+// Mentions
+export { MentionAutocomplete } from "./mentions/MentionAutocomplete.js";
+export { MentionItem } from "./mentions/MentionItem.js";
+export { MentionPill } from "./mentions/MentionPill.js";
+export {
+  parseMentions,
+  hasMentions,
+  extractMentionedUserIds,
+} from "./lib/mentionParser.js";
+export type { ParsedMessage } from "./lib/mentionParser.js";
 
 // Editors
 export { SoulMemoryEditor } from "./editors/SoulMemoryEditor.js";
