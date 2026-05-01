@@ -59,9 +59,22 @@ export { UploadProgressBar } from "./files/UploadProgressBar.js";
 export { DropZoneOverlay } from "./files/DropZoneOverlay.js";
 export { useFileUpload } from "./hooks/useFileUpload.js";
 export { useAuthenticatedMedia } from "./hooks/useAuthenticatedMedia.js";
+export { useAgentStatus } from "./hooks/useAgentStatus.js";
+export type { AgentWithEffectiveStatus } from "./hooks/useAgentStatus.js";
+export { useTaskBoard } from "./hooks/useTaskBoard.js";
+export type { TaskColumn } from "./hooks/useTaskBoard.js";
 export type { UploadTask } from "./hooks/useFileUpload.js";
 export { useDragDrop } from "./hooks/useDragDrop.js";
 export { usePasteFile } from "./hooks/usePasteFile.js";
+
+// Agents
+export { AgentDashboard } from "./agents/AgentDashboard.js";
+export { AgentStatusGrid } from "./agents/AgentStatusGrid.js";
+export { AgentStatusCard } from "./agents/AgentStatusCard.js";
+export { AgentStatusDot } from "./agents/AgentStatusDot.js";
+export { TaskBoard } from "./agents/TaskBoard.js";
+export { TaskCard } from "./agents/TaskCard.js";
+export { CollaborationGraph } from "./agents/CollaborationGraph.js";
 
 // Crypto
 export { EncryptionBadge } from "./crypto/EncryptionBadge.js";

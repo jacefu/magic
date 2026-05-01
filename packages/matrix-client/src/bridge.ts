@@ -3,14 +3,21 @@ import {
   NotificationCountType,
   RoomEvent,
   RoomMemberEvent,
+  RoomStateEvent,
   type MatrixClient,
   type MatrixEvent,
   type Room,
   type RoomMember,
 } from "matrix-js-sdk";
+import {
+  MAGIC_EVENTS,
+  AgentStatusEvent,
+  TaskAssignmentEvent,
+} from "@magic/shared-types";
 import { useSyncStore, type SyncState } from "./stores/syncStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
+import { useAgentStore } from "./stores/agentStore.js";
 import { serializeEvent } from "./serializers.js";
 
 export function bridgeToStores(client: MatrixClient): () => void {
@@ -71,6 +78,40 @@ export function bridgeToStores(client: MatrixClient): () => void {
   };
   client.on(RoomEvent.MyMembership, onMembership);
 
+  // Magic custom events: agent status, task assignment, heartbeat
+  const handleMagicEvent = (event: MatrixEvent, room: Room | undefined) => {
+    if (!room) return;
+    const type = event.getType();
+    const content = event.getContent();
+    const sender = event.getSender() ?? "";
+
+    if (type === MAGIC_EVENTS.AGENT_STATUS) {
+      const parsed = AgentStatusEvent.safeParse(content);
+      if (parsed.success) {
+        useAgentStore.getState().upsertAgent(room.roomId, parsed.data, sender);
+      }
+    } else if (type === MAGIC_EVENTS.TASK_ASSIGNMENT) {
+      const parsed = TaskAssignmentEvent.safeParse(content);
+      if (parsed.success) {
+        useAgentStore.getState().upsertTask(room.roomId, parsed.data);
+      }
+    } else if (type === MAGIC_EVENTS.HEARTBEAT) {
+      const agentId = (content as { agent_id?: string }).agent_id;
+      if (agentId) {
+        useAgentStore.getState().updateHeartbeat(agentId, event.getTs());
+      }
+    }
+  };
+  const onTimelineMagic = (event: MatrixEvent, room: Room | undefined) => {
+    handleMagicEvent(event, room);
+  };
+  const onStateEventMagic = (event: MatrixEvent) => {
+    const room = client.getRoom(event.getRoomId() ?? "");
+    handleMagicEvent(event, room ?? undefined);
+  };
+  client.on(RoomEvent.Timeline, onTimelineMagic);
+  client.on(RoomStateEvent.Events, onStateEventMagic);
+
   return () => {
     client.off(ClientEvent.Sync, onSync);
     client.off(RoomEvent.Timeline, onTimeline);
@@ -81,6 +122,8 @@ export function bridgeToStores(client: MatrixClient): () => void {
     );
     client.off(RoomMemberEvent.Typing, onTyping);
     client.off(RoomEvent.MyMembership, onMembership);
+    client.off(RoomEvent.Timeline, onTimelineMagic);
+    client.off(RoomStateEvent.Events, onStateEventMagic);
   };
 }
 

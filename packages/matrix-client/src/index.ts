@@ -40,8 +40,10 @@ export { useRoomStore } from "./stores/roomStore.js";
 export { useTypingStore } from "./stores/typingStore.js";
 export { useUserStore } from "./stores/userStore.js";
 export { useUIStore } from "./stores/uiStore.js";
+export { useAgentStore } from "./stores/agentStore.js";
 export type { RoomData } from "./stores/roomStore.js";
 export type { SyncState } from "./stores/syncStore.js";
+export type { AgentData, TaskData } from "./stores/agentStore.js";
 
 // Serializers
 export { serializeEvent, serializeRoomMember } from "./serializers.js";
