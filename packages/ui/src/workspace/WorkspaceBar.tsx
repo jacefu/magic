@@ -17,7 +17,7 @@ export function WorkspaceBar() {
   const [activeId, setActiveId] = useState("main");
 
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 bg-[#1E1F22] py-3">
+    <div className="flex w-[72px] shrink-0 flex-col items-center gap-2 bg-[#1E1F22] pb-3 pt-0">
       {/* DM entry */}
       <WorkspaceIcon
         initial={defaultWorkspaces[0].initial}

@@ -23,12 +23,13 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
 }: WorkspaceIconProps) {
   return (
     <div className="relative flex items-center">
-      {/* Left selected indicator bar */}
+      {/* Left selected indicator — sits in the rail's left margin (~12px
+          from the icon's left edge thanks to the wider w-[72px] rail) */}
       {isActive && (
-        <div className="absolute -left-1 h-5 w-1 rounded-r-full bg-white" />
+        <div className="absolute -left-3 h-5 w-1 rounded-r-full bg-white" />
       )}
       {!isActive && hasNotification && (
-        <div className="absolute -left-1 h-2 w-1 rounded-r-full bg-white" />
+        <div className="absolute -left-3 h-2 w-1 rounded-r-full bg-white" />
       )}
 
       <button
@@ -38,10 +39,10 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
                     transition-all duration-200
                     ${
                       isActive
-                        ? "rounded-xl bg-[#5865F2] text-white"
+                        ? "rounded-2xl bg-[#5865F2] text-white"
                         : variant === "add"
-                          ? "rounded-full border-[1.5px] border-dashed border-[#6D6F78] text-[#6D6F78] text-lg hover:rounded-xl hover:border-[#23A55A] hover:text-[#23A55A]"
-                          : "rounded-full bg-[#313338] text-[#DBDEE1] hover:rounded-xl hover:bg-[#5865F2] hover:text-white"
+                          ? "rounded-full border-[1.5px] border-dashed border-[#6D6F78] text-[#6D6F78] text-lg hover:rounded-2xl hover:border-[#23A55A] hover:text-[#23A55A]"
+                          : "rounded-2xl bg-[#313338] text-[#DBDEE1] hover:bg-[#5865F2] hover:text-white"
                     }`}
         style={
           !isActive && color && variant !== "add"
