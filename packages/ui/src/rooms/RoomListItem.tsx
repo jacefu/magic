@@ -21,11 +21,13 @@ export const RoomListItem = memo(function RoomListItem({
   return (
     <button
       onClick={onSelect}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left
-                  transition-colors ${
+      className={`flex w-full items-center gap-2.5 rounded-sm px-2 py-2 text-left
+                  transition-colors duration-100 ${
         isActive
-          ? "bg-magic-primary/15 text-white"
-          : "text-gray-300 hover:bg-gray-800"
+          ? "bg-bg-active text-white"
+          : room.unreadCount > 0
+            ? "text-text-normal hover:bg-bg-hover"
+            : "text-text-muted hover:bg-bg-hover hover:text-text-normal"
       }`}
     >
       <RoomAvatar
@@ -47,7 +49,7 @@ export const RoomListItem = memo(function RoomListItem({
           </span>
         </div>
         {lastMessagePreview && (
-          <p className="mt-0.5 truncate text-xs text-gray-500">
+          <p className="mt-0.5 truncate text-xs text-text-muted">
             {lastMessagePreview}
           </p>
         )}
@@ -55,7 +57,7 @@ export const RoomListItem = memo(function RoomListItem({
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         {room.lastActivityTs > 0 && (
-          <span className="text-[10px] text-gray-500">
+          <span className="text-[10px] text-text-muted">
             {formatRelativeTime(room.lastActivityTs)}
           </span>
         )}
@@ -67,7 +69,7 @@ export const RoomListItem = memo(function RoomListItem({
 
 function LockIcon() {
   return (
-    <svg className="h-3 w-3 shrink-0 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+    <svg className="h-3 w-3 shrink-0 text-green" fill="currentColor" viewBox="0 0 20 20">
       <path
         fillRule="evenodd"
         d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"

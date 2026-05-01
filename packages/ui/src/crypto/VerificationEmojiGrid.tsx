@@ -8,7 +8,7 @@ export function VerificationEmojiGrid({ emoji }: VerificationEmojiGridProps) {
       {emoji.map(([symbol, name], i) => (
         <div key={i} className="flex flex-col items-center gap-1">
           <span className="text-2xl">{symbol}</span>
-          <span className="text-center text-[10px] leading-tight text-gray-500">
+          <span className="text-center text-[10px] leading-tight text-text-muted">
             {name}
           </span>
         </div>

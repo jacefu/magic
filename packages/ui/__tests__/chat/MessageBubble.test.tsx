@@ -54,7 +54,7 @@ describe("MessageBubble", () => {
     expect(screen.queryByText("bob")).toBeNull();
   });
 
-  it("does not show sender name for own messages even with showSender=true", () => {
+  it("shows sender name for own messages too (Discord-flat layout)", () => {
     render(
       <MessageBubble
         event={makeEvent({ sender: "@me:example.com" })}
@@ -62,23 +62,25 @@ describe("MessageBubble", () => {
         isOwn={true}
       />,
     );
-    expect(screen.queryByText("me")).toBeNull();
+    expect(screen.getByText("me")).toBeTruthy();
   });
 
-  it("applies blue bg for own messages", () => {
-    const { container } = render(
-      <MessageBubble event={makeEvent()} showSender={true} isOwn={true} />,
+  it("renders own sender name in role-admin color", () => {
+    render(
+      <MessageBubble
+        event={makeEvent({ sender: "@me:example.com" })}
+        showSender={true}
+        isOwn={true}
+      />,
     );
-    const bubble = container.querySelector(".rounded-2xl");
-    expect(bubble?.className).toContain("bg-magic-primary");
+    expect(screen.getByText("me").className).toContain("text-role-admin");
   });
 
-  it("applies gray bg for others' messages", () => {
-    const { container } = render(
+  it("renders others' sender name in text-normal", () => {
+    render(
       <MessageBubble event={makeEvent()} showSender={true} isOwn={false} />,
     );
-    const bubble = container.querySelector(".rounded-2xl");
-    expect(bubble?.className).toContain("bg-magic-surface-alt");
+    expect(screen.getByText("alice").className).toContain("text-text-normal");
   });
 
   it("renders system event as centered text for m.room.member join", () => {

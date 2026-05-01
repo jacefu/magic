@@ -25,12 +25,12 @@ describe("EditorToolbar", () => {
 
   it("highlights the active SOUL tab", () => {
     render(<EditorToolbar {...defaultProps({ fileType: "soul" })} />);
-    expect(screen.getByText("SOUL.md").className).toContain("bg-magic-primary");
+    expect(screen.getByText("SOUL.md").className).toContain("bg-brand");
   });
 
   it("highlights the active MEMORY tab", () => {
     render(<EditorToolbar {...defaultProps({ fileType: "memory" })} />);
-    expect(screen.getByText("MEMORY.md").className).toContain("bg-magic-primary");
+    expect(screen.getByText("MEMORY.md").className).toContain("bg-brand");
   });
 
   it("calls onFileTypeChange with 'memory' when MEMORY tab is clicked", () => {
@@ -80,7 +80,7 @@ describe("EditorToolbar", () => {
 
   it("highlights Diff button when showDiff is true", () => {
     render(<EditorToolbar {...defaultProps({ isDirty: true, showDiff: true })} />);
-    expect(screen.getByText("Diff").className).toContain("text-magic-primary");
+    expect(screen.getByText("Diff").className).toContain("text-brand");
   });
 
   it("calls onRevert when 恢复 is clicked", () => {

@@ -18,14 +18,14 @@ export function FileUploadPreview({
   if (pendingTasks.length === 0) return null;
 
   return (
-    <div className="border-t border-gray-800 bg-magic-surface-alt/50 px-4 py-3">
+    <div className="border-t border-divider-light bg-bg-secondary/50 px-4 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-300">
+        <span className="text-xs font-medium text-text-normal">
           {pendingTasks.length} 个文件待发送
         </span>
         <button
           onClick={onCancel}
-          className="text-xs text-gray-500 transition-colors hover:text-gray-300"
+          className="text-xs text-text-muted transition-colors hover:text-text-normal"
         >
           全部取消
         </button>
@@ -44,8 +44,8 @@ export function FileUploadPreview({
       <div className="mt-3 flex justify-end">
         <button
           onClick={onConfirm}
-          className="rounded-lg bg-magic-primary px-4 py-1.5 text-sm font-medium
-                     text-white transition-colors hover:bg-blue-600"
+          className="rounded-lg bg-brand px-4 py-1.5 text-sm font-medium
+                     text-white transition-colors hover:bg-brand-hover"
         >
           发送 {pendingTasks.length > 1 ? `(${pendingTasks.length})` : ""}
         </button>
@@ -76,7 +76,7 @@ function FilePreviewItem({
   }, [task.file]);
 
   return (
-    <div className="flex items-center gap-2.5 rounded-lg bg-magic-surface px-2.5 py-1.5">
+    <div className="flex items-center gap-2.5 rounded-lg bg-bg-primary px-2.5 py-1.5">
       {preview ? (
         <img
           src={preview}
@@ -84,19 +84,19 @@ function FilePreviewItem({
           className="h-10 w-10 rounded object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-800 text-lg">
+        <div className="flex h-10 w-10 items-center justify-center rounded bg-bg-secondary text-lg">
           {getFileEmoji(task.file.type)}
         </div>
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-gray-200">{task.file.name}</p>
-        <p className="text-xs text-gray-500">{formatFileSize(task.file.size)}</p>
+        <p className="truncate text-sm text-text-normal">{task.file.name}</p>
+        <p className="text-xs text-text-muted">{formatFileSize(task.file.size)}</p>
       </div>
 
       <button
         onClick={onRemove}
-        className="shrink-0 rounded p-1 text-gray-500 transition-colors hover:bg-gray-700 hover:text-gray-300"
+        className="shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-bg-modifier hover:text-text-normal"
       >
         <svg
           className="h-3.5 w-3.5"

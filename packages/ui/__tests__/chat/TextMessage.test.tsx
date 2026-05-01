@@ -40,12 +40,12 @@ describe("TextMessage", () => {
   it("applies own-message code style when isOwn=true", () => {
     render(<TextMessage body="use `x`" isOwn={true} />);
     const code = document.querySelector("code");
-    expect(code?.className).toContain("bg-blue-700");
+    expect(code?.className).toContain("bg-brand-hover");
   });
 
   it("applies other-message code style when isOwn=false", () => {
     render(<TextMessage body="use `x`" isOwn={false} />);
     const code = document.querySelector("code");
-    expect(code?.className).toContain("bg-gray-700");
+    expect(code?.className).toContain("bg-bg-modifier");
   });
 });

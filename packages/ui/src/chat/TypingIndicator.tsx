@@ -24,7 +24,7 @@ export const TypingIndicator = memo(function TypingIndicator({ users }: TypingIn
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <BouncingDots />
-      <span className="text-xs text-gray-500">{text}</span>
+      <span className="text-xs text-text-muted">{text}</span>
     </div>
   );
 });
@@ -35,7 +35,7 @@ function BouncingDots() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="h-1.5 w-1.5 rounded-full bg-gray-500"
+          className="h-1.5 w-1.5 rounded-full bg-text-faint"
           style={{ animation: `bounce 1.4s ease-in-out ${i * 0.2}s infinite` }}
         />
       ))}

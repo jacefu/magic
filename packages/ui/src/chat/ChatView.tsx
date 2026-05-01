@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useRoomStore, useUIStore } from "@magic/matrix-client";
-import { ChatHeader } from "./ChatHeader.js";
+import { ChannelHeader } from "./ChannelHeader.js";
 import { ChatTimeline } from "./ChatTimeline.js";
 import { MessageComposer } from "./MessageComposer.js";
 import { FileUploadPreview } from "../files/FileUploadPreview.js";
@@ -24,8 +24,8 @@ export function ChatView() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-medium text-gray-300">选择一个房间</h2>
-          <p className="mt-2 text-sm text-gray-500">
+          <h2 className="text-xl font-medium text-text-normal">选择一个房间</h2>
+          <p className="mt-2 text-sm text-text-muted">
             从左侧列表中选择一个房间开始聊天
           </p>
         </div>
@@ -71,7 +71,7 @@ function ChatViewContent({
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden" {...dragProps}>
-      <ChatHeader roomId={roomId} />
+      <ChannelHeader roomId={roomId} />
       <ChatTimeline roomId={roomId} onReply={onReply} />
 
       <UploadProgressBar tasks={tasks} onCancel={cancelTask} />

@@ -28,7 +28,7 @@ export function TextMessage({ body, formattedBody, isOwn }: TextMessageProps) {
         return (
           <code
             className={`rounded px-1 py-0.5 text-xs ${
-              isOwn ? "bg-blue-700/50" : "bg-gray-700"
+              isOwn ? "bg-brand-hover/40" : "bg-bg-modifier"
             }`}
             {...props}
           >
@@ -71,7 +71,7 @@ export function TextMessage({ body, formattedBody, isOwn }: TextMessageProps) {
     <div
       className="prose prose-sm prose-invert max-w-none break-words
                  prose-p:my-0.5 prose-pre:my-1 prose-code:text-xs
-                 prose-a:text-blue-300 prose-a:underline"
+                 prose-a:text-text-link prose-a:underline"
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {source}

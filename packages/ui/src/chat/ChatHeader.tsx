@@ -25,7 +25,7 @@ export function ChatHeader({ roomId }: ChatHeaderProps) {
   };
 
   return (
-    <div className="flex items-center gap-3 border-b border-gray-800 px-4 py-3">
+    <div className="flex items-center gap-3 border-b border-divider-light px-4 py-3">
       <RoomAvatar
         name={room.name}
         avatarMxc={room.avatarMxc}
@@ -35,11 +35,11 @@ export function ChatHeader({ roomId }: ChatHeaderProps) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <EncryptionBadge status={status} />
-          <h2 className="truncate text-sm font-semibold text-white">
+          <h2 className="truncate text-sm font-semibold text-text-normal">
             {room.name || "未命名房间"}
           </h2>
         </div>
-        <p className="truncate text-xs text-gray-500">
+        <p className="truncate text-xs text-text-muted">
           {room.memberCount} 位成员
           {room.topic ? ` · ${room.topic}` : ""}
         </p>
@@ -49,8 +49,8 @@ export function ChatHeader({ roomId }: ChatHeaderProps) {
         onClick={toggleAgents}
         className={`shrink-0 rounded p-1.5 transition-colors ${
           agentsActive
-            ? "bg-magic-primary/20 text-magic-primary"
-            : "text-gray-400 hover:bg-gray-800 hover:text-white"
+            ? "bg-brand/20 text-brand"
+            : "text-text-muted hover:bg-bg-secondary hover:text-text-normal"
         }`}
         title="Agent 面板"
       >

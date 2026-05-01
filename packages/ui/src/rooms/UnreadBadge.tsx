@@ -17,7 +17,7 @@ export const UnreadBadge = memo(function UnreadBadge({
     <span
       className={`inline-flex items-center justify-center rounded-full px-1.5
                   text-[10px] font-bold leading-4 text-white ${
-        highlight ? "bg-red-500" : "bg-gray-600"
+        highlight ? "bg-red" : "bg-text-faint"
       }`}
       style={{ minWidth: "18px" }}
     >

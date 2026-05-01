@@ -6,17 +6,17 @@ interface TaskCardProps {
 }
 
 const priorityBorder: Record<TaskData["priority"], string> = {
-  critical: "border-l-red-500",
-  high: "border-l-orange-500",
-  medium: "border-l-blue-500",
-  low: "border-l-gray-500",
+  critical: "border-l-red",
+  high: "border-l-yellow",
+  medium: "border-l-brand",
+  low: "border-l-text-faint",
 };
 
 const priorityBadge: Record<TaskData["priority"], string> = {
-  critical: "bg-red-500/20 text-red-400",
-  high: "bg-orange-500/20 text-orange-400",
-  medium: "bg-gray-800 text-gray-400",
-  low: "bg-gray-800 text-gray-400",
+  critical: "bg-red/20 text-red",
+  high: "bg-yellow/20 text-yellow",
+  medium: "bg-brand/20 text-role-admin",
+  low: "bg-bg-modifier text-text-muted",
 };
 
 const priorityLabels: Record<TaskData["priority"], string> = {
@@ -31,13 +31,13 @@ export const TaskCard = memo(function TaskCard({ task }: TaskCardProps) {
 
   return (
     <div
-      className={`rounded-lg border border-l-2 border-gray-800 ${priorityBorder[task.priority]}
-                  bg-magic-surface-alt p-2.5 transition-colors hover:border-gray-700`}
+      className={`rounded-lg border border-l-2 border-divider-light ${priorityBorder[task.priority]}
+                  bg-bg-secondary p-2.5 transition-colors hover:border-divider`}
     >
-      <p className="line-clamp-2 text-sm font-medium text-gray-200">{task.title}</p>
+      <p className="line-clamp-2 text-sm font-medium text-text-normal">{task.title}</p>
 
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs text-gray-500">→ {assigneeName}</span>
+        <span className="text-xs text-text-muted">→ {assigneeName}</span>
         <span
           className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${priorityBadge[task.priority]}`}
         >
@@ -46,7 +46,7 @@ export const TaskCard = memo(function TaskCard({ task }: TaskCardProps) {
       </div>
 
       {task.dueDate && (
-        <p className="mt-1 text-[10px] text-gray-600">截止: {task.dueDate}</p>
+        <p className="mt-1 text-[10px] text-text-faint">截止: {task.dueDate}</p>
       )}
     </div>
   );

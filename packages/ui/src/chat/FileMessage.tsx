@@ -23,13 +23,13 @@ export function FileMessage({ body, url, msgtype, info }: FileMessageProps) {
       download={body}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2.5 rounded-lg border border-gray-700 bg-gray-800/50
-                 px-3 py-2 transition-colors hover:bg-gray-700/50"
+      className="flex items-center gap-2.5 rounded-lg border border-divider bg-bg-secondary/50
+                 px-3 py-2 transition-colors hover:bg-bg-modifier/50"
     >
       <span className="text-lg">{icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-200">{body}</p>
-        {sizeStr && <p className="text-xs text-gray-500">{sizeStr}</p>}
+        <p className="truncate text-sm font-medium text-text-normal">{body}</p>
+        {sizeStr && <p className="text-xs text-text-muted">{sizeStr}</p>}
       </div>
       <DownloadIcon />
     </a>
@@ -53,7 +53,7 @@ function formatFileSize(bytes: number): string {
 function DownloadIcon() {
   return (
     <svg
-      className="h-4 w-4 shrink-0 text-gray-400"
+      className="h-4 w-4 shrink-0 text-text-muted"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

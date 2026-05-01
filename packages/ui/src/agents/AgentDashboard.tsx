@@ -22,15 +22,15 @@ export function AgentDashboard({ roomId }: AgentDashboardProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex border-b border-gray-800">
+      <div className="flex border-b border-divider-light">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
               activeTab === tab.key
-                ? "border-b-2 border-magic-primary text-magic-primary"
-                : "text-gray-500 hover:text-gray-300"
+                ? "border-b-2 border-brand text-brand"
+                : "text-text-muted hover:text-text-normal"
             }`}
           >
             {tab.label}

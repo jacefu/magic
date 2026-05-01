@@ -12,6 +12,9 @@
 - UI: React 19 + Zustand + Tailwind CSS v4 + shadcn/ui
 - 类型: TypeScript strict + Zod
 
+## 设计规范
+@specs/shared/design-system.md
+
 ## 命令
 - 开发: `pnpm dev` / `pnpm dev:desktop` / `pnpm dev:web`
 - 构建: `pnpm build`

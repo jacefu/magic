@@ -4,11 +4,11 @@ interface UndecryptedMessageProps {
 
 export function UndecryptedMessage({ reason }: UndecryptedMessageProps) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-yellow-800/50 bg-yellow-950/20 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-lg border border-yellow/40 bg-yellow/10 px-3 py-2">
       <LockIcon />
       <div>
-        <p className="text-sm text-yellow-300">无法解密此消息</p>
-        <p className="text-xs text-yellow-600">
+        <p className="text-sm text-yellow">无法解密此消息</p>
+        <p className="text-xs text-text-muted">
           {reason ?? "缺少解密密钥。请验证发送方设备或恢复密钥备份。"}
         </p>
       </div>
@@ -19,7 +19,7 @@ export function UndecryptedMessage({ reason }: UndecryptedMessageProps) {
 function LockIcon() {
   return (
     <svg
-      className="h-5 w-5 shrink-0 text-yellow-500"
+      className="h-5 w-5 shrink-0 text-yellow"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

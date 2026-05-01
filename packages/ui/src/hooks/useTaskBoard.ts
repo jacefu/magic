@@ -41,10 +41,10 @@ export function useTaskBoard(roomId: string | null) {
     }
 
     return [
-      { key: "pending", label: "待处理", color: "text-gray-400", tasks: grouped.pending },
-      { key: "in_progress", label: "进行中", color: "text-blue-400", tasks: grouped.in_progress },
-      { key: "completed", label: "已完成", color: "text-green-400", tasks: grouped.completed },
-      { key: "failed", label: "失败", color: "text-red-400", tasks: grouped.failed },
+      { key: "pending", label: "待处理", color: "text-text-muted", tasks: grouped.pending },
+      { key: "in_progress", label: "进行中", color: "text-role-admin", tasks: grouped.in_progress },
+      { key: "completed", label: "已完成", color: "text-green", tasks: grouped.completed },
+      { key: "failed", label: "失败", color: "text-red", tasks: grouped.failed },
     ];
   }, [allTasks, roomId]);
 

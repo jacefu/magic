@@ -102,6 +102,6 @@ describe("RoomListItem", () => {
   it("applies active styling when isActive is true", () => {
     render(<RoomListItem room={makeRoom()} isActive={true} onSelect={vi.fn()} />);
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-magic-primary");
+    expect(button.className).toContain("bg-bg-active");
   });
 });

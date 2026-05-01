@@ -1,56 +1,52 @@
-import { useAuthStore, useUIStore, useRoomStore } from "@magic/matrix-client";
-import { useAuth } from "../hooks/useAuth.js";
+import { useRoomStore, useUIStore } from "@magic/matrix-client";
+import { WorkspaceBar } from "../workspace/WorkspaceBar.js";
+import { UserPanel } from "../workspace/UserPanel.js";
 import { RoomList } from "../rooms/RoomList.js";
 import { ChatView } from "../chat/ChatView.js";
+import { MemberPanel } from "../panels/MemberPanel.js";
 import { AgentDashboard } from "../agents/AgentDashboard.js";
 
 export function MainLayout() {
-  const { userId, homeserver } = useAuthStore();
-  const { logout } = useAuth();
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanelMode = useUIStore((s) => s.rightPanelMode);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
-  const activeRoomId = useRoomStore((s) => s.activeRoomId);
+
+  const showRightPanel = rightPanelOpen && activeRoomId;
 
   return (
-    <div className="flex h-screen bg-magic-surface text-white">
-      <aside className="flex w-64 flex-col border-r border-gray-800 bg-magic-surface-alt">
-        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-          <span className="text-sm font-bold tracking-wide">MAGIC</span>
-        </div>
+    <div className="flex h-screen bg-bg-primary text-text-normal">
+      {/* Column 1: workspace bar */}
+      <WorkspaceBar />
 
+      {/* Column 2: rooms list + user panel */}
+      <div className="flex w-[200px] shrink-0 flex-col bg-bg-secondary">
+        <div className="flex h-10 items-center border-b border-bg-tertiary px-3">
+          <span className="text-[13px] font-semibold text-text-normal">
+            Magic 工作区
+          </span>
+        </div>
         <div className="min-h-0 flex-1">
           <RoomList />
         </div>
+        <UserPanel />
+      </div>
 
-        <div className="border-t border-gray-800 px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{userId}</p>
-              <p className="truncate text-xs text-gray-500">{homeserver}</p>
-            </div>
-            <button
-              onClick={logout}
-              className="ml-2 shrink-0 rounded px-2 py-1 text-xs text-gray-400
-                         hover:bg-gray-700 hover:text-white transition-colors"
-            >
-              登出
-            </button>
-          </div>
-        </div>
-      </aside>
+      {/* Column 3: chat */}
+      <div className="flex min-w-0 flex-1 flex-col bg-bg-primary">
+        <ChatView />
+      </div>
 
-      <ChatView />
-
-      {rightPanelOpen && activeRoomId && (
-        <aside className="flex w-80 flex-col border-l border-gray-800 bg-magic-surface-alt">
-          <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-            <span className="text-sm font-semibold text-white">
-              {rightPanelMode === "agents" ? "Agent 面板" : rightPanelMode}
+      {/* Column 4: contextual right panel (members / agents) */}
+      {showRightPanel && (
+        <div className="flex w-[260px] shrink-0 flex-col border-l border-bg-tertiary bg-bg-secondary">
+          <div className="flex h-10 items-center justify-between border-b border-bg-tertiary px-3">
+            <span className="text-[13px] font-semibold text-text-normal">
+              {rightPanelMode === "agents" ? "Agent 面板" : "成员"}
             </span>
             <button
               onClick={closeRightPanel}
-              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-700 hover:text-white"
+              className="rounded p-0.5 text-text-muted hover:text-text-normal"
               title="关闭"
             >
               <svg
@@ -64,10 +60,11 @@ export function MainLayout() {
               </svg>
             </button>
           </div>
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {rightPanelMode === "members" && <MemberPanel roomId={activeRoomId} />}
             {rightPanelMode === "agents" && <AgentDashboard roomId={activeRoomId} />}
           </div>
-        </aside>
+        </div>
       )}
     </div>
   );

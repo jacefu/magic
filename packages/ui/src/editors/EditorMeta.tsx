@@ -6,14 +6,14 @@ interface EditorMetaProps {
 
 export function EditorMeta({ version, editor, lastSaved }: EditorMetaProps) {
   if (version === 0) {
-    return <p className="text-xs text-gray-600">尚未保存过</p>;
+    return <p className="text-xs text-text-faint">尚未保存过</p>;
   }
 
   const editorName = editor.match(/^@([^:]+)/)?.[1] ?? editor;
   const timeStr = lastSaved !== null ? formatTime(lastSaved) : "未知";
 
   return (
-    <p className="text-xs text-gray-500">
+    <p className="text-xs text-text-muted">
       v{version} · {editorName} 于 {timeStr} 编辑
     </p>
   );

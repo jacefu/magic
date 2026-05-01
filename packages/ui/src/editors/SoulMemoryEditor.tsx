@@ -52,7 +52,7 @@ export function SoulMemoryEditor({ roomId }: SoulMemoryEditorProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-magic-primary border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" />
       </div>
     );
   }
@@ -78,14 +78,14 @@ export function SoulMemoryEditor({ roomId }: SoulMemoryEditorProps) {
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-800 px-3 py-1.5">
+      <div className="flex items-center justify-between border-t border-divider-light px-3 py-1.5">
         <EditorMeta
           version={meta.version}
           editor={meta.editor}
           lastSaved={meta.lastSaved}
         />
-        {error && <span className="text-xs text-red-400">{error}</span>}
-        {isDirty && <span className="text-xs text-yellow-500">● 未保存</span>}
+        {error && <span className="text-xs text-red">{error}</span>}
+        {isDirty && <span className="text-xs text-yellow">● 未保存</span>}
       </div>
     </div>
   );

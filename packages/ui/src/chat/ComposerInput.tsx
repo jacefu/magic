@@ -156,8 +156,8 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
           disabled={disabled}
           placeholder={placeholder}
           rows={1}
-          className="w-full resize-none bg-transparent text-sm text-white
-                     placeholder-gray-500 outline-none disabled:opacity-50"
+          className="w-full resize-none bg-transparent text-sm text-text-normal
+                     placeholder-text-faint outline-none disabled:opacity-50"
           style={{
             minHeight: MIN_HEIGHT,
             maxHeight: MAX_HEIGHT,

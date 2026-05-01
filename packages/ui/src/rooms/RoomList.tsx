@@ -21,8 +21,8 @@ export function RoomList() {
           <RoomSearchInput value={searchQuery} onChange={setSearchQuery} />
           <button
             onClick={() => setShowCreateDialog(true)}
-            className="shrink-0 rounded-lg p-1.5 text-gray-400
-                       hover:bg-gray-700 hover:text-white transition-colors"
+            className="shrink-0 rounded-lg p-1.5 text-text-muted
+                       hover:bg-bg-modifier hover:text-text-normal transition-colors"
             title="创建房间"
           >
             <PlusIcon />
@@ -32,7 +32,7 @@ export function RoomList() {
 
       <div className="flex-1 overflow-y-auto px-1.5">
         {groups.length === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-gray-500">
+          <div className="px-3 py-8 text-center text-sm text-text-muted">
             {searchQuery ? "未找到匹配的房间" : "暂无房间"}
           </div>
         ) : (

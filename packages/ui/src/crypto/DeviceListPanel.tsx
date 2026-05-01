@@ -37,14 +37,14 @@ export function DeviceListPanel() {
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-magic-primary border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <h3 className="px-1 text-sm font-semibold text-gray-300">
+      <h3 className="px-1 text-sm font-semibold text-text-normal">
         我的设备 ({devices.length})
       </h3>
 
@@ -53,24 +53,24 @@ export function DeviceListPanel() {
           key={device.deviceId}
           className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ${
             device.isCurrentDevice
-              ? "border border-magic-primary/20 bg-magic-primary/10"
-              : "bg-magic-surface-alt"
+              ? "border border-brand/20 bg-brand/10"
+              : "bg-bg-secondary"
           }`}
         >
           <DeviceStatusIcon status={device.verificationStatus} />
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-medium text-white">
+              <p className="truncate text-sm font-medium text-text-normal">
                 {device.displayName}
               </p>
               {device.isCurrentDevice && (
-                <span className="rounded bg-magic-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-magic-primary">
+                <span className="rounded bg-brand/20 px-1.5 py-0.5 text-[10px] font-medium text-brand">
                   当前
                 </span>
               )}
             </div>
-            <p className="truncate text-xs text-gray-500">
+            <p className="truncate text-xs text-text-muted">
               {device.deviceId}
               {device.lastSeenTs && ` · 最后活跃 ${formatRelative(device.lastSeenTs)}`}
             </p>
@@ -81,16 +81,16 @@ export function DeviceListPanel() {
               {device.verificationStatus !== "verified" && (
                 <button
                   onClick={() => setVerifyingDevice(device.deviceId)}
-                  className="rounded px-2 py-1 text-xs text-magic-primary
-                             transition-colors hover:bg-magic-primary/10"
+                  className="rounded px-2 py-1 text-xs text-brand
+                             transition-colors hover:bg-brand/10"
                 >
                   验证
                 </button>
               )}
               <button
                 onClick={() => handleDelete(device.deviceId)}
-                className="rounded px-2 py-1 text-xs text-red-400
-                           transition-colors hover:bg-red-500/10"
+                className="rounded px-2 py-1 text-xs text-red
+                           transition-colors hover:bg-red/10"
                 title="删除设备"
               >
                 删除
@@ -116,10 +116,10 @@ export function DeviceListPanel() {
 
 function DeviceStatusIcon({ status }: { status: DeviceInfo["verificationStatus"] }) {
   const colors: Record<DeviceInfo["verificationStatus"], string> = {
-    verified: "text-green-500",
-    "cross-signed": "text-green-500",
-    unverified: "text-yellow-500",
-    unknown: "text-gray-500",
+    verified: "text-green",
+    "cross-signed": "text-green",
+    unverified: "text-yellow",
+    unknown: "text-text-muted",
   };
 
   return (

@@ -10,72 +10,67 @@ interface MessageBubbleProps {
   onReply?: (eventId: string) => void;
 }
 
+// Discord-flat layout per design-system § 7.3:
+// no bubble background, single 36px avatar gutter, hover highlights
+// the entire row, header (avatar + sender + time) only when showSender,
+// otherwise content stays indented under the gutter.
 export const MessageBubble = memo(function MessageBubble({
   event,
   showSender,
   isOwn,
   onReply,
 }: MessageBubbleProps) {
-  const isMessage = event.type === "m.room.message" || event.type === "m.room.encrypted";
-  if (!isMessage) {
-    return <SystemEventLine event={event} />;
-  }
+  const isMessage =
+    event.type === "m.room.message" || event.type === "m.room.encrypted";
+  if (!isMessage) return <SystemEventLine event={event} />;
 
   const time = formatTime(event.timestamp);
   const senderName = extractDisplayName(event.sender);
 
   return (
     <div
-      className={`group flex gap-2.5 px-4 ${showSender ? "mt-3" : "mt-0.5"} ${
-        isOwn ? "flex-row-reverse" : "flex-row"
-      }`}
+      className={`group relative flex gap-3 px-4 transition-colors duration-100 hover:bg-bg-hover
+                  ${showSender ? "mt-3" : "mt-0.5"}`}
     >
-      <div className="w-8 shrink-0">
-        {showSender && !isOwn && (
-          <RoomAvatar name={senderName} avatarMxc={null} isDirect={true} size={32} />
+      {/* Avatar gutter — 36px, only filled on the first message of a group */}
+      <div className="w-9 shrink-0 pt-0.5">
+        {showSender && (
+          <RoomAvatar name={senderName} avatarMxc={null} isDirect size={36} />
         )}
       </div>
 
-      <div className={`relative max-w-[70%] min-w-0 ${isOwn ? "items-end" : "items-start"}`}>
-        {onReply && (
-          <div
-            className={`absolute -top-3 ${isOwn ? "left-0" : "right-0"}
-                        hidden items-center gap-0.5 rounded-lg border border-gray-700
-                        bg-magic-surface-alt px-1 py-0.5 shadow-lg group-hover:flex`}
-          >
-            <button
-              onClick={() => onReply(event.eventId)}
-              className="rounded p-0.5 text-gray-400 transition-colors
-                         hover:bg-gray-700 hover:text-white"
-              title="回复"
+      <div className="min-w-0 flex-1">
+        {showSender && (
+          <div className="flex items-baseline gap-2">
+            <span
+              className={`text-sm font-semibold ${isOwn ? "text-role-admin" : "text-text-normal"}`}
             >
-              <ReplyIcon />
-            </button>
+              {senderName}
+            </span>
+            <span className="text-[10px] text-text-faint">{time}</span>
           </div>
         )}
-
-        {showSender && !isOwn && (
-          <p className="mb-0.5 text-xs font-medium text-gray-400">{senderName}</p>
-        )}
-
-        <div
-          className={`inline-block rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-            isOwn
-              ? "rounded-br-md bg-magic-primary text-white"
-              : "rounded-bl-md bg-magic-surface-alt text-gray-100"
-          }`}
-        >
+        <div className="text-[13.5px] leading-[1.45] text-text-normal">
           <MessageContent event={event} isOwn={isOwn} />
         </div>
-
-        <p
-          className={`mt-0.5 text-[10px] text-gray-500 ${
-            isOwn ? "text-right" : "text-left"
-          }`}
-        >
-          {time}
-        </p>
       </div>
+
+      {/* Hover toolbar — anchored top-right of the row */}
+      {onReply && (
+        <div
+          className="absolute -top-3 right-4 hidden items-center gap-0.5 rounded-lg
+                     border border-divider bg-bg-secondary px-1 py-0.5 shadow-lg
+                     group-hover:flex"
+        >
+          <button
+            onClick={() => onReply(event.eventId)}
+            className="rounded p-0.5 text-text-muted transition-colors hover:bg-bg-modifier hover:text-text-normal"
+            title="回复"
+          >
+            <ReplyIcon />
+          </button>
+        </div>
+      )}
     </div>
   );
 });
@@ -101,10 +96,9 @@ function ReplyIcon() {
 function SystemEventLine({ event }: { event: SerializedMatrixEvent }) {
   const text = getSystemEventText(event);
   if (!text) return null;
-
   return (
     <div className="flex justify-center px-4 py-2">
-      <span className="rounded-full bg-gray-800/50 px-3 py-1 text-xs text-gray-500">
+      <span className="rounded-full bg-bg-secondary/50 px-3 py-1 text-xs text-text-muted">
         {text}
       </span>
     </div>
@@ -113,7 +107,6 @@ function SystemEventLine({ event }: { event: SerializedMatrixEvent }) {
 
 function getSystemEventText(event: SerializedMatrixEvent): string | null {
   const sender = extractDisplayName(event.sender);
-
   switch (event.type) {
     case "m.room.member": {
       const membership = event.content.membership as string;

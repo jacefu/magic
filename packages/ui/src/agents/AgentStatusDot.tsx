@@ -7,10 +7,10 @@ interface AgentStatusDotProps {
 }
 
 const statusColors: Record<AgentStatusDotProps["status"], string> = {
-  active: "bg-green-500",
-  idle: "bg-yellow-500",
-  offline: "bg-gray-500",
-  error: "bg-red-500",
+  active: "bg-green",
+  idle: "bg-yellow",
+  offline: "bg-text-faint",
+  error: "bg-red",
 };
 
 const statusLabels: Record<AgentStatusDotProps["status"], string> = {

@@ -2,12 +2,49 @@
 @source "../../../packages/ui/src";
 
 @theme {
-  --color-magic-primary: #2563eb;
-  --color-magic-secondary: #7c3aed;
-  --color-magic-accent: #06b6d4;
-  --color-magic-surface: #111827;
-  --color-magic-surface-alt: #1f2937;
-  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* Background hierarchy (deepest → lightest) */
+  --color-bg-tertiary: #1e1f22;
+  --color-bg-secondary: #2b2d31;
+  --color-bg-primary: #313338;
+  --color-bg-modifier: #383a40;
+  --color-bg-hover: #35373c;
+  --color-bg-active: #404249;
+  --color-bg-user-panel: #232428;
+
+  /* Text */
+  --color-text-normal: #dbdee1;
+  --color-text-muted: #949ba4;
+  --color-text-faint: #6d6f78;
+  --color-text-link: #00a8fc;
+
+  /* Brand & semantic */
+  --color-brand: #5865f2;
+  --color-brand-hover: #4752c4;
+  --color-green: #23a55a;
+  --color-yellow: #f0b232;
+  --color-red: #f23f43;
+
+  /* Borders */
+  --color-divider: #3f4147;
+  --color-divider-light: #3b3d44;
+
+  /* Role colors */
+  --color-role-admin: #a5b0fc;
+  --color-role-openclaw: #57f287;
+  --color-role-hermes: #f47b67;
+  --color-role-qwenpaw: #f0b232;
+  --color-role-leader: #1abc9c;
+
+  /* Radius scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Fonts */
+  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "Consolas", "Monaco", "Noto Sans Mono", monospace;
 }
 
 @keyframes indeterminate {

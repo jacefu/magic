@@ -23,12 +23,13 @@ export const RoomSection = memo(function RoomSection({
     <div className="mb-1">
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-xs font-semibold
-                   uppercase tracking-wider text-gray-500 hover:text-gray-300 transition-colors"
+        className="flex w-full items-center gap-1.5 px-2 pt-4 pb-1
+                   text-[10.5px] font-bold uppercase tracking-[0.04em]
+                   text-text-muted hover:text-text-normal transition-colors"
       >
         <ChevronIcon collapsed={collapsed} />
         <span>{label}</span>
-        <span className="ml-auto text-gray-600">{rooms.length}</span>
+        <span className="ml-auto text-text-faint">{rooms.length}</span>
       </button>
 
       {!collapsed && (

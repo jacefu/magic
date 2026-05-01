@@ -76,6 +76,6 @@ describe("AgentStatusCard", () => {
     const { container } = render(
       <AgentStatusCard agent={makeAgent({ capabilities: [] })} />,
     );
-    expect(container.querySelectorAll(".rounded-full.bg-gray-800")).toHaveLength(0);
+    expect(container.querySelectorAll(".rounded-full.bg-bg-secondary")).toHaveLength(0);
   });
 });

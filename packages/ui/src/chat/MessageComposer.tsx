@@ -37,15 +37,13 @@ export function MessageComposer({
   });
 
   return (
-    <div className="border-t border-gray-800 bg-magic-surface">
+    <div className="bg-bg-primary px-4 pb-5 pt-2">
       {replyEvent && <ReplyPreview event={replyEvent} onCancel={cancelReply} />}
 
-      <div className="px-4 py-2">
+      <div>
         <div
-          className="flex items-end gap-2 rounded-xl border border-gray-700
-                     bg-magic-surface-alt px-3 py-2 transition-colors
-                     focus-within:border-magic-primary focus-within:ring-1
-                     focus-within:ring-magic-primary"
+          className="flex items-end gap-2 rounded-md bg-bg-modifier px-3 py-2
+                     transition-colors focus-within:ring-1 focus-within:ring-brand/30"
         >
           <ComposerInput
             ref={inputRef}
@@ -60,8 +58,8 @@ export function MessageComposer({
           <button
             onClick={handleSend}
             disabled={isSending || !value.trim()}
-            className="shrink-0 rounded-lg p-1.5 text-magic-primary transition-colors
-                       hover:bg-magic-primary/10 disabled:text-gray-600 disabled:hover:bg-transparent"
+            className="shrink-0 rounded-lg p-1.5 text-brand transition-colors
+                       hover:bg-brand/10 disabled:text-text-faint disabled:hover:bg-transparent"
             title="发送 (Enter)"
           >
             <SendIcon />

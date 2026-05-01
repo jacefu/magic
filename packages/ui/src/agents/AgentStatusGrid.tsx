@@ -13,9 +13,9 @@ export function AgentStatusGrid({ roomId }: AgentStatusGridProps) {
   if (agents.length === 0) {
     return (
       <div className="space-y-2 px-2 py-8 text-center">
-        <p className="text-sm text-gray-400">当前房间暂无 Agent</p>
-        <p className="text-xs leading-relaxed text-gray-600">
-          只有发布 <code className="rounded bg-gray-800 px-1 py-0.5 text-[10px]">com.magic.agent.status</code> 状态事件的 Worker
+        <p className="text-sm text-text-muted">当前房间暂无 Agent</p>
+        <p className="text-xs leading-relaxed text-text-faint">
+          只有发布 <code className="rounded bg-bg-secondary px-1 py-0.5 text-[10px]">com.magic.agent.status</code> 状态事件的 Worker
           会出现在这里。普通 Matrix 成员不会被识别为 Agent。
         </p>
       </div>
@@ -24,15 +24,15 @@ export function AgentStatusGrid({ roomId }: AgentStatusGridProps) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-text-muted">
         <span>{summary.total} 个 Agent</span>
-        <span className="text-green-500">● {summary.active} 活跃</span>
-        <span className="text-yellow-500">● {summary.idle} 空闲</span>
+        <span className="text-green">● {summary.active} 活跃</span>
+        <span className="text-yellow">● {summary.idle} 空闲</span>
         {summary.offline > 0 && (
-          <span className="text-gray-500">● {summary.offline} 离线</span>
+          <span className="text-text-muted">● {summary.offline} 离线</span>
         )}
         {summary.error > 0 && (
-          <span className="text-red-500">● {summary.error} 异常</span>
+          <span className="text-red">● {summary.error} 异常</span>
         )}
       </div>
 

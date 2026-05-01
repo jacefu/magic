@@ -5,17 +5,17 @@ import { EncryptionBadge } from "../../src/crypto/EncryptionBadge.js";
 describe("EncryptionBadge", () => {
   it("renders green shield-check for 'verified'", () => {
     const { container } = render(<EncryptionBadge status="verified" />);
-    expect(container.querySelector(".text-green-500")).toBeTruthy();
+    expect(container.querySelector(".text-green")).toBeTruthy();
   });
 
   it("renders yellow shield for 'encrypted-unverified'", () => {
     const { container } = render(<EncryptionBadge status="encrypted-unverified" />);
-    expect(container.querySelector(".text-yellow-500")).toBeTruthy();
+    expect(container.querySelector(".text-yellow")).toBeTruthy();
   });
 
   it("renders gray shield-off for 'unencrypted'", () => {
     const { container } = render(<EncryptionBadge status="unencrypted" />);
-    expect(container.querySelector(".text-gray-500")).toBeTruthy();
+    expect(container.querySelector(".text-text-muted")).toBeTruthy();
   });
 
   it("renders nothing for 'unknown'", () => {

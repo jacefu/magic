@@ -22,9 +22,18 @@ export { JoinRoomDialog } from "./rooms/JoinRoomDialog.js";
 // Common
 export { DialogOverlay } from "./common/DialogOverlay.js";
 
+// Workspace
+export { WorkspaceBar } from "./workspace/WorkspaceBar.js";
+export { WorkspaceIcon } from "./workspace/WorkspaceIcon.js";
+export { UserPanel } from "./workspace/UserPanel.js";
+
+// Panels
+export { MemberPanel } from "./panels/MemberPanel.js";
+
 // Chat
 export { ChatView } from "./chat/ChatView.js";
 export { ChatHeader } from "./chat/ChatHeader.js";
+export { ChannelHeader } from "./chat/ChannelHeader.js";
 export { ChatTimeline } from "./chat/ChatTimeline.js";
 export { MessageBubble } from "./chat/MessageBubble.js";
 export { MessageContent } from "./chat/MessageContent.js";

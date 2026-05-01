@@ -18,8 +18,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
     case "initializing":
     case "restoring":
       return (
-        <div className="flex h-screen items-center justify-center bg-magic-surface">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-magic-primary border-t-transparent" />
+        <div className="flex h-screen items-center justify-center bg-bg-primary">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
         </div>
       );
 
