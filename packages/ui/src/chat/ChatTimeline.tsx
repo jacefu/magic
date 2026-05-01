@@ -10,11 +10,12 @@ import { EmptyRoom } from "./EmptyRoom.js";
 
 interface ChatTimelineProps {
   roomId: string;
+  onReply?: (eventId: string) => void;
 }
 
 const START_INDEX = 100_000;
 
-export function ChatTimeline({ roomId }: ChatTimelineProps) {
+export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
   const currentUserId = useAuthStore((s) => s.userId);
   const { items, messageCount } = useTimeline({ roomId, currentUserId });
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -58,7 +59,9 @@ export function ChatTimeline({ roomId }: ChatTimelineProps) {
         atBottomThreshold={60}
         skipAnimationFrameInResizeObserver={true}
         increaseViewportBy={{ top: 400, bottom: 200 }}
-        itemContent={(_index, item) => <TimelineItemRenderer item={item} />}
+        itemContent={(_index, item) => (
+          <TimelineItemRenderer item={item} onReply={onReply} />
+        )}
         components={{
           Header: () =>
             isLoadingHistory ? (
@@ -74,7 +77,13 @@ export function ChatTimeline({ roomId }: ChatTimelineProps) {
   );
 }
 
-function TimelineItemRenderer({ item }: { item: TimelineItem }) {
+function TimelineItemRenderer({
+  item,
+  onReply,
+}: {
+  item: TimelineItem;
+  onReply?: (eventId: string) => void;
+}) {
   switch (item.type) {
     case "message":
       return (
@@ -82,6 +91,7 @@ function TimelineItemRenderer({ item }: { item: TimelineItem }) {
           event={item.event}
           showSender={item.showSender}
           isOwn={item.isOwn}
+          onReply={onReply}
         />
       );
     case "date-separator":

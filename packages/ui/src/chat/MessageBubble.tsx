@@ -7,12 +7,14 @@ interface MessageBubbleProps {
   event: SerializedMatrixEvent;
   showSender: boolean;
   isOwn: boolean;
+  onReply?: (eventId: string) => void;
 }
 
 export const MessageBubble = memo(function MessageBubble({
   event,
   showSender,
   isOwn,
+  onReply,
 }: MessageBubbleProps) {
   const isSystemEvent = event.type !== "m.room.message";
   if (isSystemEvent) {
@@ -24,7 +26,7 @@ export const MessageBubble = memo(function MessageBubble({
 
   return (
     <div
-      className={`flex gap-2.5 px-4 ${showSender ? "mt-3" : "mt-0.5"} ${
+      className={`group flex gap-2.5 px-4 ${showSender ? "mt-3" : "mt-0.5"} ${
         isOwn ? "flex-row-reverse" : "flex-row"
       }`}
     >
@@ -34,7 +36,24 @@ export const MessageBubble = memo(function MessageBubble({
         )}
       </div>
 
-      <div className={`max-w-[70%] min-w-0 ${isOwn ? "items-end" : "items-start"}`}>
+      <div className={`relative max-w-[70%] min-w-0 ${isOwn ? "items-end" : "items-start"}`}>
+        {onReply && (
+          <div
+            className={`absolute -top-3 ${isOwn ? "left-0" : "right-0"}
+                        hidden items-center gap-0.5 rounded-lg border border-gray-700
+                        bg-magic-surface-alt px-1 py-0.5 shadow-lg group-hover:flex`}
+          >
+            <button
+              onClick={() => onReply(event.eventId)}
+              className="rounded p-0.5 text-gray-400 transition-colors
+                         hover:bg-gray-700 hover:text-white"
+              title="回复"
+            >
+              <ReplyIcon />
+            </button>
+          </div>
+        )}
+
         {showSender && !isOwn && (
           <p className="mb-0.5 text-xs font-medium text-gray-400">{senderName}</p>
         )}
@@ -60,6 +79,24 @@ export const MessageBubble = memo(function MessageBubble({
     </div>
   );
 });
+
+function ReplyIcon() {
+  return (
+    <svg
+      className="h-3.5 w-3.5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+      />
+    </svg>
+  );
+}
 
 function SystemEventLine({ event }: { event: SerializedMatrixEvent }) {
   const text = getSystemEventText(event);

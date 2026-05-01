@@ -1,9 +1,19 @@
-import { useRoomStore } from "@magic/matrix-client";
+import { useCallback } from "react";
+import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { ChatHeader } from "./ChatHeader.js";
 import { ChatTimeline } from "./ChatTimeline.js";
+import { MessageComposer } from "./MessageComposer.js";
 
 export function ChatView() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
+  const setReplyTo = useUIStore((s) => s.setComposerReplyTo);
+
+  const handleReply = useCallback(
+    (eventId: string) => {
+      setReplyTo(eventId);
+    },
+    [setReplyTo],
+  );
 
   if (!activeRoomId) {
     return (
@@ -21,13 +31,8 @@ export function ChatView() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <ChatHeader roomId={activeRoomId} />
-      <ChatTimeline roomId={activeRoomId} />
-      {/* 消息编辑器占位 — 007-message-composer 填充 */}
-      <div className="border-t border-gray-800 px-4 py-3">
-        <div className="rounded-lg border border-gray-700 bg-magic-surface-alt px-3 py-2 text-sm text-gray-500">
-          消息编辑器（Spec 007）
-        </div>
-      </div>
+      <ChatTimeline roomId={activeRoomId} onReply={handleReply} />
+      <MessageComposer roomId={activeRoomId} />
     </div>
   );
 }

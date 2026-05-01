@@ -35,6 +35,10 @@ export { DateSeparator } from "./chat/DateSeparator.js";
 export { TypingIndicator } from "./chat/TypingIndicator.js";
 export { NewMessageButton } from "./chat/NewMessageButton.js";
 export { EmptyRoom } from "./chat/EmptyRoom.js";
+export { MessageComposer } from "./chat/MessageComposer.js";
+export { ComposerInput } from "./chat/ComposerInput.js";
+export { ComposerToolbar } from "./chat/ComposerToolbar.js";
+export { ReplyPreview } from "./chat/ReplyPreview.js";
 
 // Hooks
 export { useAuth } from "./hooks/useAuth.js";
@@ -43,3 +47,5 @@ export { useFilteredRooms } from "./hooks/useFilteredRooms.js";
 export type { RoomGroup } from "./hooks/useFilteredRooms.js";
 export { useTimeline } from "./hooks/useTimeline.js";
 export type { TimelineItem } from "./hooks/useTimeline.js";
+export { useComposer } from "./hooks/useComposer.js";
+export { useTypingNotifier } from "./hooks/useTypingNotifier.js";
