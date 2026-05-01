@@ -2,6 +2,7 @@ import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
 import { EncryptionBadge } from "../crypto/EncryptionBadge.js";
 import { useEncryptionStatus } from "../hooks/useEncryptionStatus.js";
+import { isDmRoom } from "../lib/isDmRoom.js";
 
 interface ChatHeaderProps {
   roomId: string;
@@ -29,7 +30,7 @@ export function ChatHeader({ roomId }: ChatHeaderProps) {
       <RoomAvatar
         name={room.name}
         avatarMxc={room.avatarMxc}
-        isDirect={room.isDirect}
+        isDirect={isDmRoom(room)}
         size={32}
       />
       <div className="min-w-0 flex-1">

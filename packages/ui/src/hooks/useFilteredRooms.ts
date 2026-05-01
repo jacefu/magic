@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useRoomStore, type RoomData } from "@magic/matrix-client";
+import { isDmRoom } from "../lib/isDmRoom.js";
 
 export interface RoomGroup {
   label: string;
@@ -25,7 +26,7 @@ export function useFilteredRooms() {
     const dms: RoomData[] = [];
     const groupRooms: RoomData[] = [];
     for (const room of filtered) {
-      if (room.isDirect) {
+      if (isDmRoom(room)) {
         dms.push(room);
       } else {
         groupRooms.push(room);

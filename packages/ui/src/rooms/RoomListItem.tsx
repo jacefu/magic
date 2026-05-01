@@ -9,6 +9,7 @@ import {
   type RoomData,
 } from "@magic/matrix-client";
 import { getStatusColor } from "../lib/agentDetection.js";
+import { isDmRoom } from "../lib/isDmRoom.js";
 import { UnreadBadge } from "./UnreadBadge.js";
 
 interface RoomListItemProps {
@@ -18,17 +19,17 @@ interface RoomListItemProps {
 }
 
 /** Find the non-self member of a DM room. Returns null if not a DM or no peer. */
-function useDmPeerId(roomId: string, isDirect: boolean): string | null {
+function useDmPeerId(roomId: string, isDm: boolean): string | null {
   const currentUserId = useAuthStore((s) => s.userId);
   return useMemo(() => {
-    if (!isDirect || !currentUserId || !hasClient()) return null;
+    if (!isDm || !currentUserId || !hasClient()) return null;
     const room = getClient().getRoom(roomId);
     if (!room) return null;
     const peer = room
       .getJoinedMembers()
       .find((m) => m.userId !== currentUserId);
     return peer?.userId ?? null;
-  }, [roomId, isDirect, currentUserId]);
+  }, [roomId, isDm, currentUserId]);
 }
 
 // Discord-channel layout per design-system § 7.2:
@@ -52,7 +53,8 @@ export const RoomListItem = memo(function RoomListItem({
   useAgentRegistryStore((s) => s.loaded);
   usePresenceStore((s) => s.presences);
 
-  const dmPeerId = useDmPeerId(room.roomId, room.isDirect);
+  const isDm = isDmRoom(room);
+  const dmPeerId = useDmPeerId(room.roomId, isDm);
   const dmStatusColor = dmPeerId
     ? getStatusColor(dmPeerId, room.roomId)
     : "#6D6F78";
@@ -70,7 +72,7 @@ export const RoomListItem = memo(function RoomListItem({
                         : "text-[#949BA4] hover:bg-[#35373C] hover:text-[#DBDEE1]"
                   }`}
     >
-      {room.isDirect ? (
+      {isDm ? (
         <span
           className="h-2 w-2 shrink-0 rounded-full"
           style={{ backgroundColor: dmStatusColor }}

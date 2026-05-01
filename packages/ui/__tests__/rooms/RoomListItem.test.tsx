@@ -17,7 +17,9 @@ function makeRoom(overrides: Partial<RoomData> = {}): RoomData {
     name: "Test Room",
     topic: "",
     avatarMxc: null,
-    memberCount: 2,
+    // Default to a multi-member room so it's classified as a group, not a DM.
+    // (DM = exactly 2 joined members, see lib/isDmRoom.ts)
+    memberCount: 5,
     unreadCount: 0,
     highlightCount: 0,
     timeline: [],
@@ -54,19 +56,35 @@ describe("RoomListItem", () => {
     expect(screen.queryByText("0")).toBeNull();
   });
 
-  it("shows '#' prefix for group rooms", () => {
-    render(<RoomListItem room={makeRoom({ isDirect: false })} isActive={false} onSelect={vi.fn()} />);
+  it("shows '#' prefix for group rooms (>2 members)", () => {
+    render(
+      <RoomListItem
+        room={makeRoom({ memberCount: 5 })}
+        isActive={false}
+        onSelect={vi.fn()}
+      />,
+    );
     expect(screen.getByText("#")).toBeTruthy();
   });
 
-  it("does not render '#' for direct messages", () => {
-    render(<RoomListItem room={makeRoom({ isDirect: true })} isActive={false} onSelect={vi.fn()} />);
+  it("does not render '#' for 2-member rooms (DMs)", () => {
+    render(
+      <RoomListItem
+        room={makeRoom({ memberCount: 2 })}
+        isActive={false}
+        onSelect={vi.fn()}
+      />,
+    );
     expect(screen.queryByText("#")).toBeNull();
   });
 
-  it("renders a status dot for direct messages", () => {
+  it("renders a status dot for 2-member rooms (DMs)", () => {
     const { container } = render(
-      <RoomListItem room={makeRoom({ isDirect: true })} isActive={false} onSelect={vi.fn()} />,
+      <RoomListItem
+        room={makeRoom({ memberCount: 2 })}
+        isActive={false}
+        onSelect={vi.fn()}
+      />,
     );
     expect(container.querySelector('[aria-hidden="true"]')).toBeTruthy();
   });

@@ -84,16 +84,56 @@ describe("useFilteredRooms", () => {
     expect(result.current.groups[1].key).toBe("group");
   });
 
-  it("places DMs in the private section", () => {
+  it("places 2-member rooms in the private section", () => {
     const { result } = renderHook(() => useFilteredRooms());
     const dmGroup = result.current.groups.find((g) => g.key === "dm")!;
-    expect(dmGroup.rooms.every((r) => r.isDirect)).toBe(true);
+    expect(dmGroup.rooms.every((r) => r.memberCount === 2)).toBe(true);
   });
 
-  it("places non-DM rooms in the group section", () => {
+  it("places rooms with >2 members in the group section", () => {
     const { result } = renderHook(() => useFilteredRooms());
     const groupSection = result.current.groups.find((g) => g.key === "group")!;
-    expect(groupSection.rooms.every((r) => !r.isDirect)).toBe(true);
+    expect(groupSection.rooms.every((r) => r.memberCount !== 2)).toBe(true);
+  });
+
+  it("classifies a 2-member room as DM even when isDirect is false", () => {
+    // Matrix's m.direct flag is unreliable across clients; member count is
+    // the user-facing source of truth.
+    useRoomStore.setState({
+      rooms: {
+        "!stealthDm:example.com": {
+          ...dmAlice,
+          roomId: "!stealthDm:example.com",
+          name: "StealthDm",
+          isDirect: false,
+          memberCount: 2,
+        },
+      },
+      activeRoomId: null,
+    });
+    const { result } = renderHook(() => useFilteredRooms());
+    const dmGroup = result.current.groups.find((g) => g.key === "dm");
+    expect(dmGroup).toBeDefined();
+    expect(dmGroup!.rooms[0].name).toBe("StealthDm");
+  });
+
+  it("classifies a room with >2 members as group even when isDirect is true", () => {
+    useRoomStore.setState({
+      rooms: {
+        "!misflaggedGroup:example.com": {
+          ...groupEngineering,
+          roomId: "!misflaggedGroup:example.com",
+          name: "MisflaggedGroup",
+          isDirect: true,
+          memberCount: 4,
+        },
+      },
+      activeRoomId: null,
+    });
+    const { result } = renderHook(() => useFilteredRooms());
+    const groupSection = result.current.groups.find((g) => g.key === "group");
+    expect(groupSection).toBeDefined();
+    expect(groupSection!.rooms[0].name).toBe("MisflaggedGroup");
   });
 
   it("sorts unread rooms before read rooms within a section", () => {
