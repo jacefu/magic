@@ -57,12 +57,76 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
     }
   }, [roomId, isLoadingHistory]);
 
-  const scrollToBottom = useCallback(() => {
-    virtuosoRef.current?.scrollToIndex({
-      index: items.length - 1,
-      behavior: "smooth",
+  // ---- explicit scroll-to-end management ----
+  //
+  // We deliberately don't rely on Virtuoso's `followOutput` smooth-scroll:
+  // it races with item-height measurement when a freshly-appended message
+  // contains tall content (mention pill avatars, multi-paragraph body),
+  // animates to the *old* bottom, and ends up looking like the view
+  // scrolled *upward* after sending. Manual `scrollToIndex` with
+  // `index: 'LAST'`, `align: 'end'`, `behavior: 'auto'` lands precisely
+  // at the bottom every time and runs after rAF so the new item's
+  // height is already measured.
+  const isAtBottomRef = useRef(true);
+  useEffect(() => {
+    isAtBottomRef.current = isAtBottom;
+  }, [isAtBottom]);
+
+  const prevRoomIdRef = useRef<string | null>(null);
+  const prevItemsLengthRef = useRef(-1); // -1 = "haven't seen items yet"
+
+  // Detect room change during render so the next effect run treats the
+  // first item-tick of the new room as an initial-populate, not an
+  // append.
+  if (prevRoomIdRef.current !== roomId) {
+    prevRoomIdRef.current = roomId;
+    prevItemsLengthRef.current = -1;
+  }
+
+  useEffect(() => {
+    const prev = prevItemsLengthRef.current;
+    prevItemsLengthRef.current = items.length;
+
+    if (items.length === 0) return;
+
+    const isInitialPopulate = prev === -1;
+    const grew = !isInitialPopulate && items.length > prev;
+
+    if (!isInitialPopulate && !grew) return;
+
+    // For mid-session appends (not the initial populate), only scroll
+    // when (a) the user was already at the bottom, OR (b) the new last
+    // message is from the current user. This keeps "scroll up to read
+    // history" intact for incoming messages but always pins your own
+    // sends to the bottom.
+    if (grew && !isAtBottomRef.current) {
+      let lastIsOwn = false;
+      for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        if (item.type === "message") {
+          lastIsOwn = item.isOwn;
+          break;
+        }
+      }
+      if (!lastIsOwn) return;
+    }
+
+    requestAnimationFrame(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: "LAST",
+        align: "end",
+        behavior: "auto",
+      });
     });
   }, [items.length]);
+
+  const scrollToBottom = useCallback(() => {
+    virtuosoRef.current?.scrollToIndex({
+      index: "LAST",
+      align: "end",
+      behavior: "smooth",
+    });
+  }, []);
 
   if (messageCount === 0 && items.length === 0) {
     return <EmptyRoom />;
@@ -70,23 +134,18 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
 
   return (
     <div className="relative flex-1">
-      {/*
-        key={roomId} forces a fresh Virtuoso instance per room so
-        `initialTopMostItemIndex` re-evaluates and the view starts at
-        the latest message every time we open a room.
-        `followOutput` keeps the view pinned to the bottom on append
-        (new message arrives or user just sent), but only when the user
-        was already at the bottom — scrolling up to read history won't
-        get yanked back down.
-      */}
       <Virtuoso
         key={roomId}
         ref={virtuosoRef}
         style={{ height: "100%" }}
         data={items}
-        initialTopMostItemIndex={Math.max(0, items.length - 1)}
+        computeItemKey={computeTimelineItemKey}
+        // Start mounted with the LAST item aligned to the END of the
+        // viewport (i.e. fully visible at the bottom). Without
+        // `align: 'end'` Virtuoso would put the last item at the *top*
+        // of the viewport with empty space below.
+        initialTopMostItemIndex={{ index: "LAST", align: "end" }}
         startReached={handleStartReached}
-        followOutput={(isBottom) => (isBottom ? "smooth" : false)}
         atBottomStateChange={setIsAtBottom}
         atBottomThreshold={60}
         skipAnimationFrameInResizeObserver={true}
@@ -113,6 +172,20 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
       )}
     </div>
   );
+}
+
+/** Stable identity per timeline row so Virtuoso doesn't re-mount items
+ *  when the array reference is rebuilt by `useTimeline`'s useMemo. */
+function computeTimelineItemKey(_index: number, item: TimelineItem): string {
+  switch (item.type) {
+    case "message":
+      return item.event.eventId;
+    case "date-separator":
+    case "unread-divider":
+      return item.key;
+    case "typing":
+      return "typing";
+  }
 }
 
 function TimelineItemRenderer({
