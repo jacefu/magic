@@ -27,14 +27,14 @@ export const RoomSection = memo(function RoomSection({
     <div>
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-1 px-3 pt-4 pb-1
+        className="flex w-full items-center px-3 pt-4 pb-1
                    text-[10.5px] font-bold uppercase tracking-[0.04em]
                    text-[#949BA4] transition-colors hover:text-[#DBDEE1]"
       >
-        <span className="inline-block w-3 text-[10px] leading-none">
+        <span className="truncate">{label}</span>
+        <span className="ml-1 inline-block w-3 text-[10px] leading-none">
           {collapsed ? "▸" : "▾"}
         </span>
-        <span>{label}</span>
         <span className="ml-auto font-medium text-[#6D6F78]">{rooms.length}</span>
       </button>
 
