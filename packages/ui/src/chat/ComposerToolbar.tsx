@@ -1,48 +1,39 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { uploadAndSendFile } from "@magic/matrix-client";
-import { useElectronAPI } from "../hooks/useElectronAPI.js";
 
 interface ComposerToolbarProps {
   roomId: string;
 }
 
 export function ComposerToolbar({ roomId }: ComposerToolbarProps) {
-  const electronAPI = useElectronAPI();
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleAttach = useCallback(async () => {
-    if (electronAPI) {
-      const files = await electronAPI.openFileDialog({
-        title: "选择文件",
-        filters: [
-          { name: "所有文件", extensions: ["*"] },
-          { name: "图片", extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
-          { name: "文档", extensions: ["pdf", "doc", "docx", "txt", "md"] },
-        ],
-      });
-      if (files && files.length > 0) {
-        // TODO: 009-file-attachments handles full upload pipeline
-        console.log("选择的文件:", files);
+  const handleAttach = useCallback(() => {
+    inputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = ""; // allow re-selecting the same file
+      if (!file) return;
+      try {
+        await uploadAndSendFile(roomId, file);
+      } catch (err) {
+        console.error("文件上传失败:", err);
       }
-    } else {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.multiple = false;
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (file) {
-          try {
-            await uploadAndSendFile(roomId, file);
-          } catch (err) {
-            console.error("文件上传失败:", err);
-          }
-        }
-      };
-      input.click();
-    }
-  }, [roomId, electronAPI]);
+    },
+    [roomId],
+  );
 
   return (
     <div className="mt-1 flex items-center gap-1">
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileChange}
+      />
       <button
         onClick={handleAttach}
         className="rounded p-1 text-gray-500 hover:bg-gray-800 hover:text-gray-300
