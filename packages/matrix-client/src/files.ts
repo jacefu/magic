@@ -35,7 +35,11 @@ export function mxcToHttp(
   resizeMethod?: "crop" | "scale",
 ): string | null {
   const client = getClient();
-  return client.mxcUrlToHttp(mxcUri, width, height, resizeMethod ?? "scale", false, true, true);
+  // Only pass method when we actually want a thumbnail. matrix-js-sdk treats
+  // any non-undefined method as "this is a thumbnail request" and routes to
+  // /_matrix/.../thumbnail/, which servers reject without dimensions.
+  const method = width || height ? resizeMethod ?? "scale" : undefined;
+  return client.mxcUrlToHttp(mxcUri, width, height, method, false, true, true);
 }
 
 /**
@@ -54,7 +58,9 @@ export async function fetchAuthenticatedMedia(
 ): Promise<string | null> {
   const client = getClient();
   const accessToken = client.getAccessToken();
-  const method = resizeMethod ?? "scale";
+  // See note in mxcToHttp — passing a method without dimensions forces
+  // matrix-js-sdk to generate a (malformed) thumbnail URL.
+  const method = width || height ? resizeMethod ?? "scale" : undefined;
 
   const authUrl = client.mxcUrlToHttp(mxcUri, width, height, method, false, true, true);
   if (authUrl && accessToken) {
