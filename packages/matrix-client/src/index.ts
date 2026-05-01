@@ -43,6 +43,7 @@ export { useUIStore } from "./stores/uiStore.js";
 export { useAgentStore } from "./stores/agentStore.js";
 export { useAgentRegistryStore } from "./stores/agentRegistryStore.js";
 export { usePresenceStore } from "./stores/presenceStore.js";
+export { useUserActivityStore } from "./stores/userActivityStore.js";
 export type { RoomData } from "./stores/roomStore.js";
 export type { SyncState } from "./stores/syncStore.js";
 export type { AgentData, TaskData } from "./stores/agentStore.js";

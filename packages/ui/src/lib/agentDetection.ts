@@ -2,6 +2,7 @@ import {
   useAgentRegistryStore,
   useAgentStore,
   usePresenceStore,
+  useUserActivityStore,
 } from "@magic/matrix-client";
 
 export type AgentRuntime = "openclaw" | "hermes" | "qwenpaw" | null;
@@ -72,7 +73,7 @@ export function getAgentInfo(userId: string, roomId?: string): AgentInfo {
     if (inferred) {
       return {
         ...inferred,
-        status: null,
+        status: getAgentOnlineStatus(userId, roomId),
         source: "name-pattern",
       };
     }
@@ -93,14 +94,14 @@ export function getAgentInfo(userId: string, roomId?: string): AgentInfo {
 
 /**
  * Map a real human's Matrix presence into the same status enum we use for
- * Agents. Returns "offline" when no presence data is available (Tuwunel
- * may have presence disabled).
+ * Agents. Falls back to recent timeline activity when the homeserver
+ * doesn't publish presence (e.g. Tuwunel with presence disabled).
  */
 export function getHumanOnlineStatus(
   userId: string,
 ): "online" | "idle" | "offline" {
   const presence = usePresenceStore.getState().getPresence(userId);
-  if (!presence) return "offline";
+  if (!presence) return getActivityOnlineStatus(userId);
 
   const INACTIVE_TIMEOUT = 5 * 60 * 1000;
 
@@ -117,7 +118,9 @@ export function getHumanOnlineStatus(
       return "idle";
     case "offline":
     default:
-      return "offline";
+      // Presence says offline but they may have just sent something — trust
+      // a recent timeline event over a stale presence record.
+      return getActivityOnlineStatus(userId);
   }
 }
 
@@ -160,11 +163,25 @@ function getAgentOnlineStatus(
   const agentData = Object.values(useAgentStore.getState().agents).find(
     (a) => a.userId === userId && (!roomId || a.roomId === roomId),
   );
-  if (!agentData) return "offline";
-  return applyHeartbeatTimeout(agentData.status, agentData.lastHeartbeat);
+  if (agentData) {
+    return applyHeartbeatTimeout(agentData.status, agentData.lastHeartbeat);
+  }
+  // No `agent.status` event — Manager Agents and most non-Worker bots don't
+  // emit one. Fall back to the same signals we use for humans: a recent
+  // timeline event ("they just chatted"), then Matrix presence.
+  return getHumanOnlineStatus(userId);
 }
 
 const HEARTBEAT_TIMEOUT_MS = 60_000;
+const ACTIVITY_ONLINE_MS = 5 * 60_000;
+
+function getActivityOnlineStatus(
+  userId: string,
+): "online" | "offline" {
+  const lastSeen = useUserActivityStore.getState().getLastSeen(userId);
+  if (lastSeen === null) return "offline";
+  return Date.now() - lastSeen <= ACTIVITY_ONLINE_MS ? "online" : "offline";
+}
 
 function applyHeartbeatTimeout(
   status: "active" | "idle" | "offline" | "error",

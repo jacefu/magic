@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   useAgentStore,
   useAgentRegistryStore,
   usePresenceStore,
+  useUserActivityStore,
 } from "@magic/matrix-client";
 import {
   getAgentInfo,
@@ -17,11 +18,10 @@ beforeEach(() => {
   useAgentStore.getState().reset();
   useAgentRegistryStore.getState().reset();
   usePresenceStore.getState().reset();
+  useUserActivityStore.getState().reset();
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
 });
-
-import { vi, afterEach } from "vitest";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -190,6 +190,57 @@ describe("getHumanOnlineStatus", () => {
   it("maps offline → offline", () => {
     usePresenceStore.getState().setPresence("@a:x", { presence: "offline" });
     expect(getHumanOnlineStatus("@a:x")).toBe("offline");
+  });
+});
+
+describe("activity fallback (Manager Agents and bots without agent.status)", () => {
+  it("treats a registered Manager as online when they sent a recent message", () => {
+    useAgentRegistryStore.getState().setAgents([
+      {
+        userId: "@manager:magic.com",
+        name: "manager",
+        runtime: "openclaw",
+        role: "manager",
+      },
+    ]);
+    // No agent.status event ever, but they chatted 30s ago.
+    useUserActivityStore.getState().setLastSeen("@manager:magic.com", NOW - 30_000);
+    const info = getAgentInfo("@manager:magic.com");
+    expect(info.isAgent).toBe(true);
+    expect(info.role).toBe("manager");
+    expect(info.status).toBe("online");
+  });
+
+  it("stays offline when activity is older than 5 minutes", () => {
+    useAgentRegistryStore.getState().setAgents([
+      {
+        userId: "@manager:magic.com",
+        name: "manager",
+        runtime: "openclaw",
+        role: "manager",
+      },
+    ]);
+    useUserActivityStore
+      .getState()
+      .setLastSeen("@manager:magic.com", NOW - 6 * 60_000);
+    const info = getAgentInfo("@manager:magic.com");
+    expect(info.status).toBe("offline");
+  });
+
+  it("activity overrides presence=offline (humans)", () => {
+    usePresenceStore.getState().setPresence("@h:x", { presence: "offline" });
+    useUserActivityStore.getState().setLastSeen("@h:x", NOW - 60_000);
+    expect(getHumanOnlineStatus("@h:x")).toBe("online");
+  });
+
+  it("name-pattern Manager picks up activity-based online status", () => {
+    useAgentRegistryStore.getState().setError("network");
+    useUserActivityStore
+      .getState()
+      .setLastSeen("@manager-x:magic.com", NOW - 10_000);
+    const info = getAgentInfo("@manager-x:magic.com");
+    expect(info.source).toBe("name-pattern");
+    expect(info.status).toBe("online");
   });
 });
 

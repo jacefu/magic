@@ -8,6 +8,7 @@ export { useUIStore } from "./uiStore.js";
 export { useAgentStore } from "./agentStore.js";
 export { useAgentRegistryStore } from "./agentRegistryStore.js";
 export { usePresenceStore } from "./presenceStore.js";
+export { useUserActivityStore } from "./userActivityStore.js";
 export type { SyncState } from "./syncStore.js";
 export type { RoomData } from "./roomStore.js";
 export type { AgentData, TaskData } from "./agentStore.js";

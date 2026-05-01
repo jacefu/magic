@@ -6,6 +6,7 @@ import {
   useAgentStore,
   useAuthStore,
   usePresenceStore,
+  useUserActivityStore,
 } from "@magic/matrix-client";
 import { getAgentInfo, type AgentInfo } from "../lib/agentDetection.js";
 
@@ -29,6 +30,7 @@ export function useRoomMembers(roomId: string | null): RoomMember[] {
   const registryLoaded = useAgentRegistryStore((s) => s.loaded);
   const registryError = useAgentRegistryStore((s) => s.error);
   const presences = usePresenceStore((s) => s.presences);
+  const lastSeen = useUserActivityStore((s) => s.lastSeen);
 
   return useMemo(() => {
     if (!roomId || !hasClient()) return [];
@@ -64,6 +66,7 @@ export function useRoomMembers(roomId: string | null): RoomMember[] {
     registryLoaded,
     registryError,
     presences,
+    lastSeen,
     currentUserId,
   ]);
 }

@@ -18,6 +18,7 @@ import { useSyncStore, type SyncState } from "./stores/syncStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
 import { useAgentStore } from "./stores/agentStore.js";
+import { useUserActivityStore } from "./stores/userActivityStore.js";
 import { serializeEvent } from "./serializers.js";
 import { bridgePresence } from "./presence.js";
 import { fetchAgentRegistry } from "./agent-registry.js";
@@ -53,6 +54,10 @@ export function bridgeToStores(client: MatrixClient): () => void {
   ) => {
     if (!room || toStartOfTimeline) return;
     useRoomStore.getState().addMessage(room.roomId, serializeEvent(event));
+    const sender = event.getSender();
+    if (sender) {
+      useUserActivityStore.getState().setLastSeen(sender, event.getTs());
+    }
   };
   client.on(RoomEvent.Timeline, onTimeline);
 

@@ -6,6 +6,7 @@ import {
   useAgentStore,
   useAuthStore,
   usePresenceStore,
+  useUserActivityStore,
   type RoomData,
 } from "@magic/matrix-client";
 import { getStatusColor } from "../lib/agentDetection.js";
@@ -52,6 +53,7 @@ export const RoomListItem = memo(function RoomListItem({
   useAgentRegistryStore((s) => s.agents);
   useAgentRegistryStore((s) => s.loaded);
   usePresenceStore((s) => s.presences);
+  useUserActivityStore((s) => s.lastSeen);
 
   const isDm = isDmRoom(room);
   const dmPeerId = useDmPeerId(room.roomId, isDm);
