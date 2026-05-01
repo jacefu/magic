@@ -5,6 +5,10 @@ interface UnreadBadgeProps {
   highlight?: boolean;
 }
 
+// Per design-system § 7.6:
+//   @mention / 高优先级: bg #F23F43 (red)
+//   普通未读:           bg #6D6F78 (text-faint)
+//   16 × 16 min, 10px bold white text, rounded-full
 export const UnreadBadge = memo(function UnreadBadge({
   count,
   highlight = false,
@@ -15,11 +19,10 @@ export const UnreadBadge = memo(function UnreadBadge({
 
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full px-1.5
-                  text-[10px] font-bold leading-4 text-white ${
-        highlight ? "bg-red" : "bg-text-faint"
-      }`}
-      style={{ minWidth: "18px" }}
+      className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full
+                  px-1 text-[10px] font-bold leading-none text-white ${
+                    highlight ? "bg-[#F23F43]" : "bg-[#6D6F78]"
+                  }`}
     >
       {displayCount}
     </span>

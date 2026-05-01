@@ -6,46 +6,50 @@ interface ChannelHeaderProps {
 
 export function ChannelHeader({ roomId }: ChannelHeaderProps) {
   const room = useRoomStore((s) => s.rooms[roomId]);
-  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
-  const rightPanelMode = useUIStore((s) => s.rightPanelMode);
-  const setRightPanel = useUIStore((s) => s.setRightPanel);
-  const closeRightPanel = useUIStore((s) => s.closeRightPanel);
+  const { rightPanelOpen, setRightPanel, closeRightPanel } = useUIStore();
 
   if (!room) return null;
 
   const toggleMembers = () => {
-    if (rightPanelOpen && rightPanelMode === "members") closeRightPanel();
-    else setRightPanel("members");
-  };
-
-  const toggleAgents = () => {
-    if (rightPanelOpen && rightPanelMode === "agents") closeRightPanel();
-    else setRightPanel("agents");
+    if (rightPanelOpen) {
+      closeRightPanel();
+    } else {
+      setRightPanel("members");
+    }
   };
 
   return (
-    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-bg-tertiary px-3">
-      <span className="text-xl text-text-muted">#</span>
-      <span className="text-sm font-semibold text-text-normal">
+    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-[#1E1F22] px-3">
+      {/* Channel marker */}
+      <span className="text-xl text-[#949BA4]">#</span>
+      <span className="text-sm font-semibold text-[#DBDEE1]">
         {room.name || "未命名房间"}
       </span>
 
-      {room.topic ? (
+      {/* Vertical divider + topic */}
+      {room.topic && (
         <>
-          <div className="mx-1.5 h-5 w-px bg-divider" />
-          <span className="flex-1 truncate text-xs text-text-muted">{room.topic}</span>
+          <div className="mx-1.5 h-5 w-px bg-[#3F4147]" />
+          <span className="flex-1 truncate text-xs text-[#949BA4]">
+            {room.topic}
+          </span>
         </>
-      ) : (
-        <div className="flex-1" />
       )}
+      {!room.topic && <div className="flex-1" />}
 
+      {/* Right icon cluster */}
       <div className="flex shrink-0 items-center gap-3">
         <HeaderIconButton
           title="Agent 面板"
-          isActive={rightPanelOpen && rightPanelMode === "agents"}
-          onClick={toggleAgents}
+          onClick={() => setRightPanel("agents")}
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -54,7 +58,13 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
           </svg>
         </HeaderIconButton>
         <HeaderIconButton title="搜索">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -64,10 +74,16 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
         </HeaderIconButton>
         <HeaderIconButton
           title="成员列表"
-          isActive={rightPanelOpen && rightPanelMode === "members"}
+          isActive={rightPanelOpen}
           onClick={toggleMembers}
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -95,9 +111,8 @@ function HeaderIconButton({
     <button
       title={title}
       onClick={onClick}
-      className={`transition-colors hover:text-text-normal ${
-        isActive ? "text-text-normal" : "text-text-muted"
-      }`}
+      className={`text-[#949BA4] transition-colors hover:text-[#DBDEE1]
+                  ${isActive ? "text-[#DBDEE1]" : ""}`}
     >
       {children}
     </button>

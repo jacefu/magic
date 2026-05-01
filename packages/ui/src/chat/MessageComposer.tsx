@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useRoomStore } from "@magic/matrix-client";
 import { useComposer } from "../hooks/useComposer.js";
 import { usePasteFile } from "../hooks/usePasteFile.js";
 import { ComposerInput } from "./ComposerInput.js";
@@ -11,6 +12,10 @@ interface MessageComposerProps {
   onFilesSelected?: (files: File[]) => void;
 }
 
+// Composer per design-system § 7.4:
+//   - Field bg #383A40 (--bg-modifier), 8px radius
+//   - Padding 8px 12px
+//   - Helper hint below the field, 12px --text-faint
 export function MessageComposer({
   roomId,
   onPasteFile,
@@ -27,6 +32,9 @@ export function MessageComposer({
     switchRoom,
   } = useComposer({ roomId });
 
+  const room = useRoomStore((s) => s.rooms[roomId]);
+  const placeholder = room?.name ? `发消息到 #${room.name}` : "输入消息…";
+
   useEffect(() => {
     switchRoom(roomId);
   }, [roomId, switchRoom]);
@@ -37,37 +45,36 @@ export function MessageComposer({
   });
 
   return (
-    <div className="bg-bg-primary px-4 pb-5 pt-2">
+    <div className="bg-[#313338] px-4 pb-5 pt-2">
       {replyEvent && <ReplyPreview event={replyEvent} onCancel={cancelReply} />}
 
-      <div>
-        <div
-          className="flex items-end gap-2 rounded-md bg-bg-modifier px-3 py-2
-                     transition-colors focus-within:ring-1 focus-within:ring-brand/30"
+      <div
+        className="flex items-end gap-2 rounded-lg bg-[#383A40] px-3 py-2
+                   transition-colors focus-within:ring-1 focus-within:ring-[#5865F2]/40"
+      >
+        <ComposerInput
+          ref={inputRef}
+          value={value}
+          onChange={setValue}
+          onSend={handleSend}
+          disabled={isSending}
+          placeholder={placeholder}
+          roomId={roomId}
+        />
+
+        <button
+          onClick={handleSend}
+          disabled={isSending || !value.trim()}
+          className="shrink-0 rounded-md p-1.5 text-[#5865F2] transition-colors
+                     hover:bg-[#5865F2]/10 disabled:text-[#6D6F78]
+                     disabled:hover:bg-transparent"
+          title="发送 (Enter)"
         >
-          <ComposerInput
-            ref={inputRef}
-            value={value}
-            onChange={setValue}
-            onSend={handleSend}
-            disabled={isSending}
-            placeholder="输入消息…"
-            roomId={roomId}
-          />
-
-          <button
-            onClick={handleSend}
-            disabled={isSending || !value.trim()}
-            className="shrink-0 rounded-lg p-1.5 text-brand transition-colors
-                       hover:bg-brand/10 disabled:text-text-faint disabled:hover:bg-transparent"
-            title="发送 (Enter)"
-          >
-            <SendIcon />
-          </button>
-        </div>
-
-        <ComposerToolbar roomId={roomId} onFilesSelected={onFilesSelected} />
+          <SendIcon />
+        </button>
       </div>
+
+      <ComposerToolbar roomId={roomId} onFilesSelected={onFilesSelected} />
     </div>
   );
 }

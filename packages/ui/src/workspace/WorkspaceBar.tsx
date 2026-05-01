@@ -9,7 +9,7 @@ interface Workspace {
 }
 
 const defaultWorkspaces: Workspace[] = [
-  { id: "dm", name: "私聊", initial: "M" },
+  { id: "dm", name: "私聊", initial: "M", color: undefined },
   { id: "main", name: "Magic 工作区", initial: "✦", color: "#5865F2" },
 ];
 
@@ -17,7 +17,8 @@ export function WorkspaceBar() {
   const [activeId, setActiveId] = useState("main");
 
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 bg-bg-tertiary py-2">
+    <div className="flex w-14 shrink-0 flex-col items-center gap-1.5 bg-[#1E1F22] py-2">
+      {/* DM entry */}
       <WorkspaceIcon
         initial={defaultWorkspaces[0].initial}
         name={defaultWorkspaces[0].name}
@@ -25,8 +26,10 @@ export function WorkspaceBar() {
         onClick={() => setActiveId("dm")}
       />
 
-      <div className="mx-auto h-0.5 w-7 rounded-full bg-divider" />
+      {/* Divider */}
+      <div className="mx-auto h-0.5 w-7 rounded-full bg-[#3F4147]" />
 
+      {/* Workspaces */}
       {defaultWorkspaces.slice(1).map((ws) => (
         <WorkspaceIcon
           key={ws.id}
@@ -38,8 +41,10 @@ export function WorkspaceBar() {
         />
       ))}
 
-      <div className="mx-auto h-0.5 w-7 rounded-full bg-divider" />
+      {/* Divider */}
+      <div className="mx-auto h-0.5 w-7 rounded-full bg-[#3F4147]" />
 
+      {/* Add button */}
       <WorkspaceIcon
         initial="+"
         name="添加工作区"

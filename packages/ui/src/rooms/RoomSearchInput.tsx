@@ -5,6 +5,8 @@ interface RoomSearchInputProps {
   onChange: (value: string) => void;
 }
 
+// Sidebar search per design-system § 4.1: sunken into bg-secondary using
+// bg-tertiary (#1E1F22), small radius, compact height.
 export function RoomSearchInput({ value, onChange }: RoomSearchInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -17,10 +19,10 @@ export function RoomSearchInput({ value, onChange }: RoomSearchInputProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="搜索房间…"
-        className="w-full rounded-md border border-divider bg-bg-tertiary
-                   py-1 pl-8 pr-3 text-xs text-text-normal placeholder-text-faint
-                   focus:border-brand focus:outline-none focus:ring-1
-                   focus:ring-brand"
+        className="w-full rounded border border-[#1E1F22] bg-[#1E1F22]
+                   py-1 pl-7 pr-2 text-xs text-[#DBDEE1] placeholder:text-[#6D6F78]
+                   focus:border-[#5865F2] focus:outline-none focus:ring-1
+                   focus:ring-[#5865F2]/40"
       />
       {value && (
         <button
@@ -28,8 +30,8 @@ export function RoomSearchInput({ value, onChange }: RoomSearchInputProps) {
             onChange("");
             inputRef.current?.focus();
           }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted
-                     hover:text-text-normal"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#949BA4]
+                     hover:text-[#DBDEE1]"
         >
           <ClearIcon />
         </button>
@@ -41,7 +43,7 @@ export function RoomSearchInput({ value, onChange }: RoomSearchInputProps) {
 function SearchIcon() {
   return (
     <svg
-      className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
+      className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[#6D6F78]"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -59,7 +61,7 @@ function SearchIcon() {
 function ClearIcon() {
   return (
     <svg
-      className="h-3.5 w-3.5"
+      className="h-3 w-3"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

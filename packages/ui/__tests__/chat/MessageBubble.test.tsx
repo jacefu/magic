@@ -73,14 +73,14 @@ describe("MessageBubble", () => {
         isOwn={true}
       />,
     );
-    expect(screen.getByText("me").className).toContain("text-role-admin");
+    expect(screen.getByText("me").className).toContain("text-[#A5B0FC]");
   });
 
   it("renders others' sender name in text-normal", () => {
     render(
       <MessageBubble event={makeEvent()} showSender={true} isOwn={false} />,
     );
-    expect(screen.getByText("alice").className).toContain("text-text-normal");
+    expect(screen.getByText("alice").className).toContain("text-[#DBDEE1]");
   });
 
   it("renders system event as centered text for m.room.member join", () => {

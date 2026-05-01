@@ -24,7 +24,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="mb-2 text-xs text-text-muted hover:text-text-normal transition-colors"
+          className="mb-2 text-xs text-[#949BA4] transition-colors hover:text-[#DBDEE1]"
         >
           {showAdvanced ? "▾ 隐藏高级设置" : "▸ Homeserver 设置"}
         </button>
@@ -35,16 +35,19 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
             onChange={(e) => setHomeserver(e.target.value)}
             placeholder="https://matrix.magic.com"
             disabled={isLoading}
-            className="w-full rounded-lg border border-divider bg-bg-tertiary
-                       px-3 py-2 text-sm text-text-normal placeholder-text-faint
-                       focus:border-brand focus:outline-none focus:ring-1
-                       focus:ring-brand disabled:opacity-50"
+            className="w-full rounded-md border border-[#3F4147] bg-[#1E1F22]
+                       px-3 py-2 text-sm text-[#DBDEE1] placeholder:text-[#6D6F78]
+                       focus:border-[#5865F2] focus:outline-none focus:ring-1
+                       focus:ring-[#5865F2] disabled:opacity-50"
           />
         )}
       </div>
 
       <div>
-        <label htmlFor="username" className="mb-1 block text-sm text-text-normal">
+        <label
+          htmlFor="username"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[#949BA4]"
+        >
           用户名
         </label>
         <input
@@ -56,15 +59,18 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           disabled={isLoading}
           autoFocus
           autoComplete="username"
-          className="w-full rounded-lg border border-divider bg-bg-tertiary
-                     px-3 py-2.5 text-sm text-text-normal placeholder-text-faint
-                     focus:border-brand focus:outline-none focus:ring-1
-                     focus:ring-brand disabled:opacity-50"
+          className="w-full rounded-md border border-[#3F4147] bg-[#1E1F22]
+                     px-3 py-2.5 text-sm text-[#DBDEE1] placeholder:text-[#6D6F78]
+                     focus:border-[#5865F2] focus:outline-none focus:ring-1
+                     focus:ring-[#5865F2] disabled:opacity-50"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="mb-1 block text-sm text-text-normal">
+        <label
+          htmlFor="password"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[#949BA4]"
+        >
           密码
         </label>
         <input
@@ -75,15 +81,15 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           placeholder="输入密码"
           disabled={isLoading}
           autoComplete="current-password"
-          className="w-full rounded-lg border border-divider bg-bg-tertiary
-                     px-3 py-2.5 text-sm text-text-normal placeholder-text-faint
-                     focus:border-brand focus:outline-none focus:ring-1
-                     focus:ring-brand disabled:opacity-50"
+          className="w-full rounded-md border border-[#3F4147] bg-[#1E1F22]
+                     px-3 py-2.5 text-sm text-[#DBDEE1] placeholder:text-[#6D6F78]
+                     focus:border-[#5865F2] focus:outline-none focus:ring-1
+                     focus:ring-[#5865F2] disabled:opacity-50"
         />
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red/40 bg-red/10 px-3 py-2 text-sm text-red">
+        <div className="rounded-md border border-[#F23F43]/40 bg-[#F23F43]/10 px-3 py-2 text-sm text-[#F23F43]">
           {error}
         </div>
       )}
@@ -91,8 +97,8 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
       <button
         type="submit"
         disabled={isLoading || !username.trim() || !password.trim()}
-        className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-medium
-                   text-white transition-colors hover:bg-brand-hover
+        className="w-full rounded-md bg-[#5865F2] px-4 py-2.5 text-sm font-medium
+                   text-white transition-colors hover:bg-[#4752C4]
                    disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isLoading ? (

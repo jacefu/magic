@@ -11,9 +11,11 @@ interface MessageBubbleProps {
 }
 
 // Discord-flat layout per design-system § 7.3:
-// no bubble background, single 36px avatar gutter, hover highlights
-// the entire row, header (avatar + sender + time) only when showSender,
-// otherwise content stays indented under the gutter.
+//   - No bubble background; messages flow as plain rows
+//   - 36px avatar gutter (left), only filled on the first message of a group
+//   - Continuation rows indent under the gutter (avatar + 12px gap)
+//   - Sender name uses role color; same-row baseline timestamp
+//   - Whole row gets bg #35373C on hover
 export const MessageBubble = memo(function MessageBubble({
   event,
   showSender,
@@ -29,10 +31,10 @@ export const MessageBubble = memo(function MessageBubble({
 
   return (
     <div
-      className={`group relative flex gap-3 px-4 transition-colors duration-100 hover:bg-bg-hover
+      className={`group relative flex gap-3 px-4 transition-colors duration-100 hover:bg-[#35373C]
                   ${showSender ? "mt-3" : "mt-0.5"}`}
     >
-      {/* Avatar gutter — 36px, only filled on the first message of a group */}
+      {/* Avatar gutter — 36px wide */}
       <div className="w-9 shrink-0 pt-0.5">
         {showSender && (
           <RoomAvatar name={senderName} avatarMxc={null} isDirect size={36} />
@@ -43,28 +45,31 @@ export const MessageBubble = memo(function MessageBubble({
         {showSender && (
           <div className="flex items-baseline gap-2">
             <span
-              className={`text-sm font-semibold ${isOwn ? "text-role-admin" : "text-text-normal"}`}
+              className={`text-[13px] font-semibold ${
+                isOwn ? "text-[#A5B0FC]" : "text-[#DBDEE1]"
+              }`}
             >
               {senderName}
             </span>
-            <span className="text-[10px] text-text-faint">{time}</span>
+            <span className="text-[10.5px] text-[#6D6F78]">{time}</span>
           </div>
         )}
-        <div className="text-[13.5px] leading-[1.45] text-text-normal">
+        <div className="text-[13.5px] leading-[1.45] text-[#DBDEE1]">
           <MessageContent event={event} isOwn={isOwn} />
         </div>
       </div>
 
-      {/* Hover toolbar — anchored top-right of the row */}
+      {/* Hover toolbar — anchored top-right */}
       {onReply && (
         <div
-          className="absolute -top-3 right-4 hidden items-center gap-0.5 rounded-lg
-                     border border-divider bg-bg-secondary px-1 py-0.5 shadow-lg
+          className="absolute -top-3 right-4 hidden items-center gap-0.5 rounded-md
+                     border border-[#3F4147] bg-[#2B2D31] px-1 py-0.5 shadow-lg
                      group-hover:flex"
         >
           <button
             onClick={() => onReply(event.eventId)}
-            className="rounded p-0.5 text-text-muted transition-colors hover:bg-bg-modifier hover:text-text-normal"
+            className="rounded p-0.5 text-[#949BA4] transition-colors
+                       hover:bg-[#383A40] hover:text-[#DBDEE1]"
             title="回复"
           >
             <ReplyIcon />
@@ -98,7 +103,7 @@ function SystemEventLine({ event }: { event: SerializedMatrixEvent }) {
   if (!text) return null;
   return (
     <div className="flex justify-center px-4 py-2">
-      <span className="rounded-full bg-bg-secondary/50 px-3 py-1 text-xs text-text-muted">
+      <span className="rounded-full bg-[#2B2D31]/50 px-3 py-1 text-xs text-[#949BA4]">
         {text}
       </span>
     </div>

@@ -11,9 +11,6 @@ interface WorkspaceIconProps {
   onClick: () => void;
 }
 
-// Discord signature interaction: circle by default, transitions to a 12px
-// rounded square on hover or selection. White indicator bar appears on the
-// left for the active workspace (and a smaller dash for unread).
 export const WorkspaceIcon = memo(function WorkspaceIcon({
   initial,
   name,
@@ -24,12 +21,9 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
   variant = "default",
   onClick,
 }: WorkspaceIconProps) {
-  const customStyle =
-    !isActive && color && variant !== "default" ? undefined :
-    !isActive && color ? { backgroundColor: color, color: "#fff" } : undefined;
-
   return (
     <div className="relative flex items-center">
+      {/* Left selected indicator bar */}
       {isActive && (
         <div className="absolute -left-1 h-5 w-1 rounded-r-full bg-white" />
       )}
@@ -44,20 +38,26 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
                     transition-all duration-200
                     ${
                       isActive
-                        ? "rounded-xl bg-brand text-white"
+                        ? "rounded-xl bg-[#5865F2] text-white"
                         : variant === "add"
-                          ? "rounded-full border-[1.5px] border-dashed border-text-faint text-lg text-text-faint hover:rounded-xl hover:border-green hover:text-green"
-                          : "rounded-full bg-bg-primary text-text-normal hover:rounded-xl hover:bg-brand hover:text-white"
+                          ? "rounded-full border-[1.5px] border-dashed border-[#6D6F78] text-[#6D6F78] text-lg hover:rounded-xl hover:border-[#23A55A] hover:text-[#23A55A]"
+                          : "rounded-full bg-[#313338] text-[#DBDEE1] hover:rounded-xl hover:bg-[#5865F2] hover:text-white"
                     }`}
-        style={customStyle}
+        style={
+          !isActive && color && variant !== "add"
+            ? { backgroundColor: color, color: "#fff" }
+            : undefined
+        }
       >
         {initial}
       </button>
 
+      {/* Notification badge */}
       {notificationCount && notificationCount > 0 ? (
         <span
           className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center
-                     rounded-full bg-red px-1 text-[10px] font-bold text-white ring-2 ring-bg-tertiary"
+                     rounded-full bg-[#F23F43] px-1 text-[10px] font-bold text-white
+                     ring-2 ring-[#1E1F22]"
         >
           {notificationCount > 99 ? "99+" : notificationCount}
         </span>

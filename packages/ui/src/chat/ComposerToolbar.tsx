@@ -51,14 +51,13 @@ export function ComposerToolbar({ roomId, onFilesSelected }: ComposerToolbarProp
       />
       <button
         onClick={handleAttach}
-        className="rounded p-1 text-text-muted hover:bg-bg-secondary hover:text-text-normal
-                   transition-colors"
+        className="rounded p-0.5 text-[#949BA4] transition-colors hover:text-[#DBDEE1]"
         title="发送文件"
       >
         <AttachIcon />
       </button>
 
-      <span className="ml-auto text-[10px] text-text-faint">
+      <span className="ml-auto text-[11px] text-[#6D6F78]">
         支持 Markdown · Enter 发送 · Shift+Enter 换行
       </span>
     </div>

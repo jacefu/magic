@@ -31,12 +31,12 @@ describe("UnreadBadge", () => {
   it("uses gray background by default", () => {
     render(<UnreadBadge count={3} />);
     const badge = screen.getByText("3");
-    expect(badge.className).toContain("bg-text-faint");
+    expect(badge.className).toContain("bg-[#6D6F78]");
   });
 
   it("uses red background when highlight is true", () => {
     render(<UnreadBadge count={3} highlight={true} />);
     const badge = screen.getByText("3");
-    expect(badge.className).toContain("bg-red");
+    expect(badge.className).toContain("bg-[#F23F43]");
   });
 });
