@@ -180,4 +180,125 @@ describe("useTimeline", () => {
     );
     expect(result.current.items).toHaveLength(0);
   });
+
+  describe("unread divider", () => {
+    it("emits no divider when marker is null", () => {
+      setTimeline([makeEvent({ timestamp: Date.now() })]);
+      const { result } = renderHook(() =>
+        useTimeline({
+          roomId: ROOM_ID,
+          currentUserId: USER_ID,
+          unreadMarkerEventId: null,
+        }),
+      );
+      const dividers = result.current.items.filter(
+        (i) => i.type === "unread-divider",
+      );
+      expect(dividers).toHaveLength(0);
+    });
+
+    it("emits no divider when marker is the last event", () => {
+      const base = new Date("2024-01-01T10:00:00").getTime();
+      setTimeline([makeEvent({ eventId: "$last", timestamp: base })]);
+      const { result } = renderHook(() =>
+        useTimeline({
+          roomId: ROOM_ID,
+          currentUserId: USER_ID,
+          unreadMarkerEventId: "$last",
+        }),
+      );
+      const dividers = result.current.items.filter(
+        (i) => i.type === "unread-divider",
+      );
+      expect(dividers).toHaveLength(0);
+    });
+
+    it("emits no divider when marker is not in the loaded timeline", () => {
+      setTimeline([makeEvent({ timestamp: Date.now() })]);
+      const { result } = renderHook(() =>
+        useTimeline({
+          roomId: ROOM_ID,
+          currentUserId: USER_ID,
+          unreadMarkerEventId: "$paged-out",
+        }),
+      );
+      const dividers = result.current.items.filter(
+        (i) => i.type === "unread-divider",
+      );
+      expect(dividers).toHaveLength(0);
+    });
+
+    it("emits a dateless divider before the first unread on the same day", () => {
+      const base = new Date("2024-01-01T10:00:00").getTime();
+      setTimeline([
+        makeEvent({ eventId: "$a", timestamp: base }),
+        makeEvent({ eventId: "$b", timestamp: base + 60_000 }),
+        makeEvent({ eventId: "$c", timestamp: base + 120_000 }),
+      ]);
+      const { result } = renderHook(() =>
+        useTimeline({
+          roomId: ROOM_ID,
+          currentUserId: USER_ID,
+          unreadMarkerEventId: "$a",
+        }),
+      );
+      const items = result.current.items;
+      // expected order: date-sep, msg($a), unread-divider, msg($b), msg($c)
+      expect(items[0].type).toBe("date-separator");
+      expect(items[2].type).toBe("unread-divider");
+      expect(items[2].type === "unread-divider" && items[2].date).toBeNull();
+    });
+
+    it("merges with date-separator and embeds the date when unread starts on a new day", () => {
+      const day1 = new Date("2024-01-01T10:00:00").getTime();
+      const day2 = new Date("2024-01-02T10:00:00").getTime();
+      setTimeline([
+        makeEvent({ eventId: "$a", timestamp: day1 }),
+        makeEvent({ eventId: "$b", timestamp: day2 }),
+      ]);
+      const { result } = renderHook(() =>
+        useTimeline({
+          roomId: ROOM_ID,
+          currentUserId: USER_ID,
+          unreadMarkerEventId: "$a",
+        }),
+      );
+      const items = result.current.items;
+      const dateSeparators = items.filter((i) => i.type === "date-separator");
+      const unreadDividers = items.filter((i) => i.type === "unread-divider");
+      // Only ONE date marker on the day boundary — the unread divider takes
+      // over and embeds the date label, so no standalone date-separator there.
+      expect(dateSeparators).toHaveLength(1); // only the very first
+      expect(unreadDividers).toHaveLength(1);
+      expect(
+        unreadDividers[0].type === "unread-divider" && unreadDividers[0].date,
+      ).toBeTruthy();
+    });
+
+    it("skips own messages when picking the first unread", () => {
+      const base = Date.now();
+      setTimeline([
+        makeEvent({ eventId: "$marker", sender: OTHER_ID, timestamp: base }),
+        makeEvent({ eventId: "$mine", sender: USER_ID, timestamp: base + 60_000 }),
+        makeEvent({
+          eventId: "$theirs",
+          sender: OTHER_ID,
+          timestamp: base + 120_000,
+        }),
+      ]);
+      const { result } = renderHook(() =>
+        useTimeline({
+          roomId: ROOM_ID,
+          currentUserId: USER_ID,
+          unreadMarkerEventId: "$marker",
+        }),
+      );
+      // The divider should land just before $theirs, NOT before $mine
+      const items = result.current.items;
+      const dividerIdx = items.findIndex((i) => i.type === "unread-divider");
+      expect(dividerIdx).toBeGreaterThan(0);
+      const next = items[dividerIdx + 1];
+      expect(next.type === "message" && next.event.eventId).toBe("$theirs");
+    });
+  });
 });

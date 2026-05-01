@@ -41,6 +41,7 @@ export { TextMessage } from "./chat/TextMessage.js";
 export { ImageMessage } from "./chat/ImageMessage.js";
 export { FileMessage } from "./chat/FileMessage.js";
 export { DateSeparator } from "./chat/DateSeparator.js";
+export { UnreadDivider } from "./chat/UnreadDivider.js";
 export { TypingIndicator } from "./chat/TypingIndicator.js";
 export { NewMessageButton } from "./chat/NewMessageButton.js";
 export { EmptyRoom } from "./chat/EmptyRoom.js";
