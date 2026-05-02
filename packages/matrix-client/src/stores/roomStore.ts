@@ -20,7 +20,17 @@ export interface RoomData {
 interface RoomStoreState {
   rooms: Record<string, RoomData>;
   activeRoomId: string | null;
+  /**
+   * Browser-style navigation history. Every `setActiveRoom` call pushes
+   * the previous activeRoomId onto `backStack` and clears `forwardStack`.
+   * `goBack` / `goForward` move between the two.
+   */
+  backStack: string[];
+  forwardStack: string[];
+
   setActiveRoom: (roomId: string | null) => void;
+  goBack: () => void;
+  goForward: () => void;
   upsertRoom: (roomId: string, data: Partial<RoomData>) => void;
   removeRoom: (roomId: string) => void;
   addMessage: (roomId: string, event: SerializedMatrixEvent) => void;
@@ -50,10 +60,34 @@ export const useRoomStore = create<RoomStoreState>()(
   immer((set) => ({
     rooms: {},
     activeRoomId: null,
+    backStack: [],
+    forwardStack: [],
 
     setActiveRoom: (roomId) =>
       set((s) => {
+        if (s.activeRoomId === roomId) return;
+        // Pushing the *current* room before switching means goBack() will
+        // return to it. New navigation always invalidates the forward
+        // stack — same semantics as a browser.
+        if (s.activeRoomId !== null) s.backStack.push(s.activeRoomId);
+        s.forwardStack = [];
         s.activeRoomId = roomId;
+      }),
+
+    goBack: () =>
+      set((s) => {
+        if (s.backStack.length === 0) return;
+        const prev = s.backStack.pop()!;
+        if (s.activeRoomId !== null) s.forwardStack.push(s.activeRoomId);
+        s.activeRoomId = prev;
+      }),
+
+    goForward: () =>
+      set((s) => {
+        if (s.forwardStack.length === 0) return;
+        const next = s.forwardStack.pop()!;
+        if (s.activeRoomId !== null) s.backStack.push(s.activeRoomId);
+        s.activeRoomId = next;
       }),
 
     upsertRoom: (roomId, data) =>
@@ -97,6 +131,12 @@ export const useRoomStore = create<RoomStoreState>()(
         }
       }),
 
-    reset: () => set({ rooms: {}, activeRoomId: null }),
+    reset: () =>
+      set({
+        rooms: {},
+        activeRoomId: null,
+        backStack: [],
+        forwardStack: [],
+      }),
   }))
 );

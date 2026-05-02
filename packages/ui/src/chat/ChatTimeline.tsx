@@ -37,12 +37,17 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
   // Advance the server-side read marker once the user is parked at the
   // bottom of the timeline. The local snapshot above stays put for this
   // session — only the next room visit will re-snapshot at this point.
+  // We *also* optimistically clear the local unread/highlight counts so
+  // the room-list badge disappears immediately rather than waiting for
+  // the server to echo the receipt back via RoomEvent.UnreadNotifications
+  // (which can lag by seconds, especially for our own actions).
   const latestMessageEventId = useLatestMessageEventId(roomId);
   useEffect(() => {
     if (!isAtBottom || !latestMessageEventId) return;
     void sendReadReceipt(roomId, latestMessageEventId).catch(() => {
       /* best-effort */
     });
+    useRoomStore.getState().setUnreadCount(roomId, 0, 0);
   }, [isAtBottom, latestMessageEventId, roomId]);
 
   const handleStartReached = useCallback(async () => {

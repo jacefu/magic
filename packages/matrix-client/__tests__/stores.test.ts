@@ -62,6 +62,84 @@ describe("roomStore", () => {
     expect(useRoomStore.getState().rooms["!room:example.com"]).toBeUndefined();
     expect(useRoomStore.getState().activeRoomId).toBeNull();
   });
+
+  describe("navigation history", () => {
+    const A = "!a:x";
+    const B = "!b:x";
+    const C = "!c:x";
+
+    it("setActiveRoom pushes the previous room onto backStack", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().setActiveRoom(B);
+      const state = useRoomStore.getState();
+      expect(state.activeRoomId).toBe(B);
+      expect(state.backStack).toEqual([A]);
+      expect(state.forwardStack).toEqual([]);
+    });
+
+    it("setActiveRoom is a no-op when the room is already active", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().setActiveRoom(A);
+      const state = useRoomStore.getState();
+      expect(state.backStack).toEqual([]);
+    });
+
+    it("goBack pops backStack and pushes the current onto forwardStack", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().setActiveRoom(B);
+      useRoomStore.getState().goBack();
+      const state = useRoomStore.getState();
+      expect(state.activeRoomId).toBe(A);
+      expect(state.backStack).toEqual([]);
+      expect(state.forwardStack).toEqual([B]);
+    });
+
+    it("goForward replays a previously-popped room", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().setActiveRoom(B);
+      useRoomStore.getState().goBack();
+      useRoomStore.getState().goForward();
+      const state = useRoomStore.getState();
+      expect(state.activeRoomId).toBe(B);
+      expect(state.backStack).toEqual([A]);
+      expect(state.forwardStack).toEqual([]);
+    });
+
+    it("a fresh setActiveRoom invalidates the forward stack", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().setActiveRoom(B);
+      useRoomStore.getState().goBack(); // back to A, B in forward
+      useRoomStore.getState().setActiveRoom(C);
+      const state = useRoomStore.getState();
+      expect(state.activeRoomId).toBe(C);
+      expect(state.forwardStack).toEqual([]);
+    });
+
+    it("goBack is a no-op when the back stack is empty", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().goBack(); // first one — empty back stack
+      const state = useRoomStore.getState();
+      expect(state.activeRoomId).toBe(A);
+      expect(state.backStack).toEqual([]);
+      expect(state.forwardStack).toEqual([]);
+    });
+
+    it("goForward is a no-op when the forward stack is empty", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().goForward();
+      expect(useRoomStore.getState().activeRoomId).toBe(A);
+    });
+
+    it("reset clears both stacks", () => {
+      useRoomStore.getState().setActiveRoom(A);
+      useRoomStore.getState().setActiveRoom(B);
+      useRoomStore.getState().reset();
+      const state = useRoomStore.getState();
+      expect(state.backStack).toEqual([]);
+      expect(state.forwardStack).toEqual([]);
+      expect(state.activeRoomId).toBeNull();
+    });
+  });
 });
 
 describe("syncStore", () => {

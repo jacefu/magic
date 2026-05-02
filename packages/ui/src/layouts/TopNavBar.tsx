@@ -1,4 +1,5 @@
 import { useRoomStore } from "@magic/matrix-client";
+import { useEffect } from "react";
 
 // Discord's full-width title bar that spans across all columns. Background
 // matches the deepest layer (#1E1F22 — same as the workspace rail) so the
@@ -19,7 +20,41 @@ export function TopNavBar() {
   const room = useRoomStore((s) =>
     activeRoomId ? s.rooms[activeRoomId] : null,
   );
+  const canGoBack = useRoomStore((s) => s.backStack.length > 0);
+  const canGoForward = useRoomStore((s) => s.forwardStack.length > 0);
+  const goBack = useRoomStore((s) => s.goBack);
+  const goForward = useRoomStore((s) => s.goForward);
   const title = room?.name || "Magic 工作区";
+
+  // Mouse 4 / Mouse 5 (XButton1 / XButton2) for back / forward, matching
+  // the browser convention. Keyboard shortcut: Cmd/Ctrl + [ / ].
+  useEffect(() => {
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        goBack();
+      } else if (e.button === 4) {
+        e.preventDefault();
+        goForward();
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "[") {
+        e.preventDefault();
+        goBack();
+      } else if (e.key === "]") {
+        e.preventDefault();
+        goForward();
+      }
+    };
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [goBack, goForward]);
 
   return (
     <div
@@ -31,10 +66,14 @@ export function TopNavBar() {
         className="flex items-center gap-1 pl-[80px] pr-3"
         style={noDrag}
       >
-        <NavIconButton title="后退">
+        <NavIconButton title="后退" onClick={goBack} disabled={!canGoBack}>
           <ArrowLeftIcon />
         </NavIconButton>
-        <NavIconButton title="前进">
+        <NavIconButton
+          title="前进"
+          onClick={goForward}
+          disabled={!canGoForward}
+        >
           <ArrowRightIcon />
         </NavIconButton>
       </div>
@@ -70,17 +109,22 @@ function NavIconButton({
   children,
   title,
   onClick,
+  disabled,
 }: {
   children: React.ReactNode;
   title: string;
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       title={title}
       onClick={onClick}
+      disabled={disabled}
       className="flex h-7 w-7 items-center justify-center rounded text-[#B5BAC1]
-                 transition-colors hover:bg-[#35373C] hover:text-[#DBDEE1]"
+                 transition-colors hover:bg-[#35373C] hover:text-[#DBDEE1]
+                 disabled:cursor-not-allowed disabled:text-[#4E5058]
+                 disabled:hover:bg-transparent disabled:hover:text-[#4E5058]"
     >
       {children}
     </button>
