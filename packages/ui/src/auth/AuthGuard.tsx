@@ -1,44 +1,57 @@
-import { useEffect, type ReactNode } from "react";
-import { useAuth } from "../hooks/useAuth.js";
-import { LoginPage } from "./LoginPage.js";
-import { SyncingScreen } from "./SyncingScreen.js";
+import { useEffect, useState, type ReactNode } from "react";
+import { restoreAllSessions, useSessionStore } from "@magic/matrix-client";
+import { WelcomePage } from "./WelcomePage.js";
 
 interface AuthGuardProps {
   children: ReactNode;
 }
 
+/**
+ * Multi-server-aware AuthGuard.
+ *
+ *   - On mount, fire `restoreAllSessions()` once to rehydrate every
+ *     persisted session.
+ *   - While restoring → boot screen with the MAGIC mark + spinner.
+ *   - No sessions when restore finishes → WelcomePage.
+ *   - Any session present → main UI (`children`).
+ *
+ * Each session manages its own MatrixClient instance via session-manager;
+ * the active session's data is mirrored into the per-server stores
+ * (roomStore, authStore, …) so existing components keep working.
+ */
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { stage, error, initialize, login } = useAuth();
+  const sessionCount = useSessionStore(
+    (s) => Object.keys(s.sessions).length,
+  );
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    let cancelled = false;
+    restoreAllSessions().finally(() => {
+      if (!cancelled) setRestored(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  switch (stage) {
-    case "initializing":
-    case "restoring":
-      return (
-        <div className="flex h-screen items-center justify-center bg-bg-primary">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+  if (!restored) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#1E1F22]">
+        <div className="flex flex-col items-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#5865F2] text-[28px] font-semibold text-white">
+            M
+          </div>
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#5865F2] border-t-transparent" />
+          <p className="mt-3 text-sm text-[#949BA4]">正在恢复会话…</p>
         </div>
-      );
-
-    case "unauthenticated":
-      return <LoginPage onLogin={login} error={error} isLoading={false} />;
-
-    case "logging_in":
-      return <LoginPage onLogin={login} error={error} isLoading={true} />;
-
-    case "syncing":
-      return <SyncingScreen />;
-
-    case "authenticated":
-      return <>{children}</>;
-
-    case "error":
-      return <LoginPage onLogin={login} error={error} isLoading={false} />;
-
-    default:
-      return null;
+      </div>
+    );
   }
+
+  if (sessionCount === 0) {
+    return <WelcomePage />;
+  }
+
+  return <>{children}</>;
 }

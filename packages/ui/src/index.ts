@@ -5,6 +5,25 @@ export { LoginPage } from "./auth/LoginPage.js";
 export { LoginForm } from "./auth/LoginForm.js";
 export { SyncingScreen } from "./auth/SyncingScreen.js";
 export { AuthGuard } from "./auth/AuthGuard.js";
+export { WelcomePage } from "./auth/WelcomePage.js";
+
+// Settings (spec 016)
+export { SettingsPage } from "./settings/SettingsPage.js";
+export { SettingsNav } from "./settings/SettingsNav.js";
+export type { SettingsTab } from "./settings/SettingsNav.js";
+export { ServersSection } from "./settings/sections/ServersSection.js";
+export { AccountSection } from "./settings/sections/AccountSection.js";
+export { AppearanceSection } from "./settings/sections/AppearanceSection.js";
+export { LanguageSection } from "./settings/sections/LanguageSection.js";
+export { SecuritySection } from "./settings/sections/SecuritySection.js";
+export { SettingsToggle } from "./settings/components/SettingsToggle.js";
+export { SettingsRadioGroup } from "./settings/components/SettingsRadioGroup.js";
+export { SettingsInput } from "./settings/components/SettingsInput.js";
+export { useSettings } from "./hooks/useSettings.js";
+export type { Theme, Language } from "./hooks/useSettings.js";
+
+// Workspace (spec 016)
+export { AddServerDialog } from "./workspace/AddServerDialog.js";
 
 // Layouts
 export { MainLayout } from "./layouts/MainLayout.js";

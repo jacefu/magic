@@ -12,6 +12,8 @@ interface UIStoreState {
   rightPanelOpen: boolean;
   rightPanelMode: "members" | "files" | "agents" | "settings" | null;
   composerReplyTo: string | null;
+  /** Spec 016: full-screen settings overlay open / closed. */
+  settingsOpen: boolean;
   /**
    * Pending text to splice into the active room's composer at the
    * cursor. Set by anyone (sender-name click, emoji picker, …),
@@ -21,6 +23,8 @@ interface UIStoreState {
   toggleSidebar: () => void;
   setRightPanel: (mode: UIStoreState["rightPanelMode"]) => void;
   closeRightPanel: () => void;
+  openSettings: () => void;
+  closeSettings: () => void;
   setComposerReplyTo: (eventId: string | null) => void;
   requestComposerInsert: (text: string) => void;
   consumeComposerInsert: () => void;
@@ -32,10 +36,13 @@ export const useUIStore = create<UIStoreState>((set) => ({
   rightPanelOpen: false,
   rightPanelMode: null,
   composerReplyTo: null,
+  settingsOpen: false,
   composerInsertRequest: null,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setRightPanel: (mode) => set({ rightPanelOpen: true, rightPanelMode: mode }),
   closeRightPanel: () => set({ rightPanelOpen: false, rightPanelMode: null }),
+  openSettings: () => set({ settingsOpen: true }),
+  closeSettings: () => set({ settingsOpen: false }),
   setComposerReplyTo: (eventId) => set({ composerReplyTo: eventId }),
   requestComposerInsert: (text) =>
     set((s) => ({
@@ -51,6 +58,7 @@ export const useUIStore = create<UIStoreState>((set) => ({
       rightPanelOpen: false,
       rightPanelMode: null,
       composerReplyTo: null,
+      settingsOpen: false,
       composerInsertRequest: null,
     }),
 }));

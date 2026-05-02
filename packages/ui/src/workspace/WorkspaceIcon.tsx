@@ -8,6 +8,12 @@ interface WorkspaceIconProps {
   hasNotification?: boolean;
   notificationCount?: number;
   variant?: "default" | "add";
+  /**
+   * Per-spec 016: workspace icons reflect the matrix-js-sdk sync state
+   * of their session. SYNCING/RECONNECTING shows a spinner, ERROR adds
+   * a red ring, otherwise the initial.
+   */
+  syncState?: "STOPPED" | "SYNCING" | "PREPARED" | "ERROR" | "RECONNECTING";
   onClick: () => void;
 }
 
@@ -19,12 +25,15 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
   hasNotification = false,
   notificationCount,
   variant = "default",
+  syncState,
   onClick,
 }: WorkspaceIconProps) {
+  const isSyncing = syncState === "SYNCING" || syncState === "RECONNECTING";
+  const isError = syncState === "ERROR";
+
   return (
     <div className="relative flex items-center">
-      {/* Left selected indicator — sits in the rail's left margin (~12px
-          from the icon's left edge thanks to the wider w-[72px] rail) */}
+      {/* Left selected indicator — sits in the rail's left margin */}
       {isActive && (
         <div className="absolute -left-3 h-5 w-1 rounded-r-full bg-white" />
       )}
@@ -34,7 +43,7 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
 
       <button
         onClick={onClick}
-        title={name}
+        title={`${name}${isSyncing ? "（同步中）" : isError ? "（连接错误）" : ""}`}
         className={`flex h-12 w-12 items-center justify-center text-base font-semibold
                     transition-all duration-200
                     ${
@@ -43,14 +52,21 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
                         : variant === "add"
                           ? "rounded-full border-[1.5px] border-dashed border-[#6D6F78] text-[#6D6F78] text-lg hover:rounded-2xl hover:border-[#23A55A] hover:text-[#23A55A]"
                           : "rounded-2xl bg-[#313338] text-[#DBDEE1] hover:bg-[#5865F2] hover:text-white"
-                    }`}
+                    }
+                    ${isError ? "ring-2 ring-[#F23F43]" : ""}`}
         style={
           !isActive && color && variant !== "add"
             ? { backgroundColor: color, color: "#fff" }
-            : undefined
+            : isActive && color
+              ? { backgroundColor: color }
+              : undefined
         }
       >
-        {initial}
+        {isSyncing ? (
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        ) : (
+          initial
+        )}
       </button>
 
       {/* Notification badge */}

@@ -7,6 +7,7 @@ import { UserPanel } from "../workspace/UserPanel.js";
 import { ChatView } from "../chat/ChatView.js";
 import { MemberPanel } from "../panels/MemberPanel.js";
 import { AgentDashboard } from "../agents/AgentDashboard.js";
+import { SettingsPage } from "../settings/SettingsPage.js";
 import { isDmRoom } from "../lib/isDmRoom.js";
 
 export function MainLayout() {
@@ -15,6 +16,8 @@ export function MainLayout() {
     activeRoomId ? s.rooms[activeRoomId] : null,
   );
   const { rightPanelOpen, rightPanelMode, closeRightPanel } = useUIStore();
+  const settingsOpen = useUIStore((s) => s.settingsOpen);
+  const closeSettings = useUIStore((s) => s.closeSettings);
 
   // The member panel makes no sense in a 1:1 DM (it would just show the
   // other person), and ChannelHeader hides the toggle for DMs anyway —
@@ -120,6 +123,9 @@ export function MainLayout() {
           </div>
         )}
       </div>
+
+      {/* Full-screen settings overlay (spec 016) */}
+      {settingsOpen && <SettingsPage onClose={closeSettings} />}
     </div>
   );
 }

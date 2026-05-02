@@ -43,6 +43,18 @@ export { useUIStore } from "./stores/uiStore.js";
 export { useAgentStore } from "./stores/agentStore.js";
 export { useAgentRegistryStore } from "./stores/agentRegistryStore.js";
 export { useNotificationStore } from "./stores/notificationStore.js";
+export { useSessionStore } from "./stores/sessionStore.js";
+export type { ServerSession } from "./stores/sessionStore.js";
+
+// Multi-server session manager (spec 016)
+export {
+  addServer,
+  removeServer,
+  switchSession,
+  restoreAllSessions,
+  getSessionClient,
+  createSessionId,
+} from "./session-manager.js";
 export type { RoomData } from "./stores/roomStore.js";
 export type { SyncState } from "./stores/syncStore.js";
 export type { AgentData, TaskData } from "./stores/agentStore.js";
