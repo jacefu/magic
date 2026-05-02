@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { TextMessage } from "../../src/chat/TextMessage.js";
+import {
+  TextMessage,
+  looksLikeHtml,
+  normalizeBodyForMarkdown,
+} from "../../src/chat/TextMessage.js";
 
 describe("TextMessage", () => {
   it("renders plain text", () => {
@@ -98,11 +102,6 @@ describe("TextMessage", () => {
     });
 
     it("falls back to markdown rendering when formatted_body is absent", () => {
-      // Markdown rendering path is exercised — we just check that bold
-      // text comes through. Tables in raw `body` aren't always reliable
-      // because the agent's plain-text body sometimes lacks the
-      // separator row that remark-gfm requires; the formatted_body
-      // branch above is the robust path.
       render(
         <TextMessage
           body="**hello** world"
@@ -111,6 +110,69 @@ describe("TextMessage", () => {
         />,
       );
       expect(document.querySelector("strong")?.textContent).toBe("hello");
+    });
+
+    it("uses HTML branch even when format header is missing, so long as the body looks like HTML", () => {
+      const formatted = "<table><tr><th>x</th></tr></table>";
+      render(
+        <TextMessage
+          body="x"
+          formattedBody={formatted}
+          // intentionally undefined format
+          isOwn={false}
+          roomId="!r:example.com"
+        />,
+      );
+      expect(document.querySelector("table")).toBeTruthy();
+    });
+  });
+
+  describe("looksLikeHtml", () => {
+    it("returns false when formatted_body is undefined", () => {
+      expect(looksLikeHtml(undefined, undefined)).toBe(false);
+    });
+
+    it("returns true when format is org.matrix.custom.html", () => {
+      expect(looksLikeHtml("anything", "org.matrix.custom.html")).toBe(true);
+    });
+
+    it("returns true on raw HTML even without a format header", () => {
+      expect(looksLikeHtml("<p>hi</p>", undefined)).toBe(true);
+      expect(looksLikeHtml("<table><tr><td>x</td></tr></table>", undefined))
+        .toBe(true);
+    });
+
+    it("returns false for plain text without tags", () => {
+      expect(looksLikeHtml("just some plain text", undefined)).toBe(false);
+    });
+  });
+
+  describe("normalizeBodyForMarkdown", () => {
+    it("strips a leading BOM", () => {
+      expect(normalizeBodyForMarkdown("﻿hello")).toBe("hello");
+    });
+
+    it("normalises CRLF to LF", () => {
+      expect(normalizeBodyForMarkdown("a\r\nb\r\nc")).toBe("a\nb\nc");
+    });
+
+    it("rewrites full-width pipes ｜ to half-width |", () => {
+      expect(normalizeBodyForMarkdown("｜ a ｜ b ｜")).toBe("| a | b |");
+    });
+
+    it("converts bullet character • lines to '- ' list items", () => {
+      const input = "intro\n• item1\n• item2";
+      expect(normalizeBodyForMarkdown(input)).toBe(
+        "intro\n- item1\n- item2",
+      );
+    });
+
+    it("preserves indentation when rewriting bullets", () => {
+      expect(normalizeBodyForMarkdown("  • nested")).toBe("  - nested");
+    });
+
+    it("returns empty string unchanged", () => {
+      expect(normalizeBodyForMarkdown("")).toBe("");
     });
   });
 });

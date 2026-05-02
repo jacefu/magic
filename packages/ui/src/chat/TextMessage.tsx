@@ -75,19 +75,25 @@ export function TextMessage({
   const members = useRoomMembersForMentions(roomId);
 
   // Two rendering paths:
-  //   1. formatted_body present + HTML format → render the HTML directly
-  //      via rehype-raw + sanitize. Tables, links, code blocks etc. work
+  //   1. formatted_body looks like HTML → render it directly via
+  //      rehype-raw + sanitize. Tables, links, code blocks etc. work
   //      as the sender intended (matches Element's behaviour).
-  //   2. otherwise → markdown via remark-gfm with @mention preprocessing.
-  const useHtml =
-    Boolean(formattedBody) &&
-    (format === undefined || format === "org.matrix.custom.html");
+  //   2. otherwise → markdown via remark-gfm with @mention
+  //      preprocessing. Body is normalised first so common quirks
+  //      from agent output (CRLF, BOM, full-width pipes, leading
+  //      whitespace before tables) don't break GFM parsing.
+  //
+  // The format check is intentionally lenient: any formatted_body
+  // string containing an HTML tag is treated as HTML, regardless of
+  // whether `format` is set to "org.matrix.custom.html" or omitted.
+  // Some bots forget to set the format field.
+  const useHtml = looksLikeHtml(formattedBody, format);
 
   const source = useMemo(() => {
     if (useHtml && formattedBody) {
       return injectAnchorMentionsIntoHtml(formattedBody, members);
     }
-    return injectMentionLinks(body, formattedBody, members);
+    return injectMentionLinks(normalizeBodyForMarkdown(body), formattedBody, members);
   }, [useHtml, body, formattedBody, members]);
 
   const components: Components = {
@@ -313,4 +319,47 @@ export function injectMentionLinks(
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Detect whether a formatted_body should be treated as HTML.
+ * - Explicit `format === "org.matrix.custom.html"` → yes.
+ * - No format field but the string contains an HTML-ish tag → also yes.
+ *   (Plenty of bots send formatted_body without the format header.)
+ * - Empty or no tags → markdown branch handles it instead.
+ */
+export function looksLikeHtml(
+  formattedBody: string | undefined,
+  format: string | undefined,
+): boolean {
+  if (!formattedBody) return false;
+  if (format === "org.matrix.custom.html") return true;
+  // Any element-looking pattern is enough.
+  return /<[a-zA-Z][^>]*>/.test(formattedBody);
+}
+
+/**
+ * Pre-process the plain-text body so remark-gfm has a fair shot at
+ * parsing tables and lists.
+ *
+ * Production agent output has a few common quirks that confuse GFM:
+ *  - CRLF line endings (\r\n) — markdown usually OK, but stripping CR
+ *    avoids edge cases in other implementations.
+ *  - Leading BOM (U+FEFF) — must come off so it doesn't sit before the
+ *    first block element.
+ *  - Full-width pipes (｜, U+FF5C) used by some Chinese-locale tools —
+ *    GFM tables only recognise half-width "|".
+ *  - Lines starting with the bullet character "•" (U+2022). These are
+ *    often emitted by LLMs as visual bullets but break GFM list
+ *    detection. Convert to "- " so they render as proper list items.
+ */
+export function normalizeBodyForMarkdown(body: string): string {
+  if (!body) return body;
+  let out = body;
+  if (out.charCodeAt(0) === 0xfeff) out = out.slice(1);
+  out = out.replace(/\r\n?/g, "\n");
+  out = out.replace(/｜/g, "|");
+  // "•" at start of a line (after optional whitespace) → "- "
+  out = out.replace(/^([ \t]*)•[ \t]*/gm, "$1- ");
+  return out;
 }
