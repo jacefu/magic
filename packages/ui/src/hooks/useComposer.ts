@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   sendTextMessage,
   sendReply,
@@ -23,9 +23,53 @@ export function useComposer({ roomId }: UseComposerOptions) {
 
   const replyToEventId = useUIStore((s) => s.composerReplyTo);
   const setReplyTo = useUIStore((s) => s.setComposerReplyTo);
+  const insertRequest = useUIStore((s) => s.composerInsertRequest);
+  const consumeInsert = useUIStore((s) => s.consumeComposerInsert);
   const activeRoom = useRoomStore((s) => s.rooms[roomId]);
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
 
   const { notifyTyping, stopTyping } = useTypingNotifier(roomId);
+
+  // Inject text from external sources (sender-name click, emoji picker, …)
+  // at the current cursor position. Auto-pads with a leading space so
+  // "@manager" and "@alice" can stack without colliding into "@manager@alice".
+  useEffect(() => {
+    if (!insertRequest) return;
+    // Only apply if this composer is for the currently-active room — we
+    // don't want a click-to-mention from a stale tab to splatter the
+    // foreground composer.
+    if (activeRoomId !== roomId) return;
+
+    const textarea = inputRef.current;
+    const cursorPos =
+      textarea?.selectionStart ?? value.length;
+    const before = value.slice(0, cursorPos);
+    const after = value.slice(cursorPos);
+    const needsLeadingSpace =
+      before.length > 0 && !/\s$/.test(before);
+    const needsTrailingSpace = after.length > 0 && !/^\s/.test(after);
+    const insertion =
+      (needsLeadingSpace ? " " : "") +
+      insertRequest.text +
+      (needsTrailingSpace ? "" : "");
+
+    const next = before + insertion + after;
+    setValue(next);
+    drafts.set(roomId, next);
+
+    // Defer the cursor move + focus to the next frame so React has
+    // committed the new value to the textarea.
+    const targetCursor = (before + insertion).length;
+    requestAnimationFrame(() => {
+      const ta = inputRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.selectionStart = targetCursor;
+      ta.selectionEnd = targetCursor;
+    });
+
+    consumeInsert();
+  }, [insertRequest, activeRoomId, roomId, value, consumeInsert]);
 
   const handleChange = useCallback(
     (text: string) => {

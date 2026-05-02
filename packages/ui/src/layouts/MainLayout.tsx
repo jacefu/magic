@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { TopNavBar } from "./TopNavBar.js";
 import { WorkspaceBar } from "../workspace/WorkspaceBar.js";
@@ -6,10 +7,29 @@ import { UserPanel } from "../workspace/UserPanel.js";
 import { ChatView } from "../chat/ChatView.js";
 import { MemberPanel } from "../panels/MemberPanel.js";
 import { AgentDashboard } from "../agents/AgentDashboard.js";
+import { isDmRoom } from "../lib/isDmRoom.js";
 
 export function MainLayout() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
+  const activeRoom = useRoomStore((s) =>
+    activeRoomId ? s.rooms[activeRoomId] : null,
+  );
   const { rightPanelOpen, rightPanelMode, closeRightPanel } = useUIStore();
+
+  // The member panel makes no sense in a 1:1 DM (it would just show the
+  // other person), and ChannelHeader hides the toggle for DMs anyway —
+  // so close the panel automatically when the user switches into a DM
+  // with members mode still latched open from a previous group room.
+  useEffect(() => {
+    if (
+      rightPanelOpen &&
+      rightPanelMode === "members" &&
+      activeRoom &&
+      isDmRoom(activeRoom)
+    ) {
+      closeRightPanel();
+    }
+  }, [activeRoom, rightPanelOpen, rightPanelMode, closeRightPanel]);
 
   return (
     <div className="flex h-screen flex-col bg-[#313338] text-[#DBDEE1]">

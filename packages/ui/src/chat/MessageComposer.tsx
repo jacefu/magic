@@ -1,9 +1,14 @@
-import { useEffect, useRef, useCallback } from "react";
-import { useRoomStore, uploadAndSendFile } from "@magic/matrix-client";
+import { useEffect, useRef, useCallback, useState } from "react";
+import {
+  useRoomStore,
+  useUIStore,
+  uploadAndSendFile,
+} from "@magic/matrix-client";
 import { useComposer } from "../hooks/useComposer.js";
 import { usePasteFile } from "../hooks/usePasteFile.js";
 import { ComposerInput } from "./ComposerInput.js";
 import { ReplyPreview } from "./ReplyPreview.js";
+import { EmojiPicker } from "./EmojiPicker.js";
 
 interface MessageComposerProps {
   roomId: string;
@@ -34,10 +39,21 @@ export function MessageComposer({
   const placeholder = room?.name ? `发消息到 #${room.name}` : "输入消息…";
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const requestComposerInsert = useUIStore((s) => s.requestComposerInsert);
 
   const handleAttach = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  const handlePickEmoji = useCallback(
+    (emoji: string) => {
+      requestComposerInsert(emoji);
+      setEmojiOpen(false);
+    },
+    [requestComposerInsert],
+  );
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,10 +113,27 @@ export function MessageComposer({
         </div>
 
         {/* Right-side icon cluster */}
-        <div className="flex shrink-0 items-center gap-1">
-          <ComposerIconButton title="emoji">
+        <div className="relative flex shrink-0 items-center gap-1">
+          <button
+            ref={emojiButtonRef}
+            type="button"
+            title="emoji"
+            onClick={() => setEmojiOpen((v) => !v)}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center
+                        transition-colors ${
+                          emojiOpen
+                            ? "text-[#DBDEE1]"
+                            : "text-[#B5BAC1] hover:text-[#DBDEE1]"
+                        }`}
+          >
             <EmojiIcon />
-          </ComposerIconButton>
+          </button>
+          <EmojiPicker
+            open={emojiOpen}
+            onClose={() => setEmojiOpen(false)}
+            onPick={handlePickEmoji}
+            anchorRef={emojiButtonRef}
+          />
 
           {/* Send (only visually present when there's text — Discord behavior) */}
           {value.trim() && (

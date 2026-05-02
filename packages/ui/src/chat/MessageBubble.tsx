@@ -1,5 +1,11 @@
 import { memo } from "react";
 import type { SerializedMatrixEvent } from "@magic/shared-types";
+import {
+  getClient,
+  hasClient,
+  useAuthStore,
+  useUIStore,
+} from "@magic/matrix-client";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
 import { MessageContent } from "./MessageContent.js";
 import { AgentTag } from "../agents/AgentTag.js";
@@ -34,6 +40,23 @@ export const MessageBubble = memo(function MessageBubble({
   const senderName = extractDisplayName(event.sender);
   const agentInfo = getAgentInfo(event.sender);
 
+  // Resolve display name with the SDK if available — falls back to the
+  // user's local part. Used for click-to-mention so it lines up with
+  // resolveMentionsToPlaceholders' member lookup at send time.
+  const mentionableName = useMentionableDisplayName(
+    event.sender,
+    senderName,
+    event.roomId,
+  );
+
+  const isOwnSender = useAuthStore((s) => s.userId) === event.sender;
+  const requestComposerInsert = useUIStore((s) => s.requestComposerInsert);
+
+  const handleNameClick = () => {
+    if (isOwnSender) return; // don't @ yourself
+    requestComposerInsert(`@${mentionableName} `);
+  };
+
   return (
     <div
       className={`group relative flex gap-4 px-4 transition-colors duration-100 hover:bg-[#35373C]
@@ -49,12 +72,18 @@ export const MessageBubble = memo(function MessageBubble({
       <div className="min-w-0 flex-1">
         {showSender && (
           <div className="mb-0.5 flex items-baseline gap-1.5">
-            <span
-              className="text-[15px] font-semibold leading-snug"
+            <button
+              type="button"
+              onClick={handleNameClick}
+              disabled={isOwnSender}
+              className="text-[15px] font-semibold leading-snug
+                         transition-colors hover:underline
+                         disabled:cursor-default disabled:no-underline"
               style={{ color: agentInfo.nameColor }}
+              title={isOwnSender ? undefined : `@提及 ${mentionableName}`}
             >
               {senderName}
-            </span>
+            </button>
             <AgentTag agentInfo={agentInfo} size="sm" />
             <span className="ml-1 text-xs text-[#949BA4]">{time}</span>
           </div>
@@ -139,6 +168,25 @@ function getSystemEventText(event: SerializedMatrixEvent): string | null {
 function extractDisplayName(userId: string): string {
   const match = userId.match(/^@([^:]+)/);
   return match ? match[1] : userId;
+}
+
+/** Match the SDK's joined-member display name (e.g. "manager 💕") so the
+ *  click-to-mention text resolves cleanly via resolveMentionsToPlaceholders.
+ *  Falls back to the user's local part when no member record is found. */
+function useMentionableDisplayName(
+  senderUserId: string,
+  fallback: string,
+  roomId: string,
+): string {
+  if (!hasClient()) return fallback;
+  try {
+    const room = getClient().getRoom(roomId);
+    if (!room) return fallback;
+    const member = room.getMember(senderUserId);
+    return member?.name || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function formatTime(ts: number): string {
