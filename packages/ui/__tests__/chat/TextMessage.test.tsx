@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import {
   TextMessage,
-  looksLikeHtml,
   normalizeBodyForMarkdown,
 } from "../../src/chat/TextMessage.js";
 
@@ -26,12 +25,33 @@ describe("TextMessage", () => {
     expect(em?.textContent).toBe("italic text");
   });
 
-  it("renders link with target=_blank", () => {
-    render(<TextMessage body="[click](https://example.com)" isOwn={false} roomId="!r:example.com" />);
+  it("renders link with target=_blank and brand colour", () => {
+    render(
+      <TextMessage
+        body="[click](https://example.com)"
+        isOwn={false}
+        roomId="!r:example.com"
+      />,
+    );
     const link = document.querySelector("a");
     expect(link?.getAttribute("href")).toBe("https://example.com");
     expect(link?.getAttribute("target")).toBe("_blank");
     expect(link?.getAttribute("rel")).toContain("noopener");
+    expect(link?.className).toContain("text-[#00A8FC]");
+  });
+
+  it("auto-links bare URLs in body", () => {
+    render(
+      <TextMessage
+        body="see https://www.oschina.net/news/437612 for details"
+        isOwn={false}
+        roomId="!r:example.com"
+      />,
+    );
+    const link = document.querySelector("a");
+    expect(link?.getAttribute("href")).toBe(
+      "https://www.oschina.net/news/437612",
+    );
   });
 
   it("renders inline code", () => {
@@ -53,97 +73,33 @@ describe("TextMessage", () => {
     expect(code?.className).toContain("bg-bg-modifier");
   });
 
-  describe("HTML formatted_body branch", () => {
-    it("renders an HTML <table> from formatted_body even if body is just plain text", () => {
-      const formatted = `<table><thead><tr><th>指标</th><th>数量</th></tr></thead><tbody><tr><td>重要新闻</td><td>3 条</td></tr></tbody></table>`;
-      render(
-        <TextMessage
-          body="| 指标 | 数量 |\n| 重要新闻 | 3 条 |"
-          formattedBody={formatted}
-          format="org.matrix.custom.html"
-          isOwn={false}
-          roomId="!r:example.com"
-        />,
-      );
-      expect(document.querySelector("table")).toBeTruthy();
-      expect(document.querySelector("th")?.textContent).toBe("指标");
-      expect(document.querySelector("td")?.textContent).toBe("重要新闻");
-    });
-
-    it("renders <a> from formatted_body as a clickable link with safe attrs", () => {
-      const formatted = `Visit <a href="https://www.oschina.net/news/437612">OSChina</a>`;
-      render(
-        <TextMessage
-          body="Visit https://www.oschina.net/news/437612"
-          formattedBody={formatted}
-          format="org.matrix.custom.html"
-          isOwn={false}
-          roomId="!r:example.com"
-        />,
-      );
-      const link = document.querySelector("a");
-      expect(link?.getAttribute("href")).toBe(
-        "https://www.oschina.net/news/437612",
-      );
-    });
-
-    it("strips <script> tags from formatted_body via the sanitizer", () => {
-      const formatted = `Hello<script>window.evil = true;</script> world`;
-      render(
-        <TextMessage
-          body="Hello world"
-          formattedBody={formatted}
-          format="org.matrix.custom.html"
-          isOwn={false}
-          roomId="!r:example.com"
-        />,
-      );
-      expect(document.querySelector("script")).toBeNull();
-    });
-
-    it("falls back to markdown rendering when formatted_body is absent", () => {
-      render(
-        <TextMessage
-          body="**hello** world"
-          isOwn={false}
-          roomId="!r:example.com"
-        />,
-      );
-      expect(document.querySelector("strong")?.textContent).toBe("hello");
-    });
-
-    it("uses HTML branch even when format header is missing, so long as the body looks like HTML", () => {
-      const formatted = "<table><tr><th>x</th></tr></table>";
-      render(
-        <TextMessage
-          body="x"
-          formattedBody={formatted}
-          // intentionally undefined format
-          isOwn={false}
-          roomId="!r:example.com"
-        />,
-      );
-      expect(document.querySelector("table")).toBeTruthy();
-    });
+  it("does NOT leak the raw `node` AST prop onto rendered <code>", () => {
+    render(<TextMessage body="hi `x` end" isOwn={false} roomId="!r:example.com" />);
+    const code = document.querySelector("code");
+    expect(code?.getAttribute("node")).toBeNull();
   });
 
-  describe("looksLikeHtml", () => {
-    it("returns false when formatted_body is undefined", () => {
-      expect(looksLikeHtml(undefined, undefined)).toBe(false);
+  describe("tables", () => {
+    it("renders GFM markdown tables from body with bordered styling", () => {
+      const md = "| 类型 | 数量 |\n| --- | --- |\n| 重要 | 3 条 |\n| 普通 | 5 条 |";
+      render(
+        <TextMessage body={md} isOwn={false} roomId="!r:example.com" />,
+      );
+      const table = document.querySelector("table");
+      expect(table).toBeTruthy();
+      expect(table?.className).toContain("border-collapse");
+      expect(document.querySelectorAll("th")).toHaveLength(2);
+      expect(document.querySelectorAll("tbody tr")).toHaveLength(2);
     });
 
-    it("returns true when format is org.matrix.custom.html", () => {
-      expect(looksLikeHtml("anything", "org.matrix.custom.html")).toBe(true);
-    });
-
-    it("returns true on raw HTML even without a format header", () => {
-      expect(looksLikeHtml("<p>hi</p>", undefined)).toBe(true);
-      expect(looksLikeHtml("<table><tr><td>x</td></tr></table>", undefined))
-        .toBe(true);
-    });
-
-    it("returns false for plain text without tags", () => {
-      expect(looksLikeHtml("just some plain text", undefined)).toBe(false);
+    it("inserts a blank line before a table glued to the previous paragraph", () => {
+      // No blank line between "汇总" and the header row — normalizer
+      // should still let remark-gfm find the table.
+      const md = "汇总\n| a | b |\n| --- | --- |\n| 1 | 2 |";
+      render(
+        <TextMessage body={md} isOwn={false} roomId="!r:example.com" />,
+      );
+      expect(document.querySelector("table")).toBeTruthy();
     });
   });
 
@@ -169,6 +125,11 @@ describe("TextMessage", () => {
 
     it("preserves indentation when rewriting bullets", () => {
       expect(normalizeBodyForMarkdown("  • nested")).toBe("  - nested");
+    });
+
+    it("inserts a blank line before a markdown table that follows text directly", () => {
+      const out = normalizeBodyForMarkdown("汇总\n| a | b |\n| --- | --- |");
+      expect(out).toBe("汇总\n\n| a | b |\n| --- | --- |");
     });
 
     it("returns empty string unchanged", () => {

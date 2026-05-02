@@ -1,8 +1,6 @@
-import { useMemo } from "react";
+import { isValidElement, useMemo, type ReactElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { Components } from "react-markdown";
@@ -17,112 +15,68 @@ interface TextMessageProps {
   roomId: string;
 }
 
-// Sanitize schema: lifts the rehype defaults to allow Matrix's
-// `m.text` HTML subset. We accept tables (GFM) + the Matrix-spec
-// allowlist of inline / block tags. The `org.matrix.custom.html` spec
-// (Matrix v1.7) explicitly lists these.
-const SANITIZE_SCHEMA = {
-  ...defaultSchema,
-  tagNames: [
-    ...(defaultSchema.tagNames ?? []),
-    "table",
-    "thead",
-    "tbody",
-    "tfoot",
-    "tr",
-    "th",
-    "td",
-    "caption",
-    "colgroup",
-    "col",
-    "details",
-    "summary",
-    "del",
-    "sub",
-    "sup",
-  ],
-  attributes: {
-    ...(defaultSchema.attributes ?? {}),
-    "*": [
-      ...(defaultSchema.attributes?.["*"] ?? []),
-      "className",
-      "style",
-    ],
-    a: [
-      ...(defaultSchema.attributes?.a ?? []),
-      ["target", "_blank"],
-      ["rel", "noopener", "noreferrer"],
-      "href",
-    ],
-    img: [
-      ...(defaultSchema.attributes?.img ?? []),
-      "src",
-      "alt",
-      "title",
-      "width",
-      "height",
-    ],
-  },
-};
-
 export function TextMessage({
   body,
-  formattedBody,
-  format,
   isOwn,
   roomId,
 }: TextMessageProps) {
   const members = useRoomMembersForMentions(roomId);
 
-  // Two rendering paths:
-  //   1. formatted_body looks like HTML → render it directly via
-  //      rehype-raw + sanitize. Tables, links, code blocks etc. work
-  //      as the sender intended (matches Element's behaviour).
-  //   2. otherwise → markdown via remark-gfm with @mention
-  //      preprocessing. Body is normalised first so common quirks
-  //      from agent output (CRLF, BOM, full-width pipes, leading
-  //      whitespace before tables) don't break GFM parsing.
+  // We render the message body as Markdown (with GFM extensions).
   //
-  // The format check is intentionally lenient: any formatted_body
-  // string containing an HTML tag is treated as HTML, regardless of
-  // whether `format` is set to "org.matrix.custom.html" or omitted.
-  // Some bots forget to set the format field.
-  const useHtml = looksLikeHtml(formattedBody, format);
-
-  const source = useMemo(() => {
-    if (useHtml && formattedBody) {
-      return injectAnchorMentionsIntoHtml(formattedBody, members);
-    }
-    return injectMentionLinks(normalizeBodyForMarkdown(body), formattedBody, members);
-  }, [useHtml, body, formattedBody, members]);
+  // Why not formatted_body / HTML?
+  // -----------------------------
+  // Matrix's `formatted_body` is an HTML rendering some senders provide
+  // alongside `body`. In practice, the bot frameworks our agents use
+  // produce structurally questionable HTML — e.g. wrapping a markdown
+  // table in <code>, leaving lists outside the proper <ul>, etc. Body,
+  // on the other hand, is what the LLM actually generated, and remark-gfm
+  // handles it cleanly: tables, autolinks, fenced code, lists, all there.
+  // We get the same Element-equivalent render plus our @mention pills
+  // and we don't have to babysit a dozen flavours of malformed HTML.
+  const source = useMemo(
+    () => injectMentionLinks(normalizeBodyForMarkdown(body), members),
+    [body, members],
+  );
 
   const components: Components = {
-    code({ className, children, ...props }) {
-      const match = /language-(\w+)/.exec(className ?? "");
-      const isBlock = Boolean(match ?? className);
-
-      if (!isBlock) {
+    // Block code: <pre> wraps a <code class="language-*">. We intercept
+    // <pre> so we can extract language + content for SyntaxHighlighter
+    // — the previous setup intercepted <code> only, and fenced blocks
+    // without a language tag fell through to the inline path which then
+    // stripped newlines.
+    pre({ children }) {
+      const inner = extractCodeChild(children);
+      if (inner) {
         return (
-          <code
-            className={`rounded px-1 py-0.5 text-[13px] ${
-              isOwn ? "bg-brand-hover/40" : "bg-bg-modifier"
-            }`}
-            {...props}
+          <SyntaxHighlighter
+            style={oneDark}
+            language={inner.language ?? "text"}
+            PreTag="div"
+            customStyle={{
+              margin: "6px 0",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
           >
-            {children}
-          </code>
+            {inner.code.replace(/\n$/, "")}
+          </SyntaxHighlighter>
         );
       }
-
+      return <pre>{children}</pre>;
+    },
+    code({ className, children }) {
+      // Block code is handled by `pre` above; this branch only fires for
+      // *inline* code (single-backtick). Strip remark/rehype's `node`
+      // prop so it doesn't leak onto the DOM as `node="[object Object]"`.
       return (
-        <SyntaxHighlighter
-          style={oneDark}
-          language={match?.[1] ?? "text"}
-          PreTag="div"
-          customStyle={{ margin: "4px 0", borderRadius: "8px", fontSize: "12px" }}
+        <code
+          className={`rounded px-1 py-0.5 text-[13px] ${
+            isOwn ? "bg-brand-hover/40" : "bg-bg-modifier"
+          } ${className ?? ""}`}
         >
-          {String(children).replace(/\n$/, "")}
-        </SyntaxHighlighter>
+          {children}
+        </code>
       );
     },
     a({ href, children }) {
@@ -144,56 +98,147 @@ export function TextMessage({
         }
       }
       return (
-        <a href={href} target="_blank" rel="noopener noreferrer">
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#00A8FC] hover:underline break-all"
+        >
           {children}
         </a>
       );
     },
+    // Tables — we don't have @tailwindcss/typography installed, so the
+    // prose-table:* utility classes don't generate any CSS. Style the
+    // elements directly here instead.
+    table({ children }) {
+      return (
+        <table className="my-2 w-auto border-collapse border border-[#3F4147]">
+          {children}
+        </table>
+      );
+    },
+    thead({ children }) {
+      return <thead className="bg-[#2B2D31]">{children}</thead>;
+    },
+    th({ children, style }) {
+      return (
+        <th
+          className="border border-[#3F4147] px-3 py-1.5 font-semibold text-[#DBDEE1]"
+          style={style}
+        >
+          {children}
+        </th>
+      );
+    },
+    td({ children, style }) {
+      return (
+        <td
+          className="border border-[#3F4147] px-3 py-1.5 text-[#DBDEE1]"
+          style={style}
+        >
+          {children}
+        </td>
+      );
+    },
     p({ children }) {
-      return <p className="my-0">{children}</p>;
+      return <p className="my-1 leading-[1.55]">{children}</p>;
+    },
+    h1({ children }) {
+      return (
+        <h1 className="my-2 text-[18px] font-semibold text-[#DBDEE1]">
+          {children}
+        </h1>
+      );
+    },
+    h2({ children }) {
+      return (
+        <h2 className="my-2 text-[16px] font-semibold text-[#DBDEE1]">
+          {children}
+        </h2>
+      );
+    },
+    h3({ children }) {
+      return (
+        <h3 className="my-2 text-[15px] font-semibold text-[#DBDEE1]">
+          {children}
+        </h3>
+      );
+    },
+    ul({ children }) {
+      return <ul className="my-1.5 ml-5 list-disc marker:text-[#6D6F78]">{children}</ul>;
+    },
+    ol({ children }) {
+      return <ol className="my-1.5 ml-5 list-decimal marker:text-[#6D6F78]">{children}</ol>;
+    },
+    li({ children }) {
+      return <li className="my-0.5 leading-[1.55]">{children}</li>;
+    },
+    blockquote({ children }) {
+      return (
+        <blockquote className="my-1.5 border-l-[3px] border-[#4E5058] pl-3 text-[#B5BAC1]">
+          {children}
+        </blockquote>
+      );
+    },
+    hr() {
+      return <hr className="my-2 border-[#3F4147]" />;
+    },
+    strong({ children }) {
+      return <strong className="font-semibold text-[#DBDEE1]">{children}</strong>;
+    },
+    em({ children }) {
+      return <em className="text-[#DBDEE1]">{children}</em>;
     },
   };
 
   return (
-    <div
-      className="prose prose-invert max-w-none break-words
-                 text-[15px] leading-[1.55]
-                 prose-p:my-1 prose-p:leading-[1.55]
-                 prose-pre:my-1.5 prose-code:text-[13px]
-                 prose-strong:text-[#DBDEE1] prose-strong:font-semibold
-                 prose-em:text-[#DBDEE1]
-                 prose-headings:my-2 prose-headings:font-semibold prose-headings:text-[#DBDEE1]
-                 prose-h1:text-[18px] prose-h2:text-[16px] prose-h3:text-[15px]
-                 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:marker:text-[#6D6F78]
-                 prose-blockquote:my-1.5 prose-blockquote:border-l-[3px]
-                 prose-blockquote:border-[#4E5058] prose-blockquote:pl-3
-                 prose-blockquote:text-[#B5BAC1] prose-blockquote:not-italic
-                 prose-a:text-[#00A8FC] prose-a:no-underline hover:prose-a:underline
-                 prose-hr:my-2 prose-hr:border-[#3F4147]
-                 prose-table:my-2 prose-table:w-auto
-                 prose-table:border-collapse prose-table:border prose-table:border-[#3F4147]
-                 prose-th:border prose-th:border-[#3F4147] prose-th:bg-[#2B2D31]
-                 prose-th:px-3 prose-th:py-1.5 prose-th:font-semibold
-                 prose-th:text-[#DBDEE1]
-                 prose-td:border prose-td:border-[#3F4147] prose-td:px-3 prose-td:py-1.5
-                 prose-td:text-[#DBDEE1]"
-    >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={
-          useHtml ? [rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]] : []
-        }
-        components={components}
-      >
+    <div className="max-w-none break-words text-[15px] leading-[1.55] text-[#DBDEE1]">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {source}
       </ReactMarkdown>
     </div>
   );
 }
 
+/** Pull the language + content out of a <pre>'s child <code> element. */
+function extractCodeChild(
+  children: React.ReactNode,
+): { language: string | null; code: string } | null {
+  if (!isValidElement(children)) return null;
+  const el = children as ReactElement<{
+    className?: string;
+    children?: React.ReactNode;
+  }>;
+  if (
+    typeof el.type === "string"
+      ? el.type !== "code"
+      : (el.type as { name?: string }).name !== "code"
+  ) {
+    // Some renderers wrap further (e.g. fragment). Only handle the
+    // direct <code> child case.
+    return null;
+  }
+  const { className, children: inner } = el.props;
+  const match = /language-(\w+)/.exec(className ?? "");
+  return {
+    language: match?.[1] ?? null,
+    code: childrenToString(inner),
+  };
+}
+
 function childrenToString(children: React.ReactNode): string {
   if (typeof children === "string") return children;
   if (Array.isArray(children)) return children.map(childrenToString).join("");
+  if (
+    isValidElement(children) &&
+    typeof (children.props as { children?: React.ReactNode }).children !==
+      "undefined"
+  ) {
+    return childrenToString(
+      (children.props as { children: React.ReactNode }).children,
+    );
+  }
   return "";
 }
 
@@ -217,141 +262,18 @@ function useRoomMembersForMentions(
 }
 
 /**
- * For HTML-rendered messages: scan plain text nodes (anything outside an
- * existing anchor) for "@<displayName>" sequences that match a known
- * member, and wrap them in a matrix.to anchor so they end up as
- * <MentionPill>s. Existing <a href="https://matrix.to/...">…</a> nodes
- * are left untouched.
- */
-function injectAnchorMentionsIntoHtml(
-  html: string,
-  members: Array<{ userId: string; displayName: string }>,
-): string {
-  if (members.length === 0) return html;
-
-  const sorted = [...members].sort(
-    (a, b) => b.displayName.length - a.displayName.length,
-  );
-  const pattern = sorted.map((m) => escapeRegExp(m.displayName)).join("|");
-  const memberRegex = new RegExp(
-    `(^|\\s|>)@(${pattern})(?![A-Za-z0-9_])`,
-    "gu",
-  );
-
-  // Avoid touching content inside <a>...</a>: split on anchor boundaries
-  // and only run the substitution on the non-anchor segments.
-  const segments = html.split(/(<a\b[^>]*>[\s\S]*?<\/a>)/i);
-  return segments
-    .map((seg, idx) => {
-      if (idx % 2 === 1) return seg; // anchor, leave alone
-      return seg.replace(memberRegex, (_full, prefix, name) => {
-        const member = sorted.find((m) => m.displayName === name);
-        if (!member) return _full;
-        const url = `https://matrix.to/#/${encodeURIComponent(member.userId)}`;
-        return `${prefix}<a href="${url}">${escapeHtml(name)}</a>`;
-      });
-    })
-    .join("");
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/**
- * Rewrite plain "@name" patterns in `body` into Markdown links so the
- * `components.a` handler can route them to `<MentionPill>`. Two sources of
- * name → userId mapping:
- *   1. <a> anchors in `formatted_body` — explicit autocomplete-driven
- *      mentions, highest priority.
- *   2. Joined members of the current room — catches unstructured "@name"
- *      typed without going through the autocomplete (otherwise the
- *      mention renders as raw text).
- *
- * Word-boundary check: the @ must be at start-of-string or preceded by
- * whitespace, and the matched name must NOT be followed by an
- * alphanumeric/underscore. Avoids hitting "email@example.com" or
- * accidental matches inside longer identifiers.
- *
- * Markdown link text uses just the bare display name (no leading "@") —
- * MentionPill renders the "@" itself.
- */
-export function injectMentionLinks(
-  body: string,
-  formattedBody: string | undefined,
-  members: Array<{ userId: string; displayName: string }>,
-): string {
-  const nameToUserId = new Map<string, string>();
-
-  if (formattedBody) {
-    const linkPattern =
-      /<a\s+href="https:\/\/matrix\.to\/#\/([^"]+)"[^>]*>([^<]+)<\/a>/g;
-    for (const m of formattedBody.matchAll(linkPattern)) {
-      const userId = decodeURIComponent(m[1]);
-      if (!userId.startsWith("@")) continue;
-      const raw = m[2];
-      const name = raw.startsWith("@") ? raw.slice(1) : raw;
-      nameToUserId.set(name, userId);
-    }
-  }
-
-  for (const member of members) {
-    if (!nameToUserId.has(member.displayName)) {
-      nameToUserId.set(member.displayName, member.userId);
-    }
-  }
-
-  if (nameToUserId.size === 0) return body;
-
-  const names = [...nameToUserId.keys()].sort((a, b) => b.length - a.length);
-  const pattern = names.map(escapeRegExp).join("|");
-  const re = new RegExp(`(^|\\s)@(${pattern})(?![A-Za-z0-9_])`, "gu");
-
-  return body.replace(re, (_full, prefix, name) => {
-    const userId = nameToUserId.get(name)!;
-    return `${prefix}[${name}](https://matrix.to/#/${encodeURIComponent(userId)})`;
-  });
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Detect whether a formatted_body should be treated as HTML.
- * - Explicit `format === "org.matrix.custom.html"` → yes.
- * - No format field but the string contains an HTML-ish tag → also yes.
- *   (Plenty of bots send formatted_body without the format header.)
- * - Empty or no tags → markdown branch handles it instead.
- */
-export function looksLikeHtml(
-  formattedBody: string | undefined,
-  format: string | undefined,
-): boolean {
-  if (!formattedBody) return false;
-  if (format === "org.matrix.custom.html") return true;
-  // Any element-looking pattern is enough.
-  return /<[a-zA-Z][^>]*>/.test(formattedBody);
-}
-
-/**
  * Pre-process the plain-text body so remark-gfm has a fair shot at
- * parsing tables and lists.
+ * parsing tables and lists. Common quirks from agent / LLM output:
  *
- * Production agent output has a few common quirks that confuse GFM:
- *  - CRLF line endings (\r\n) — markdown usually OK, but stripping CR
- *    avoids edge cases in other implementations.
- *  - Leading BOM (U+FEFF) — must come off so it doesn't sit before the
- *    first block element.
- *  - Full-width pipes (｜, U+FF5C) used by some Chinese-locale tools —
- *    GFM tables only recognise half-width "|".
- *  - Lines starting with the bullet character "•" (U+2022). These are
- *    often emitted by LLMs as visual bullets but break GFM list
- *    detection. Convert to "- " so they render as proper list items.
+ * - Leading BOM (U+FEFF) — sits before the first block, breaks parsing.
+ * - CRLF (\r\n) line endings — strip the \r.
+ * - Full-width pipes (｜, U+FF5C) — GFM only recognises half-width "|".
+ * - "•" bullet lines — convert to "- " so they parse as real list items
+ *   (and the table block that often follows isn't absorbed into a
+ *   paragraph).
+ * - A blank line is inserted before any GFM table block that doesn't
+ *   already have one — some LLMs glue the table directly under the
+ *   preceding paragraph and remark-gfm then misses the table boundary.
  */
 export function normalizeBodyForMarkdown(body: string): string {
   if (!body) return body;
@@ -359,7 +281,46 @@ export function normalizeBodyForMarkdown(body: string): string {
   if (out.charCodeAt(0) === 0xfeff) out = out.slice(1);
   out = out.replace(/\r\n?/g, "\n");
   out = out.replace(/｜/g, "|");
-  // "•" at start of a line (after optional whitespace) → "- "
   out = out.replace(/^([ \t]*)•[ \t]*/gm, "$1- ");
+  // Insert a blank line before a "| ... |\n| --- ... |" pair when the
+  // preceding line is non-blank.
+  out = out.replace(
+    /([^\n])\n(\|[^\n]*\|\n\|[\s|:-]+\|)/g,
+    "$1\n\n$2",
+  );
   return out;
+}
+
+/**
+ * Rewrite plain "@name" patterns in `body` into Markdown links so the
+ * `components.a` handler can route them to `<MentionPill>`. The mapping
+ * comes from the room's joined members. Word-boundary check: the @
+ * must be at start-of-string or preceded by whitespace, and the matched
+ * name must NOT be followed by an alphanumeric/underscore. Avoids
+ * hitting "email@example.com" or accidental matches inside longer
+ * identifiers.
+ *
+ * Markdown link text uses just the bare display name (no leading "@") —
+ * MentionPill renders the "@" itself.
+ */
+export function injectMentionLinks(
+  body: string,
+  members: Array<{ userId: string; displayName: string }>,
+): string {
+  if (members.length === 0) return body;
+  const sorted = [...members].sort(
+    (a, b) => b.displayName.length - a.displayName.length,
+  );
+  const pattern = sorted.map((m) => escapeRegExp(m.displayName)).join("|");
+  const re = new RegExp(`(^|\\s)@(${pattern})(?![A-Za-z0-9_])`, "gu");
+
+  return body.replace(re, (_full, prefix, name) => {
+    const member = sorted.find((m) => m.displayName === name);
+    if (!member) return _full;
+    return `${prefix}[${name}](https://matrix.to/#/${encodeURIComponent(member.userId)})`;
+  });
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

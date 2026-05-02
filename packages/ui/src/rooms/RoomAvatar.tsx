@@ -19,9 +19,14 @@ export const RoomAvatar = memo(function RoomAvatar({
   const initials = getInitials(name);
   const bgColor = getAvatarColor(name);
 
+  // Span (not div) so MentionPill can render the avatar inline inside a
+  // markdown <p>. `display: inline-flex` makes the visual layout
+  // identical to the previous div-based version while staying valid as a
+  // <p> descendant — React was throwing
+  // "<div> cannot be a descendant of <p>" hydration warnings before.
   return (
-    <div
-      className="shrink-0 overflow-hidden"
+    <span
+      className="inline-flex shrink-0 overflow-hidden align-middle"
       style={{
         width: size,
         height: size,
@@ -39,7 +44,7 @@ export const RoomAvatar = memo(function RoomAvatar({
           }}
         />
       ) : (
-        <div
+        <span
           className="flex h-full w-full items-center justify-center font-medium text-white"
           style={{
             backgroundColor: bgColor,
@@ -47,9 +52,9 @@ export const RoomAvatar = memo(function RoomAvatar({
           }}
         >
           {initials}
-        </div>
+        </span>
       )}
-    </div>
+    </span>
   );
 });
 
