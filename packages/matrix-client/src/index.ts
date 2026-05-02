@@ -30,7 +30,7 @@ export {
 } from "./custom-events.js";
 
 // Bridge
-export { bridgeToStores } from "./bridge.js";
+export { bridgeToStores, registerNotificationCallback } from "./bridge.js";
 
 // Zustand stores
 export { useAuthStore } from "./stores/authStore.js";
@@ -42,10 +42,12 @@ export { useUserStore } from "./stores/userStore.js";
 export { useUIStore } from "./stores/uiStore.js";
 export { useAgentStore } from "./stores/agentStore.js";
 export { useAgentRegistryStore } from "./stores/agentRegistryStore.js";
+export { useNotificationStore } from "./stores/notificationStore.js";
 export type { RoomData } from "./stores/roomStore.js";
 export type { SyncState } from "./stores/syncStore.js";
 export type { AgentData, TaskData } from "./stores/agentStore.js";
 export type { RegisteredAgent } from "./stores/agentRegistryStore.js";
+export type { NotificationLevel } from "./stores/notificationStore.js";
 
 // Agent registry
 export { fetchAgentRegistry } from "./agent-registry.js";

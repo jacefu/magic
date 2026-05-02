@@ -13,6 +13,7 @@ import {
   MAGIC_EVENTS,
   AgentStatusEvent,
   TaskAssignmentEvent,
+  type SerializedMatrixEvent,
 } from "@magic/shared-types";
 import { useSyncStore, type SyncState } from "./stores/syncStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
@@ -20,6 +21,22 @@ import { useTypingStore } from "./stores/typingStore.js";
 import { useAgentStore } from "./stores/agentStore.js";
 import { serializeEvent } from "./serializers.js";
 import { fetchAgentRegistry } from "./agent-registry.js";
+
+/**
+ * Callback fired for every appended timeline event after it lands in the
+ * room store. The UI layer registers this via `registerNotificationCallback`
+ * so the matrix-client package doesn't need to import from `@magic/ui`
+ * (which would create a circular dependency).
+ */
+let notificationCallback:
+  | ((event: SerializedMatrixEvent) => void)
+  | null = null;
+
+export function registerNotificationCallback(
+  cb: ((event: SerializedMatrixEvent) => void) | null,
+): void {
+  notificationCallback = cb;
+}
 
 export function bridgeToStores(client: MatrixClient): () => void {
   const onSync = (
@@ -51,7 +68,9 @@ export function bridgeToStores(client: MatrixClient): () => void {
     toStartOfTimeline: boolean | undefined,
   ) => {
     if (!room || toStartOfTimeline) return;
-    useRoomStore.getState().addMessage(room.roomId, serializeEvent(event));
+    const serialized = serializeEvent(event);
+    useRoomStore.getState().addMessage(room.roomId, serialized);
+    notificationCallback?.(serialized);
   };
   client.on(RoomEvent.Timeline, onTimeline);
 

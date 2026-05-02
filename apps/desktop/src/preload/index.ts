@@ -47,6 +47,7 @@ const electronAPI: IElectronAPI = {
     ipcRenderer.on("notify:clicked", handler);
     return () => ipcRenderer.off("notify:clicked", handler);
   },
+  setBadgeCount: (count) => ipcRenderer.invoke("notify:set-badge", count),
 
   // ---- Shell ----
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),

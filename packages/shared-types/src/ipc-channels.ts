@@ -25,6 +25,11 @@ export interface IElectronAPI {
   // ---- Notifications ----
   showNotification: (payload: NotifyPayload) => Promise<void>;
   onNotifyClicked: (cb: (data: { roomId?: string; eventId?: string }) => void) => () => void;
+  /**
+   * Update the macOS Dock badge / tray title with the unread total.
+   * Pass 0 to clear.
+   */
+  setBadgeCount: (count: number) => Promise<void>;
 
   // ---- Shell ----
   openExternal: (url: string) => Promise<void>;

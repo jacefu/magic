@@ -126,6 +126,25 @@ export { DiffViewer } from "./editors/DiffViewer.js";
 export { EditorToolbar } from "./editors/EditorToolbar.js";
 export { EditorMeta } from "./editors/EditorMeta.js";
 
+// Notifications
+export {
+  evaluateNotification,
+  evaluateShouldNotify,
+  isMentionedInEvent,
+  recomputeAndPushTrayBadge,
+} from "./notifications/NotificationService.js";
+export type {
+  NotificationDecision,
+  NotificationDecisionContext,
+} from "./notifications/NotificationService.js";
+export {
+  preloadSounds,
+  playMessageSound,
+  playMentionSound,
+} from "./notifications/NotificationSound.js";
+export { NotificationSettings } from "./notifications/NotificationSettings.js";
+export { useNotifications } from "./hooks/useNotifications.js";
+
 // Crypto
 export { EncryptionBadge } from "./crypto/EncryptionBadge.js";
 export { UndecryptedMessage } from "./crypto/UndecryptedMessage.js";

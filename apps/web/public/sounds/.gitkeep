@@ -1,0 +1,3 @@
+Drop message.mp3 and mention.mp3 here.
+Until real assets are added, NotificationSound falls back to a synthesized
+Web Audio beep — no bundled assets required.
