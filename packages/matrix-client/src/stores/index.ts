@@ -9,6 +9,8 @@ export { useAgentStore } from "./agentStore.js";
 export { useAgentRegistryStore } from "./agentRegistryStore.js";
 export { useNotificationStore } from "./notificationStore.js";
 export { useSessionStore } from "./sessionStore.js";
+export { useInviteStore } from "./inviteStore.js";
+export type { RoomInvite } from "./inviteStore.js";
 export type { SyncState } from "./syncStore.js";
 export type { ServerSession } from "./sessionStore.js";
 export type { RoomData } from "./roomStore.js";

@@ -69,6 +69,13 @@ export { ComposerInput } from "./chat/ComposerInput.js";
 export { ComposerToolbar } from "./chat/ComposerToolbar.js";
 export { ReplyPreview } from "./chat/ReplyPreview.js";
 
+// Invites (spec 018)
+export { InviteSection } from "./rooms/InviteSection.js";
+export { InviteItem } from "./rooms/InviteItem.js";
+export { InviteDialog } from "./invites/InviteDialog.js";
+export { evaluateInviteNotification } from "./invites/InviteNotification.js";
+export { useAutoAccept } from "./hooks/useAutoAccept.js";
+
 // Hooks
 export { useElectronAPI, isElectron } from "./hooks/useElectronAPI.js";
 export { useFilteredRooms } from "./hooks/useFilteredRooms.js";

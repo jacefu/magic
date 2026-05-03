@@ -30,7 +30,19 @@ export {
 } from "./custom-events.js";
 
 // Bridge
-export { bridgeToStores, registerNotificationCallback } from "./bridge.js";
+export {
+  bridgeToStores,
+  registerNotificationCallback,
+  registerInviteNotificationCallback,
+} from "./bridge.js";
+
+// Invites (spec 018)
+export {
+  acceptInvite,
+  declineInvite,
+  declineAndBlockInvite,
+  acceptAllInvitesFrom,
+} from "./invites.js";
 
 // Zustand stores
 export { useAuthStore } from "./stores/authStore.js";
@@ -45,6 +57,8 @@ export { useAgentRegistryStore } from "./stores/agentRegistryStore.js";
 export { useNotificationStore } from "./stores/notificationStore.js";
 export { useSessionStore } from "./stores/sessionStore.js";
 export type { ServerSession } from "./stores/sessionStore.js";
+export { useInviteStore } from "./stores/inviteStore.js";
+export type { RoomInvite } from "./stores/inviteStore.js";
 
 // Multi-server session manager (specs 016 + 017)
 export {

@@ -1,16 +1,36 @@
-import { useState } from "react";
-import { useRoomStore } from "@magic/matrix-client";
+import { useMemo, useState } from "react";
+import {
+  useInviteStore,
+  useRoomStore,
+  useSessionStore,
+  type RoomInvite,
+} from "@magic/matrix-client";
 import { useFilteredRooms } from "../hooks/useFilteredRooms.js";
 import { RoomSection } from "./RoomSection.js";
 import { RoomSearchInput } from "./RoomSearchInput.js";
 import { CreateRoomDialog } from "./CreateRoomDialog.js";
 import { JoinRoomDialog } from "./JoinRoomDialog.js";
+import { InviteSection } from "./InviteSection.js";
+import { InviteDialog } from "../invites/InviteDialog.js";
 
 export function RoomList() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const { groups, searchQuery, setSearchQuery, toggleSection } = useFilteredRooms();
 
+  // Subscribe to the raw invites map and filter in a memo so the
+  // selector doesn't return a fresh array on every store write
+  // (which would re-trigger Zustand's strict-equality comparator).
+  const invitesMap = useInviteStore((s) => s.invites);
+  const invites = useMemo<RoomInvite[]>(() => {
+    if (!activeSessionId) return [];
+    return Object.values(invitesMap)
+      .filter((inv) => inv.sessionId === activeSessionId)
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [invitesMap, activeSessionId]);
+
+  const [selectedInvite, setSelectedInvite] = useState<RoomInvite | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -50,7 +70,12 @@ export function RoomList() {
       </div>
 
       <div className="mt-1 flex-1 overflow-y-auto pb-2">
-        {groups.length === 0 ? (
+        <InviteSection
+          invites={invites}
+          onSelectInvite={(inv) => setSelectedInvite(inv)}
+        />
+
+        {groups.length === 0 && invites.length === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-[#949BA4]">
             {searchQuery ? "未找到匹配的房间" : "暂无房间"}
           </div>
@@ -69,6 +94,12 @@ export function RoomList() {
         )}
       </div>
 
+      {selectedInvite && (
+        <InviteDialog
+          invite={selectedInvite}
+          onClose={() => setSelectedInvite(null)}
+        />
+      )}
       {showCreateDialog && (
         <CreateRoomDialog onClose={() => setShowCreateDialog(false)} />
       )}

@@ -19,6 +19,7 @@ import { useSyncStore, type SyncState } from "./stores/syncStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
 import { useAgentStore } from "./stores/agentStore.js";
+import { useInviteStore, type RoomInvite } from "./stores/inviteStore.js";
 import { serializeEvent } from "./serializers.js";
 import { fetchAgentRegistry } from "./agent-registry.js";
 
@@ -36,6 +37,20 @@ export function registerNotificationCallback(
   cb: ((event: SerializedMatrixEvent) => void) | null,
 ): void {
   notificationCallback = cb;
+}
+
+/**
+ * Spec 018: callback fired when a room invite lands so the UI can
+ * surface a desktop notification or auto-accept (e.g. Manager
+ * invites in HiClaw). Registered from `@magic/ui` to avoid a
+ * circular dependency.
+ */
+let inviteNotificationCallback: ((invite: RoomInvite) => void) | null = null;
+
+export function registerInviteNotificationCallback(
+  cb: ((invite: RoomInvite) => void) | null,
+): void {
+  inviteNotificationCallback = cb;
 }
 
 /**
@@ -66,6 +81,7 @@ export function bridgeToStores(
     if (state === "PREPARED") {
       syncStore.setInitialSyncComplete();
       syncRoomList(client, sessionId);
+      syncInviteList(client, sessionId);
 
       // Best-effort: pull the Worker / Manager registry from the HiClaw
       // Controller. Failure is silent — agentDetection falls back to
@@ -121,9 +137,28 @@ export function bridgeToStores(
   };
   client.on(RoomMemberEvent.Typing, onTyping);
 
-  const onMembership = (room: Room, membership: string) => {
+  const onMembership = (
+    room: Room,
+    membership: string,
+    prevMembership: string | undefined,
+  ) => {
+    if (membership === "invite") {
+      const invite = parseInvite(room, sessionId);
+      if (invite) {
+        useInviteStore.getState().addInvite(invite);
+        inviteNotificationCallback?.(invite);
+      }
+      return;
+    }
+    if (prevMembership === "invite" && membership === "join") {
+      // Accepted via this client or another — drop the pending invite
+      // either way; the joined room arrives through the normal sync.
+      useInviteStore.getState().removeInvite(room.roomId);
+      return;
+    }
     if (membership === "leave") {
       useRoomStore.getState().removeRoom(sessionId, room.roomId);
+      useInviteStore.getState().removeInvite(room.roomId);
     }
   };
   client.on(RoomEvent.MyMembership, onMembership);
@@ -203,6 +238,8 @@ function syncRoomList(client: MatrixClient, sessionId: string): void {
   const roomStore = useRoomStore.getState();
   roomStore.initSession(sessionId);
   for (const room of client.getRooms()) {
+    // Invite-state rooms live in inviteStore, not roomStore.
+    if (room.getMyMembership() !== "join") continue;
     roomStore.upsertRoom(sessionId, room.roomId, {
       name: room.name,
       topic:
@@ -229,6 +266,84 @@ function syncRoomList(client: MatrixClient, sessionId: string): void {
       handleMagicEvent(event, room);
     }
   }
+}
+
+/**
+ * Pull every invite-state room out of the client and seed inviteStore.
+ * Called once after the initial /sync hits PREPARED so invites that
+ * arrived while the app was closed don't get lost.
+ */
+function syncInviteList(client: MatrixClient, sessionId: string): void {
+  const inviteStore = useInviteStore.getState();
+  for (const room of client.getRooms()) {
+    if (room.getMyMembership() !== "invite") continue;
+    const invite = parseInvite(room, sessionId);
+    if (invite) inviteStore.addInvite(invite);
+  }
+}
+
+/**
+ * Build a `RoomInvite` from a Room currently in invite state. Some
+ * fields come from `invite_state` events (a stripped subset of
+ * `m.room.*` state) and may be missing — fall back to neutral values
+ * so the UI can render "未命名房间" rather than crashing.
+ */
+function parseInvite(room: Room, sessionId: string): RoomInvite | null {
+  try {
+    const nameEvent = room.currentState.getStateEvents("m.room.name", "");
+    const roomName =
+      (nameEvent?.getContent() as { name?: string } | undefined)?.name ?? null;
+
+    const avatarEvent = room.currentState.getStateEvents("m.room.avatar", "");
+    const roomAvatarMxc =
+      (avatarEvent?.getContent() as { url?: string } | undefined)?.url ??
+      null;
+
+    const myUserId = room.myUserId;
+    let inviterId = "";
+    let inviterName = "";
+    const memberEvents = room.currentState.getStateEvents("m.room.member");
+    for (const event of memberEvents) {
+      if (
+        event.getStateKey() === myUserId &&
+        (event.getContent() as { membership?: string } | undefined)
+          ?.membership === "invite"
+      ) {
+        inviterId = event.getSender() ?? "";
+        const inviterMember = inviterId
+          ? room.currentState.getMember(inviterId)
+          : null;
+        inviterName = inviterMember?.name ?? extractDisplayName(inviterId);
+        break;
+      }
+    }
+
+    const isEncrypted = !!room.currentState.getStateEvents(
+      "m.room.encryption",
+      "",
+    );
+    const isDirect = !!room.getDMInviter();
+
+    return {
+      roomId: room.roomId,
+      roomName,
+      roomAvatarMxc,
+      inviterId,
+      inviterName,
+      isDirect,
+      isEncrypted,
+      timestamp: Date.now(),
+      status: "pending",
+      sessionId,
+    };
+  } catch (err) {
+    console.error("解析邀请失败:", (err as Error).message);
+    return null;
+  }
+}
+
+function extractDisplayName(userId: string): string {
+  return userId.match(/^@([^:]+)/)?.[1] ?? userId;
 }
 
 function mapSyncState(sdkState: string): SyncState {
