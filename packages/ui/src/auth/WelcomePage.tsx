@@ -241,10 +241,12 @@ function parseError(err: unknown): string {
   if (status === 403 || msg.includes("M_FORBIDDEN")) return "用户名或密码错误";
   if (status === 429 || msg.includes("M_LIMIT_EXCEEDED"))
     return "登录请求过于频繁，请稍后重试";
+  if (msg.includes("服务器无响应")) return msg;
   if (
     msg.includes("fetch") ||
     msg.includes("network") ||
-    msg.includes("ECONNREFUSED")
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("ENOTFOUND")
   ) {
     return "无法连接到服务器，请检查地址";
   }

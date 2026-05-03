@@ -47,6 +47,28 @@ const inactivePollers = new Map<string, ReturnType<typeof setInterval>>();
 const INACTIVE_POLL_INTERVAL_MS = 30_000;
 
 /**
+ * Upper bound for `loginWithPassword`. matrix-js-sdk doesn't apply one
+ * itself, and the underlying `fetch` inherits the OS DNS timeout —
+ * 60-120s on macOS for a hostname that doesn't resolve. Bound it here
+ * so the UI gets a clean rejection well within human patience.
+ */
+const LOGIN_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  }) as Promise<T>;
+}
+
+/**
  * Reported by `restoreAllSessions` once per session as it goes. `null`
  * is emitted when the restore loop finishes (or there's nothing to
  * restore) so the UI can clear the splash.
@@ -108,7 +130,15 @@ export async function addServer(
     timelineSupport: true,
     useAuthorizationHeader: true,
   });
-  const response = await tempClient.loginWithPassword(username, password);
+  // matrix-js-sdk's loginWithPassword has no client-side timeout, so a
+  // bad DNS lookup or unresponsive homeserver leaves the dialog stuck
+  // on "连接中…" forever. Bound it explicitly so the UI gets a
+  // rejectable promise on slow / unreachable hosts.
+  const response = await withTimeout(
+    tempClient.loginWithPassword(username, password),
+    LOGIN_TIMEOUT_MS,
+    "服务器无响应，请检查地址或网络",
+  );
   tempClient.stopClient();
   await tempClient.clearStores().catch(() => {
     /* best-effort */
