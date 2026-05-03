@@ -6,6 +6,12 @@ interface RoomAvatarProps {
   avatarMxc: string | null;
   isDirect?: boolean;
   size?: number;
+  /**
+   * Optional explicit gradient — used by callers (e.g. MessageBubble)
+   * who already resolved the sender's role and want the role-specific
+   * Cosmic AI gradient instead of the hash-based fallback.
+   */
+  gradient?: string;
 }
 
 export const RoomAvatar = memo(function RoomAvatar({
@@ -13,11 +19,12 @@ export const RoomAvatar = memo(function RoomAvatar({
   avatarMxc,
   isDirect,
   size = 36,
+  gradient,
 }: RoomAvatarProps) {
   const avatarUrl = useAuthenticatedMedia(avatarMxc, size * 2, size * 2, "crop");
 
   const initials = getInitials(name);
-  const bgColor = getAvatarColor(name);
+  const bg = gradient ?? pickGradient(name);
 
   // Span (not div) so MentionPill can render the avatar inline inside a
   // markdown <p>. `display: inline-flex` makes the visual layout
@@ -45,9 +52,9 @@ export const RoomAvatar = memo(function RoomAvatar({
         />
       ) : (
         <span
-          className="flex h-full w-full items-center justify-center font-medium text-white"
+          className="flex h-full w-full items-center justify-center font-semibold text-white"
           style={{
-            backgroundColor: bgColor,
+            background: bg,
             fontSize: size * 0.36,
           }}
         >
@@ -65,14 +72,27 @@ function getInitials(name: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
-function getAvatarColor(name: string): string {
-  const colors = [
-    "#ef4444", "#f97316", "#eab308", "#22c55e",
-    "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899",
-  ];
+/**
+ * Cosmic AI gradient palette keyed off the name hash. The brand-aligned
+ * pairs read like "energy" — purples, cyans, mints — keeping room
+ * avatars cohesive with the rest of the gradient-driven UI rather than
+ * the previous flat bright primaries.
+ */
+const GRADIENTS = [
+  "linear-gradient(135deg, #6C5CE7, #3B82F6)", // human-blue (default)
+  "linear-gradient(135deg, #059669, #34D399)", // openclaw-green
+  "linear-gradient(135deg, #DC2626, #F97316)", // hermes-flame
+  "linear-gradient(135deg, #D97706, #FBBF24)", // qwenpaw-amber
+  "linear-gradient(135deg, #0D9488, #2DD4BF)", // manager-teal
+  "linear-gradient(135deg, #7C3AED, #A78BFA)", // leader-violet
+  "linear-gradient(135deg, #00B4D8, #00F5A0)", // brand cyan→mint
+  "linear-gradient(135deg, #E040A0, #F06040)", // mention pink→orange
+] as const;
+
+function pickGradient(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return colors[Math.abs(hash) % colors.length];
+  return GRADIENTS[Math.abs(hash) % GRADIENTS.length] ?? GRADIENTS[0]!;
 }

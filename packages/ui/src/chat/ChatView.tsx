@@ -22,10 +22,10 @@ export function ChatView() {
 
   if (!activeRoomId) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-[#313338]">
+      <div className="flex flex-1 items-center justify-center bg-[rgba(15,15,21,0.95)]">
         <div className="text-center">
-          <h2 className="text-xl font-medium text-[#DBDEE1]">选择一个房间</h2>
-          <p className="mt-2 text-sm text-[#949BA4]">
+          <h2 className="text-xl font-medium text-[rgba(255,255,255,0.85)]">选择一个房间</h2>
+          <p className="mt-2 text-sm text-[rgba(255,255,255,0.4)]">
             从左侧列表中选择一个房间开始聊天
           </p>
         </div>
@@ -71,7 +71,7 @@ function ChatViewContent({
 
   return (
     <div
-      className="relative flex flex-1 flex-col overflow-hidden bg-[#313338]"
+      className="relative flex flex-1 flex-col overflow-hidden bg-[rgba(15,15,21,0.95)]"
       {...dragProps}
     >
       <ChannelHeader roomId={roomId} />

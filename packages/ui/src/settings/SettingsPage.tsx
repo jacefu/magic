@@ -44,10 +44,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-[#313338]">
+    <div className="fixed inset-0 z-50 flex bg-[rgba(15,15,21,0.95)]">
       {/* Left gutter — pads the nav so it sits flush to the centre column */}
       <div
-        className="flex justify-end bg-[#2B2D31]"
+        className="flex justify-end bg-[rgba(18,18,26,0.85)]"
         style={{ flex: "1 0 218px" }}
       >
         <SettingsNav activeTab={activeTab} onTabChange={setActiveTab} />
@@ -74,8 +74,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             onClick={onClose}
             title="关闭设置 (ESC)"
             className="flex h-9 w-9 items-center justify-center rounded-full
-                       border border-[#6D6F78] text-[#949BA4]
-                       transition-colors hover:border-[#DBDEE1] hover:text-[#DBDEE1]"
+                       border border-[#6D6F78] text-[rgba(255,255,255,0.4)]
+                       transition-colors hover:border-[#DBDEE1] hover:text-[rgba(255,255,255,0.85)]"
           >
             <svg
               className="h-4 w-4"
@@ -91,7 +91,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
               />
             </svg>
           </button>
-          <span className="mt-2.5 text-[10px] text-[#6D6F78]">ESC</span>
+          <span className="mt-2.5 text-[10px] text-[rgba(255,255,255,0.2)]">ESC</span>
         </div>
       </div>
 

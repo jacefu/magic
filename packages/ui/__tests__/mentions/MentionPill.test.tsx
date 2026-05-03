@@ -27,21 +27,22 @@ describe("MentionPill", () => {
   it("uses self-mention styling when userId matches current user", () => {
     render(<MentionPill userId="@me:example.com" displayName="me" />);
     const pill = getPillRoot(screen.getByText("@me"));
-    expect(pill.className).toContain("bg-[rgba(88,101,242,0.35)]");
+    // Self-mention reads as pure-white text on the brighter gradient.
     expect(pill.className).toContain("text-white");
+    expect(pill.style.background).toContain("rgba(108,92,231,0.35)");
   });
 
   it("uses other-mention styling when userId differs", () => {
     render(<MentionPill userId="@alice:example.com" displayName="alice" />);
     const pill = getPillRoot(screen.getByText("@alice"));
-    expect(pill.className).toContain("bg-[rgba(88,101,242,0.25)]");
-    expect(pill.className).toContain("text-[#C9CDFB]");
+    expect(pill.className).toContain("text-[#A5B4FC]");
+    expect(pill.style.background).toContain("rgba(108,92,231,0.25)");
   });
 
-  it("renders as a rounded rectangle (rounded-md), not a full pill", () => {
+  it("renders as a rounded rectangle, not a full pill", () => {
     render(<MentionPill userId="@alice:example.com" displayName="alice" />);
     const pill = getPillRoot(screen.getByText("@alice"));
-    expect(pill.className).toContain("rounded-md");
+    expect(pill.className).toContain("rounded");
     expect(pill.className).not.toContain("rounded-full");
   });
 

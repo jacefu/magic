@@ -17,10 +17,10 @@ export const AgentTag = memo(function AgentTag({
 
   return (
     <span
-      className={`inline-flex items-center rounded-sm align-middle font-bold uppercase
-                  ${size === "sm" ? "ml-1 px-1 py-px text-[9px]" : "px-1.5 py-0.5 text-[10px]"}`}
+      className={`inline-flex items-center rounded-[3px] align-middle font-bold uppercase
+                  ${size === "sm" ? "ml-1 px-[5px] py-px text-[8px]" : "px-1.5 py-0.5 text-[9px]"}`}
       style={{
-        backgroundColor: agentInfo.tagBg ?? undefined,
+        background: agentInfo.tagBg ?? undefined,
         color: agentInfo.tagColor ?? undefined,
       }}
     >

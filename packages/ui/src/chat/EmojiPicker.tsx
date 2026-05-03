@@ -79,24 +79,24 @@ export function EmojiPicker({
       ref={popoverRef}
       role="dialog"
       className="absolute bottom-full right-0 mb-2 w-[320px] overflow-hidden
-                 rounded-lg border border-[#1E1F22] bg-[#2B2D31] shadow-2xl"
+                 rounded-lg border border-[rgba(255,255,255,0.04)] bg-[rgba(18,18,26,0.85)] shadow-2xl"
     >
       {/* Search */}
-      <div className="border-b border-[#1E1F22] p-2">
+      <div className="border-b border-[rgba(255,255,255,0.04)] p-2">
         <input
           autoFocus
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜索 emoji"
-          className="w-full rounded bg-[#1E1F22] px-2 py-1.5 text-[13px]
-                     text-[#DBDEE1] placeholder:text-[#6D6F78] outline-none"
+          className="w-full rounded bg-[rgba(12,12,18,0.95)] px-2 py-1.5 text-[13px]
+                     text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)] outline-none"
         />
       </div>
 
       {/* Categories */}
       {!query && (
-        <div className="flex border-b border-[#1E1F22]">
+        <div className="flex border-b border-[rgba(255,255,255,0.04)]">
           {EMOJI_CATEGORIES.map((c) => (
             <button
               key={c.key}
@@ -105,8 +105,8 @@ export function EmojiPicker({
               className={`flex flex-1 items-center justify-center py-1.5
                           text-[15px] transition-colors ${
                             activeCategory === c.key
-                              ? "bg-[#404249] text-white"
-                              : "text-[#B5BAC1] hover:bg-[#35373C]"
+                              ? "bg-[rgba(255,255,255,0.06)] text-white"
+                              : "text-[#B5BAC1] hover:bg-[rgba(255,255,255,0.04)]"
                           }`}
             >
               {c.icon}
@@ -118,7 +118,7 @@ export function EmojiPicker({
       {/* Grid */}
       <div className="max-h-[300px] overflow-y-auto p-1">
         {visibleEmoji.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-[#6D6F78]">
+          <p className="px-3 py-6 text-center text-xs text-[rgba(255,255,255,0.2)]">
             没有找到匹配的 emoji
           </p>
         ) : (
@@ -129,7 +129,7 @@ export function EmojiPicker({
                 title={e.keywords[0]}
                 onClick={() => onPick(e.char)}
                 className="flex h-8 w-8 items-center justify-center rounded
-                           text-[20px] transition-colors hover:bg-[#35373C]"
+                           text-[20px] transition-colors hover:bg-[rgba(255,255,255,0.04)]"
               >
                 {e.char}
               </button>

@@ -20,9 +20,9 @@ export function SettingsToggle({
       }`}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-[#DBDEE1]">{label}</p>
+        <p className="text-sm font-medium text-[rgba(255,255,255,0.85)]">{label}</p>
         {description && (
-          <p className="mt-0.5 text-xs text-[#949BA4]">{description}</p>
+          <p className="mt-0.5 text-xs text-[rgba(255,255,255,0.4)]">{description}</p>
         )}
       </div>
       <button
@@ -32,8 +32,13 @@ export function SettingsToggle({
         onClick={() => !disabled && onChange(!checked)}
         disabled={disabled}
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-[#5865F2]" : "bg-[#6D6F78]"
+          checked ? "" : "bg-[rgba(255,255,255,0.15)]"
         } ${disabled ? "cursor-not-allowed" : ""}`}
+        style={
+          checked
+            ? { background: "linear-gradient(135deg, #6C5CE7, #3B82F6)" }
+            : undefined
+        }
       >
         <span
           className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${

@@ -93,13 +93,20 @@ describe("AgentTag", () => {
   it("applies tagBg + tagColor as inline styles", () => {
     render(<AgentTag agentInfo={makeInfo()} />);
     const tag = screen.getByText("AGENT");
-    expect(tag.style.backgroundColor).toBe("rgba(88, 101, 242, 0.25)");
+    // Cosmic AI: tagBg is a CSS string (rgba or gradient) applied via
+    // `background`. Browsers normalize rgba() with spaces, so strip
+    // whitespace before comparing.
+    expect(tag.style.background.replace(/\s+/g, "")).toContain(
+      "rgba(88,101,242,0.25)",
+    );
+    // jsdom keeps the raw inline value (#A5B0FC), so compare against the
+    // hex literal rather than a browser-normalized rgb().
     expect(tag.style.color).toBe("#A5B0FC");
   });
 
   it("renders larger size when size=md", () => {
     render(<AgentTag agentInfo={makeInfo()} size="md" />);
     const tag = screen.getByText("AGENT");
-    expect(tag.className).toContain("text-[10px]");
+    expect(tag.className).toContain("text-[9px]");
   });
 });

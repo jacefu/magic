@@ -41,8 +41,8 @@ export function RoomList() {
         <button
           onClick={() => setShowSearch((v) => !v)}
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left
-                     text-[13px] font-medium text-[#949BA4]
-                     transition-colors hover:bg-[#35373C] hover:text-[#DBDEE1]"
+                     text-[13px] font-medium text-[rgba(255,255,255,0.4)]
+                     transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]"
           title="搜索房间"
         >
           <SearchIcon />
@@ -53,7 +53,7 @@ export function RoomList() {
                 e.stopPropagation();
                 setShowCreateDialog(true);
               }}
-              className="rounded p-0.5 text-[#949BA4] hover:text-[#DBDEE1]"
+              className="rounded p-0.5 text-[rgba(255,255,255,0.4)] hover:text-[rgba(255,255,255,0.85)]"
               title="创建房间"
               aria-label="创建房间"
             >
@@ -76,7 +76,7 @@ export function RoomList() {
         />
 
         {groups.length === 0 && invites.length === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-[#949BA4]">
+          <div className="px-3 py-8 text-center text-sm text-[rgba(255,255,255,0.4)]">
             {searchQuery ? "未找到匹配的房间" : "暂无房间"}
           </div>
         ) : (

@@ -34,8 +34,26 @@ export function MainLayout() {
     }
   }, [activeRoom, rightPanelOpen, rightPanelMode, closeRightPanel]);
 
+  // Cosmic AI § 4.2 — left rail + right panel are glass surfaces:
+  // semi-transparent fill + backdrop-filter blur so the deep-space
+  // body color (#0F0F14, set in index.css) bleeds through. Chat
+  // column stays opaque so message text reads cleanly.
+  const glassStyle: React.CSSProperties = {
+    background: "rgba(18,18,26,0.85)",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
+  };
+  const rightGlassStyle: React.CSSProperties = {
+    background: "rgba(18,18,26,0.7)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+  };
+
   return (
-    <div className="flex h-screen flex-col bg-[#313338] text-[#DBDEE1]">
+    <div
+      className="flex h-screen flex-col text-[rgba(255,255,255,0.85)]"
+      style={{ background: "rgba(15,15,21,0.95)" }}
+    >
       {/* Full-width title bar (drag region + global nav) */}
       <TopNavBar />
 
@@ -45,13 +63,13 @@ export function MainLayout() {
         <WorkspaceBar />
 
         {/* Column 2: room list + user panel */}
-        <div className="flex w-[240px] shrink-0 flex-col bg-[#2B2D31]">
+        <div className="flex w-[240px] shrink-0 flex-col" style={glassStyle}>
           {/* Header — workspace name dropdown + invite */}
-          <div className="flex h-12 items-center justify-between border-b border-[#1E1F22] px-3 shadow-sm">
-            <button className="flex min-w-0 items-center gap-1 text-[15px] font-semibold text-[#DBDEE1] transition-colors hover:text-white">
+          <div className="flex h-12 items-center justify-between border-b border-[rgba(255,255,255,0.04)] px-3">
+            <button className="flex min-w-0 items-center gap-1 text-[13.5px] font-semibold text-[rgba(255,255,255,0.85)] transition-colors hover:text-white">
               <span className="truncate">Magic 工作区</span>
               <svg
-                className="h-3 w-3 shrink-0 text-[#949BA4]"
+                className="h-3 w-3 shrink-0 text-[rgba(255,255,255,0.4)]"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -62,7 +80,7 @@ export function MainLayout() {
             </button>
             <button
               title="邀请成员"
-              className="rounded p-1 text-[#949BA4] transition-colors hover:bg-[#35373C] hover:text-[#DBDEE1]"
+              className="rounded p-1 text-[rgba(255,255,255,0.4)] transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]"
             >
               <svg
                 className="h-4 w-4"
@@ -88,20 +106,26 @@ export function MainLayout() {
         </div>
 
         {/* Column 3: chat */}
-        <div className="flex min-w-0 flex-1 flex-col bg-[#313338]">
+        <div
+          className="flex min-w-0 flex-1 flex-col"
+          style={{ background: "rgba(15,15,21,0.95)" }}
+        >
           <ChatView />
         </div>
 
         {/* Column 4: contextual right panel */}
         {rightPanelOpen && activeRoomId && (
-          <div className="flex w-[260px] shrink-0 flex-col border-l border-[#1E1F22] bg-[#2B2D31]">
-            <div className="flex h-12 items-center justify-between border-b border-[#1E1F22] px-3 shadow-sm">
-              <span className="text-[15px] font-semibold text-[#DBDEE1]">
+          <div
+            className="flex w-[260px] shrink-0 flex-col border-l border-[rgba(255,255,255,0.04)]"
+            style={rightGlassStyle}
+          >
+            <div className="flex h-12 items-center justify-between border-b border-[rgba(255,255,255,0.04)] px-3">
+              <span className="text-[13.5px] font-semibold text-[rgba(255,255,255,0.85)]">
                 {rightPanelMode === "agents" ? "Agent 面板" : "成员"}
               </span>
               <button
                 onClick={closeRightPanel}
-                className="rounded p-1 text-[#949BA4] transition-colors hover:bg-[#35373C] hover:text-[#DBDEE1]"
+                className="rounded p-1 text-[rgba(255,255,255,0.4)] transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]"
                 title="关闭"
               >
                 <svg

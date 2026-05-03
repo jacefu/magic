@@ -113,18 +113,18 @@ export function TextMessage({
     // elements directly here instead.
     table({ children }) {
       return (
-        <table className="my-2 w-auto border-collapse border border-[#3F4147]">
+        <table className="my-2 w-auto border-collapse border border-[rgba(255,255,255,0.06)]">
           {children}
         </table>
       );
     },
     thead({ children }) {
-      return <thead className="bg-[#2B2D31]">{children}</thead>;
+      return <thead className="bg-[rgba(18,18,26,0.85)]">{children}</thead>;
     },
     th({ children, style }) {
       return (
         <th
-          className="border border-[#3F4147] px-3 py-1.5 font-semibold text-[#DBDEE1]"
+          className="border border-[rgba(255,255,255,0.06)] px-3 py-1.5 font-semibold text-[rgba(255,255,255,0.85)]"
           style={style}
         >
           {children}
@@ -134,7 +134,7 @@ export function TextMessage({
     td({ children, style }) {
       return (
         <td
-          className="border border-[#3F4147] px-3 py-1.5 text-[#DBDEE1]"
+          className="border border-[rgba(255,255,255,0.06)] px-3 py-1.5 text-[rgba(255,255,255,0.85)]"
           style={style}
         >
           {children}
@@ -146,30 +146,30 @@ export function TextMessage({
     },
     h1({ children }) {
       return (
-        <h1 className="my-2 text-[18px] font-semibold text-[#DBDEE1]">
+        <h1 className="my-2 text-[18px] font-semibold text-[rgba(255,255,255,0.85)]">
           {children}
         </h1>
       );
     },
     h2({ children }) {
       return (
-        <h2 className="my-2 text-[16px] font-semibold text-[#DBDEE1]">
+        <h2 className="my-2 text-[16px] font-semibold text-[rgba(255,255,255,0.85)]">
           {children}
         </h2>
       );
     },
     h3({ children }) {
       return (
-        <h3 className="my-2 text-[15px] font-semibold text-[#DBDEE1]">
+        <h3 className="my-2 text-[15px] font-semibold text-[rgba(255,255,255,0.85)]">
           {children}
         </h3>
       );
     },
     ul({ children }) {
-      return <ul className="my-1.5 ml-5 list-disc marker:text-[#6D6F78]">{children}</ul>;
+      return <ul className="my-1.5 ml-5 list-disc marker:text-[rgba(255,255,255,0.2)]">{children}</ul>;
     },
     ol({ children }) {
-      return <ol className="my-1.5 ml-5 list-decimal marker:text-[#6D6F78]">{children}</ol>;
+      return <ol className="my-1.5 ml-5 list-decimal marker:text-[rgba(255,255,255,0.2)]">{children}</ol>;
     },
     li({ children }) {
       return <li className="my-0.5 leading-[1.55]">{children}</li>;
@@ -182,18 +182,18 @@ export function TextMessage({
       );
     },
     hr() {
-      return <hr className="my-2 border-[#3F4147]" />;
+      return <hr className="my-2 border-[rgba(255,255,255,0.06)]" />;
     },
     strong({ children }) {
-      return <strong className="font-semibold text-[#DBDEE1]">{children}</strong>;
+      return <strong className="font-semibold text-[rgba(255,255,255,0.85)]">{children}</strong>;
     },
     em({ children }) {
-      return <em className="text-[#DBDEE1]">{children}</em>;
+      return <em className="text-[rgba(255,255,255,0.85)]">{children}</em>;
     },
   };
 
   return (
-    <div className="max-w-none break-words text-[15px] leading-[1.55] text-[#DBDEE1]">
+    <div className="max-w-none break-words text-[15px] leading-[1.55] text-[rgba(255,255,255,0.85)]">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {source}
       </ReactMarkdown>

@@ -49,23 +49,33 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!restored) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#1E1F22]">
+      <div
+        className="flex h-screen items-center justify-center"
+        style={{ background: "#0F0F14" }}
+      >
         <div className="flex flex-col items-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#5865F2] text-[28px] font-semibold text-white">
+          <div
+            className="mb-4 flex h-14 w-14 items-center justify-center rounded-[14px] text-[28px] font-semibold text-white"
+            style={{
+              background: "linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0)",
+              backgroundSize: "200% 200%",
+              animation: "gradient-shift 4s ease infinite",
+            }}
+          >
             M
           </div>
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#5865F2] border-t-transparent" />
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#6C5CE7] border-t-transparent" />
           {progress ? (
             <>
-              <p className="mt-3 text-sm text-[#949BA4]">
+              <p className="mt-3 text-sm text-[rgba(255,255,255,0.4)]">
                 正在恢复会话 ({progress.current}/{progress.total})
               </p>
-              <p className="mt-1 text-xs text-[#6D6F78]">
+              <p className="mt-1 text-xs text-[rgba(255,255,255,0.2)]">
                 {progress.serverName}
               </p>
             </>
           ) : (
-            <p className="mt-3 text-sm text-[#949BA4]">正在恢复会话…</p>
+            <p className="mt-3 text-sm text-[rgba(255,255,255,0.4)]">正在恢复会话…</p>
           )}
         </div>
       </div>

@@ -8,7 +8,7 @@ interface SettingsSectionProps {
 export function SettingsSection({ title, children }: SettingsSectionProps) {
   return (
     <div className="flex-1 px-10 pt-16 pb-12 overflow-y-auto">
-      <h1 className="mb-6 text-xl font-semibold text-[#DBDEE1]">{title}</h1>
+      <h1 className="mb-6 text-xl font-semibold text-[rgba(255,255,255,0.85)]">{title}</h1>
       {children}
     </div>
   );

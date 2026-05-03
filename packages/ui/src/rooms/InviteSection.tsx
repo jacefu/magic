@@ -22,7 +22,7 @@ export const InviteSection = memo(function InviteSection({
         onClick={() => setCollapsed((c) => !c)}
         className="flex w-full items-center gap-1 px-2.5 py-1.5
                    text-[10.5px] font-bold uppercase tracking-[0.04em]
-                   text-[#F0B232] transition-colors hover:text-[#DBDEE1]"
+                   text-[#FBBF24] transition-colors hover:text-[rgba(255,255,255,0.85)]"
       >
         <svg
           className={`h-2.5 w-2.5 transition-transform ${
@@ -37,7 +37,7 @@ export const InviteSection = memo(function InviteSection({
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
         <span>邀请</span>
-        <span className="ml-1 rounded-full bg-[#F0B232]/20 px-1.5 py-0.5 text-[10px]">
+        <span className="ml-1 rounded-full bg-[#FBBF24]/20 px-1.5 py-0.5 text-[10px]">
           {invites.length}
         </span>
       </button>

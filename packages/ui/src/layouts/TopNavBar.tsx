@@ -58,7 +58,7 @@ export function TopNavBar() {
 
   return (
     <div
-      className="relative flex h-12 shrink-0 items-center border-b border-[#1E1F22] bg-[#1E1F22]"
+      className="relative flex h-12 shrink-0 items-center border-b border-[rgba(255,255,255,0.04)] bg-[rgba(12,12,18,0.95)]"
       style={drag}
     >
       {/* Left: 80px traffic-light reservation + back / forward arrows */}
@@ -84,8 +84,8 @@ export function TopNavBar() {
       <button
         title="工作区设置"
         className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5
-                   rounded px-2 py-1 text-[14px] font-semibold text-[#DBDEE1]
-                   transition-colors hover:bg-[#35373C]"
+                   rounded px-2 py-1 text-[14px] font-semibold text-[rgba(255,255,255,0.85)]
+                   transition-colors hover:bg-[rgba(255,255,255,0.04)]"
         style={noDrag}
       >
         <BrandMark />
@@ -122,7 +122,7 @@ function NavIconButton({
       onClick={onClick}
       disabled={disabled}
       className="flex h-7 w-7 items-center justify-center rounded text-[#B5BAC1]
-                 transition-colors hover:bg-[#35373C] hover:text-[#DBDEE1]
+                 transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]
                  disabled:cursor-not-allowed disabled:text-[#4E5058]
                  disabled:hover:bg-transparent disabled:hover:text-[#4E5058]"
     >
@@ -133,7 +133,12 @@ function NavIconButton({
 
 function BrandMark() {
   return (
-    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5865F2] text-[10px] font-bold text-white">
+    <div
+      className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+      style={{
+        background: "linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0)",
+      }}
+    >
       ✦
     </div>
   );

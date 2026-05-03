@@ -75,12 +75,15 @@ export function getAgentInfo(userId: string, roomId?: string): AgentInfo {
     tagLabel: null,
     tagBg: null,
     tagColor: null,
-    nameColor: "#DBDEE1",
+    nameColor: "#A5B4FC",
   };
 }
 
 // ---- internals ----
 
+// Cosmic AI § 7.4 — runtime tag pills use linear-gradients (instead of
+// flat translucent fills) so AI-related affordances "glow" with brand
+// energy. The CSS string is consumed by AgentTag via `style.background`.
 function getTagStyle(
   runtime: AgentRuntime,
   role: AgentRole,
@@ -92,43 +95,49 @@ function getTagStyle(
   if (role === "manager") {
     return {
       tagLabel: "MANAGER",
-      tagBg: "rgba(26,188,156,0.25)",
-      tagColor: "#1ABC9C",
+      tagBg:
+        "linear-gradient(135deg, rgba(13,148,136,0.25), rgba(45,212,191,0.2))",
+      tagColor: "#2DD4BF",
     };
   }
   switch (runtime) {
     case "hermes":
       return {
         tagLabel: "HERMES",
-        tagBg: "rgba(237,66,69,0.25)",
-        tagColor: "#F47B67",
+        tagBg:
+          "linear-gradient(135deg, rgba(220,38,38,0.25), rgba(249,115,22,0.2))",
+        tagColor: "#FB923C",
       };
     case "qwenpaw":
       return {
         tagLabel: "QWENPAW",
-        tagBg: "rgba(35,165,90,0.25)",
-        tagColor: "#57F287",
+        tagBg:
+          "linear-gradient(135deg, rgba(217,119,6,0.25), rgba(251,191,36,0.2))",
+        tagColor: "#FBBF24",
       };
     case "openclaw":
     default:
       return {
         tagLabel: "AGENT",
-        tagBg: "rgba(88,101,242,0.25)",
-        tagColor: "#A5B0FC",
+        tagBg:
+          "linear-gradient(135deg, rgba(108,92,231,0.3), rgba(52,211,153,0.2))",
+        tagColor: "#A78BFA",
       };
   }
 }
 
+// Cosmic AI § 2.5 — sender / member name color follows the role palette
+// so AI senders read distinctly against the human default.
 function getNameColor(runtime: AgentRuntime, role: AgentRole): string {
-  if (role === "manager") return "#1ABC9C";
+  if (role === "manager") return "#2DD4BF";
   switch (runtime) {
     case "hermes":
-      return "#F47B67";
+      return "#FB923C";
     case "qwenpaw":
-      return "#F0B232";
+      return "#FBBF24";
     case "openclaw":
     default:
-      return "#57F287";
+      return "#34D399";
   }
 }
 
@@ -148,7 +157,7 @@ function inferFromUserId(
       runtime: "hermes",
       role: "worker",
       ...getTagStyle("hermes", "worker"),
-      nameColor: "#F47B67",
+      nameColor: "#FB923C",
     };
   }
   if (n.includes("qwenpaw") || n.includes("copaw")) {
@@ -156,7 +165,7 @@ function inferFromUserId(
       runtime: "qwenpaw",
       role: "worker",
       ...getTagStyle("qwenpaw", "worker"),
-      nameColor: "#F0B232",
+      nameColor: "#FBBF24",
     };
   }
   if (n.includes("manager")) {
@@ -164,7 +173,7 @@ function inferFromUserId(
       runtime: "openclaw",
       role: "manager",
       ...getTagStyle("openclaw", "manager"),
-      nameColor: "#1ABC9C",
+      nameColor: "#2DD4BF",
     };
   }
   if (n.includes("worker") || n.includes("agent")) {
@@ -172,7 +181,7 @@ function inferFromUserId(
       runtime: "openclaw",
       role: "worker",
       ...getTagStyle("openclaw", "worker"),
-      nameColor: "#57F287",
+      nameColor: "#34D399",
     };
   }
   return null;

@@ -18,14 +18,14 @@ export const UnreadDivider = memo(function UnreadDivider({
 }: UnreadDividerProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <div className="h-px flex-1 bg-[#F23F43]" />
+      <div className="h-px flex-1 bg-[#F43F5E]" />
       {date && (
         <>
-          <span className="text-xs font-semibold text-[#F23F43]">{date}</span>
-          <div className="h-px flex-1 bg-[#F23F43]" />
+          <span className="text-xs font-semibold text-[#F43F5E]">{date}</span>
+          <div className="h-px flex-1 bg-[#F43F5E]" />
         </>
       )}
-      <span className="shrink-0 rounded-sm bg-[#F23F43] px-1.5 py-px text-[10px] font-bold leading-none text-white">
+      <span className="shrink-0 rounded-sm bg-[#F43F5E] px-1.5 py-px text-[10px] font-bold leading-none text-white">
         新的
       </span>
     </div>

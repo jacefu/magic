@@ -20,7 +20,7 @@ export function SettingsRadioGroup<T extends string>({
   return (
     <div>
       {label && (
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#949BA4]">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[rgba(255,255,255,0.4)]">
           {label}
         </p>
       )}
@@ -29,19 +29,19 @@ export function SettingsRadioGroup<T extends string>({
           <label
             key={opt.value}
             className={`flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2 transition-colors ${
-              value === opt.value ? "bg-[#404249]" : "hover:bg-[#35373C]"
+              value === opt.value ? "bg-[rgba(255,255,255,0.06)]" : "hover:bg-[rgba(255,255,255,0.04)]"
             }`}
           >
             <input
               type="radio"
               checked={value === opt.value}
               onChange={() => onChange(opt.value)}
-              className="mt-0.5 accent-[#5865F2]"
+              className="mt-0.5 accent-[#6C5CE7]"
             />
             <div className="min-w-0">
-              <p className="text-sm text-[#DBDEE1]">{opt.label}</p>
+              <p className="text-sm text-[rgba(255,255,255,0.85)]">{opt.label}</p>
               {opt.description && (
-                <p className="text-xs text-[#6D6F78]">{opt.description}</p>
+                <p className="text-xs text-[rgba(255,255,255,0.2)]">{opt.description}</p>
               )}
             </div>
           </label>

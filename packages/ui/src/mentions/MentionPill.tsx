@@ -27,13 +27,38 @@ export const MentionPill = memo(function MentionPill({
     }
   }, [userId]);
 
+  // Cosmic AI § 2.7 — pill background is a translucent purple→cyan
+  // gradient. Self-mention bumps opacity + uses pure white text;
+  // hover brightens both. The gradient lives in `style` because
+  // Tailwind v4 arbitrary backgrounds can't accept comma-separated
+  // gradient stops without escaping pain.
+  const gradientDefault =
+    "linear-gradient(135deg, rgba(108,92,231,0.25), rgba(0,180,216,0.15))";
+  const gradientHover =
+    "linear-gradient(135deg, rgba(108,92,231,0.4), rgba(0,180,216,0.3))";
+  const gradientSelf =
+    "linear-gradient(135deg, rgba(108,92,231,0.35), rgba(0,180,216,0.25))";
+  const gradientSelfHover =
+    "linear-gradient(135deg, rgba(108,92,231,0.5), rgba(0,180,216,0.4))";
+
   return (
     <span
-      className={`inline-flex cursor-pointer items-center gap-1 rounded-md px-1 py-px align-middle font-medium leading-tight transition-colors ${
-        isMe
-          ? "bg-[rgba(88,101,242,0.35)] text-white hover:bg-[rgba(88,101,242,0.55)]"
-          : "bg-[rgba(88,101,242,0.25)] text-[#C9CDFB] hover:bg-[rgba(88,101,242,0.45)] hover:text-white"
-      }`}
+      className={`group inline-flex cursor-pointer items-center gap-1 rounded
+                  px-1.5 py-px align-middle font-medium leading-tight
+                  transition-colors ${
+                    isMe ? "text-white" : "text-[#A5B4FC] hover:text-white"
+                  }`}
+      style={{ background: isMe ? gradientSelf : gradientDefault }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = isMe
+          ? gradientSelfHover
+          : gradientHover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = isMe
+          ? gradientSelf
+          : gradientDefault;
+      }}
       title={userId}
     >
       <RoomAvatar

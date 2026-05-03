@@ -10,9 +10,9 @@ describe("UnreadDivider", () => {
 
   it("does not render a date label when date is null", () => {
     const { container } = render(<UnreadDivider date={null} />);
-    // Only one rule + the badge — no date span between rules
-    const rules = container.querySelectorAll(".bg-\\[\\#F23F43\\]");
-    // 1 rule + 1 badge bg = 2 elements with that color class
+    // Only one rule + the badge — no date span between rules. The
+    // divider uses Cosmic AI's danger token (#F43F5E) for both.
+    const rules = container.querySelectorAll(".bg-\\[\\#F43F5E\\]");
     expect(rules.length).toBe(2);
   });
 

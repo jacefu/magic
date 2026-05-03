@@ -12,7 +12,7 @@ interface RoomSectionProps {
 }
 
 // Section header per design-system § 4.1:
-//   text-[10.5px] font-bold uppercase tracking-[0.04em] text-[#949BA4]
+//   text-[10.5px] font-bold uppercase tracking-[0.04em] text-[rgba(255,255,255,0.4)]
 //   ▾ chevron rotates between expanded/collapsed states
 //   spacing: top 16px, bottom 4px
 export const RoomSection = memo(function RoomSection({
@@ -29,13 +29,13 @@ export const RoomSection = memo(function RoomSection({
         onClick={onToggle}
         className="flex w-full items-center px-3 pt-4 pb-1
                    text-[10.5px] font-bold uppercase tracking-[0.04em]
-                   text-[#949BA4] transition-colors hover:text-[#DBDEE1]"
+                   text-[rgba(255,255,255,0.4)] transition-colors hover:text-[rgba(255,255,255,0.85)]"
       >
         <span className="truncate">{label}</span>
         <span className="ml-1 inline-block w-3 text-[10px] leading-none">
           {collapsed ? "▸" : "▾"}
         </span>
-        <span className="ml-auto font-medium text-[#6D6F78]">{rooms.length}</span>
+        <span className="ml-auto font-medium text-[rgba(255,255,255,0.2)]">{rooms.length}</span>
       </button>
 
       {!collapsed && (

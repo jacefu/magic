@@ -28,15 +28,20 @@ describe("UnreadBadge", () => {
     expect(screen.getByText("99")).toBeTruthy();
   });
 
-  it("uses gray background by default", () => {
+  it("uses a translucent fill by default (no highlight)", () => {
     render(<UnreadBadge count={3} />);
     const badge = screen.getByText("3");
-    expect(badge.className).toContain("bg-[#6D6F78]");
+    // Browsers normalize rgba() with spaces.
+    expect(badge.style.background.replace(/\s+/g, "")).toContain(
+      "rgba(255,255,255,0.1)",
+    );
   });
 
-  it("uses red background when highlight is true", () => {
+  it("uses a pink→orange gradient when highlight is true", () => {
     render(<UnreadBadge count={3} highlight={true} />);
     const badge = screen.getByText("3");
-    expect(badge.className).toContain("bg-[#F23F43]");
+    expect(badge.style.background).toContain("linear-gradient");
+    expect(badge.style.background).toContain("#E040A0");
+    expect(badge.style.background).toContain("#F06040");
   });
 });

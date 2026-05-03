@@ -41,7 +41,7 @@ export function SettingsNav({ activeTab, onTabChange }: SettingsNavProps) {
     <nav className="w-[218px] shrink-0 px-3 pt-16 pb-4">
       {NAV_GROUPS.map((group, idx) => (
         <div key={group.label} className={idx === 0 ? "" : "mt-5"}>
-          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wider text-[#949BA4]">
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wider text-[rgba(255,255,255,0.4)]">
             {group.label}
           </p>
           <ul className="space-y-0.5">
@@ -53,8 +53,8 @@ export function SettingsNav({ activeTab, onTabChange }: SettingsNavProps) {
                   className={`flex w-full items-center rounded-sm px-2 py-1.5 text-left
                               text-sm transition-colors ${
                                 activeTab === item.key
-                                  ? "bg-[#404249] text-[#DBDEE1]"
-                                  : "text-[#B5BAC1] hover:bg-[#35373C] hover:text-[#DBDEE1]"
+                                  ? "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.85)]"
+                                  : "text-[#B5BAC1] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]"
                               }`}
                 >
                   {item.label}

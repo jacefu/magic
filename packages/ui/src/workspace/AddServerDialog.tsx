@@ -36,22 +36,35 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
     }
   };
 
+  // Cosmic AI § 7.10 + § 7.11 — glass dialog + brand-button gradient.
+  const inputClasses =
+    "w-full rounded-lg border-[0.5px] border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] " +
+    "px-3 py-2 text-sm text-[rgba(255,255,255,0.85)] placeholder-[rgba(255,255,255,0.2)] " +
+    "transition-colors focus:border-[rgba(108,92,231,0.4)] focus:outline-none disabled:opacity-50";
+
   return (
     <DialogOverlay onClose={isLoading ? () => {} : onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-xl bg-[#313338] p-6 shadow-2xl"
+        className="w-full max-w-sm rounded-[14px] border-[0.5px] border-[rgba(255,255,255,0.06)] p-6"
+        style={{
+          background: "rgba(15,15,21,0.95)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          boxShadow: "0 24px 48px rgba(0,0,0,0.4)",
+          animation: "fade-in-up 0.2s ease-out",
+        }}
       >
-        <h2 className="text-lg font-semibold text-[#DBDEE1]">
+        <h2 className="text-lg font-semibold text-[rgba(255,255,255,0.85)]">
           添加 Matrix 服务器
         </h2>
-        <p className="mt-1 text-xs text-[#949BA4]">
+        <p className="mt-1 text-xs text-[rgba(255,255,255,0.4)]">
           登录一个新的 Matrix homeserver，它会作为独立的工作区出现在左侧栏
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <div>
-            <label className="mb-1 block text-sm text-[#949BA4]">
+            <label className="mb-1 block text-sm text-[rgba(255,255,255,0.4)]">
               服务器地址
             </label>
             <input
@@ -61,14 +74,12 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
               placeholder="https://matrix.example.com"
               autoFocus
               disabled={isLoading}
-              className="w-full rounded-lg border border-[#3F4147] bg-[#1E1F22]
-                         px-3 py-2 text-sm text-[#DBDEE1] placeholder-[#6D6F78]
-                         focus:border-[#5865F2] focus:outline-none disabled:opacity-50"
+              className={inputClasses}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-[#949BA4]">用户名</label>
+            <label className="mb-1 block text-sm text-[rgba(255,255,255,0.4)]">用户名</label>
             <input
               type="text"
               value={username}
@@ -76,14 +87,12 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
               placeholder="@user:example.com 或 user"
               disabled={isLoading}
               autoComplete="username"
-              className="w-full rounded-lg border border-[#3F4147] bg-[#1E1F22]
-                         px-3 py-2 text-sm text-[#DBDEE1] placeholder-[#6D6F78]
-                         focus:border-[#5865F2] focus:outline-none disabled:opacity-50"
+              className={inputClasses}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-[#949BA4]">密码</label>
+            <label className="mb-1 block text-sm text-[rgba(255,255,255,0.4)]">密码</label>
             <input
               type="password"
               value={password}
@@ -91,14 +100,12 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
               placeholder="输入密码"
               disabled={isLoading}
               autoComplete="current-password"
-              className="w-full rounded-lg border border-[#3F4147] bg-[#1E1F22]
-                         px-3 py-2 text-sm text-[#DBDEE1] placeholder-[#6D6F78]
-                         focus:border-[#5865F2] focus:outline-none disabled:opacity-50"
+              className={inputClasses}
             />
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-800/50 bg-red-950/30 px-3 py-2 text-sm text-[#F23F43]">
+            <div className="rounded-lg border-[0.5px] border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.08)] px-3 py-2 text-sm text-[#F43F5E]">
               {error}
             </div>
           )}
@@ -108,16 +115,19 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="rounded-lg px-3 py-1.5 text-sm text-[#949BA4]
-                         transition-colors hover:text-[#DBDEE1] disabled:opacity-50"
+              className="rounded-lg px-3 py-1.5 text-sm text-[rgba(255,255,255,0.4)]
+                         transition-colors hover:text-[rgba(255,255,255,0.85)] disabled:opacity-50"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={!canSubmit}
-              className="rounded-lg bg-[#5865F2] px-4 py-1.5 text-sm font-medium text-white
-                         transition-colors hover:bg-[#4752C4] disabled:opacity-50"
+              className="rounded-lg px-4 py-1.5 text-sm font-medium text-white
+                         transition-opacity hover:opacity-90 disabled:opacity-40"
+              style={{
+                background: "linear-gradient(135deg, #6C5CE7, #3B82F6)",
+              }}
             >
               {isLoading ? "连接中…" : "添加服务器"}
             </button>

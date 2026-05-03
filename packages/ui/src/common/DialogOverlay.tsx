@@ -17,6 +17,10 @@ export function DialogOverlay({ children, onClose }: DialogOverlayProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      style={{
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

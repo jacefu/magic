@@ -5,10 +5,9 @@ interface UnreadBadgeProps {
   highlight?: boolean;
 }
 
-// Per design-system § 7.6:
-//   @mention / 高优先级: bg #F23F43 (red)
-//   普通未读:           bg #6D6F78 (text-faint)
-//   16 × 16 min, 10px bold white text, rounded-full
+// Cosmic AI § 7.8 — mention / high-priority unread uses a pink→orange
+// gradient ("energy"); ordinary unread is a low-key translucent white
+// pill. Both cap at "99+", 16x16 min size, 9px bold white text.
 export const UnreadBadge = memo(function UnreadBadge({
   count,
   highlight = false,
@@ -19,10 +18,17 @@ export const UnreadBadge = memo(function UnreadBadge({
 
   return (
     <span
-      className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full
-                  px-1 text-[10px] font-bold leading-none text-white ${
-                    highlight ? "bg-[#F23F43]" : "bg-[#6D6F78]"
-                  }`}
+      className="inline-flex h-4 min-w-4 items-center justify-center rounded-md
+                 px-1 text-[9px] font-bold leading-none text-white"
+      style={
+        highlight
+          ? {
+              background: "linear-gradient(135deg, #E040A0, #F06040)",
+            }
+          : {
+              background: "rgba(255,255,255,0.1)",
+            }
+      }
     >
       {displayCount}
     </span>

@@ -59,13 +59,36 @@ export const MessageBubble = memo(function MessageBubble({
 
   return (
     <div
-      className={`group relative flex gap-4 px-4 transition-colors duration-100 hover:bg-[#35373C]
-                  ${showSender ? "mt-4" : "mt-0.5"}`}
+      className={`group relative flex gap-3 px-4 transition-colors duration-100
+                  hover:bg-[rgba(255,255,255,0.02)]
+                  ${showSender ? "mt-2.5" : "mt-0.5"}`}
     >
-      {/* Avatar gutter — 40px wide */}
-      <div className="w-10 shrink-0 pt-0.5">
+      {/* AI message marker — 2px gradient stripe per § 9.2. Only on
+          Agent senders; real humans get nothing. opacity:0.5 keeps it
+          present without screaming. */}
+      {agentInfo.isAgent && (
+        <span
+          aria-hidden="true"
+          className="absolute left-1.5 top-0 bottom-0 w-[2px] rounded-[1px] opacity-50"
+          style={{
+            background:
+              "linear-gradient(180deg, #6C5CE7, #00B4D8, #00F5A0)",
+          }}
+        />
+      )}
+
+      {/* Avatar gutter — 36px wide. Avatars use role-specific gradients
+          for Agents so AI senders read as "energy" vs the calm
+          purple-blue of humans. */}
+      <div className="w-9 shrink-0 pt-0.5">
         {showSender && (
-          <RoomAvatar name={senderName} avatarMxc={null} isDirect size={40} />
+          <RoomAvatar
+            name={senderName}
+            avatarMxc={null}
+            isDirect
+            size={36}
+            gradient={avatarGradient(agentInfo)}
+          />
         )}
       </div>
 
@@ -76,7 +99,7 @@ export const MessageBubble = memo(function MessageBubble({
               type="button"
               onClick={handleNameClick}
               disabled={isOwnSender}
-              className="text-[15px] font-semibold leading-snug
+              className="text-[12.5px] font-semibold leading-snug
                          transition-colors hover:underline
                          disabled:cursor-default disabled:no-underline"
               style={{ color: agentInfo.nameColor }}
@@ -85,10 +108,12 @@ export const MessageBubble = memo(function MessageBubble({
               {senderName}
             </button>
             <AgentTag agentInfo={agentInfo} size="sm" />
-            <span className="ml-1 text-xs text-[#949BA4]">{time}</span>
+            <span className="ml-1 text-[10px] text-[rgba(255,255,255,0.2)]">
+              {time}
+            </span>
           </div>
         )}
-        <div className="text-[15px] leading-[1.55] text-[#DBDEE1]">
+        <div className="text-[13px] leading-[1.5] text-[rgba(255,255,255,0.85)]">
           <MessageContent event={event} isOwn={isOwn} />
         </div>
       </div>
@@ -97,13 +122,14 @@ export const MessageBubble = memo(function MessageBubble({
       {onReply && (
         <div
           className="absolute -top-3 right-4 hidden items-center gap-0.5 rounded-md
-                     border border-[#3F4147] bg-[#2B2D31] px-1 py-0.5 shadow-lg
-                     group-hover:flex"
+                     border border-[rgba(255,255,255,0.08)] bg-[rgba(15,15,21,0.95)]
+                     px-1 py-0.5 shadow-lg backdrop-blur-md group-hover:flex"
         >
           <button
             onClick={() => onReply(event.eventId)}
-            className="rounded p-0.5 text-[#949BA4] transition-colors
-                       hover:bg-[#383A40] hover:text-[#DBDEE1]"
+            className="rounded p-0.5 text-[rgba(255,255,255,0.4)] transition-colors
+                       hover:bg-[rgba(255,255,255,0.04)]
+                       hover:text-[rgba(255,255,255,0.85)]"
             title="回复"
           >
             <ReplyIcon />
@@ -113,6 +139,30 @@ export const MessageBubble = memo(function MessageBubble({
     </div>
   );
 });
+
+/** Cosmic AI § 7.5 — pick the role-specific avatar gradient from
+ *  resolved AgentInfo. Returns undefined for humans so RoomAvatar
+ *  falls back to its hash-based palette (where the default slot is
+ *  already the human-blue gradient). */
+function avatarGradient(agentInfo: {
+  isAgent: boolean;
+  runtime: "openclaw" | "hermes" | "qwenpaw" | null;
+  role: "worker" | "manager" | null;
+}): string | undefined {
+  if (!agentInfo.isAgent) return undefined;
+  if (agentInfo.role === "manager") {
+    return "linear-gradient(135deg, #0D9488, #2DD4BF)";
+  }
+  switch (agentInfo.runtime) {
+    case "hermes":
+      return "linear-gradient(135deg, #DC2626, #F97316)";
+    case "qwenpaw":
+      return "linear-gradient(135deg, #D97706, #FBBF24)";
+    case "openclaw":
+    default:
+      return "linear-gradient(135deg, #059669, #34D399)";
+  }
+}
 
 function ReplyIcon() {
   return (
@@ -137,7 +187,10 @@ function SystemEventLine({ event }: { event: SerializedMatrixEvent }) {
   if (!text) return null;
   return (
     <div className="flex justify-center px-4 py-2">
-      <span className="rounded-full bg-[#2B2D31]/50 px-3 py-1 text-xs text-[#949BA4]">
+      <span
+        className="rounded-full px-3 py-1 text-[10px] text-[rgba(255,255,255,0.4)]"
+        style={{ background: "rgba(255,255,255,0.04)" }}
+      >
         {text}
       </span>
     </div>

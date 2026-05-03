@@ -125,6 +125,10 @@ describe("RoomListItem", () => {
   it("applies active styling when isActive is true", () => {
     render(<RoomListItem room={makeRoom()} isActive={true} onSelect={vi.fn()} />);
     const button = screen.getByRole("button");
-    expect(button.className).toContain("bg-[#404249]");
+    // Cosmic AI § 7.2 — active uses a translucent purple→cyan gradient
+    // applied via inline `style.background` and a brand-tinted border.
+    expect(button.style.background).toContain("linear-gradient");
+    expect(button.style.background).toContain("rgba(108,92,231,0.12)");
+    expect(button.className).toContain("text-white");
   });
 });

@@ -69,10 +69,10 @@ describe("getUserPresence", () => {
 });
 
 describe("getPresenceColor", () => {
-  it("returns the design-system green/yellow/grey hexes", () => {
-    expect(getPresenceColor("online")).toBe("#23A55A");
-    expect(getPresenceColor("idle")).toBe("#F0B232");
-    expect(getPresenceColor("offline")).toBe("#6D6F78");
+  it("returns the Cosmic AI mint/amber/dim-white tokens", () => {
+    expect(getPresenceColor("online")).toBe("#00F5A0");
+    expect(getPresenceColor("idle")).toBe("#FBBF24");
+    expect(getPresenceColor("offline")).toBe("rgba(255,255,255,0.15)");
   });
 });
 

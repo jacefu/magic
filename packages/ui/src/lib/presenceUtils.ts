@@ -35,11 +35,11 @@ export function getUserPresence(userId: string): OnlineStatus {
 export function getPresenceColor(status: OnlineStatus): string {
   switch (status) {
     case "online":
-      return "#23A55A";
+      return "#00F5A0";
     case "idle":
-      return "#F0B232";
+      return "#FBBF24";
     case "offline":
-      return "#6D6F78";
+      return "rgba(255,255,255,0.15)";
   }
 }
 

@@ -13,20 +13,20 @@ interface LoginPageProps {
 //   - Inputs bg #1E1F22 with #3F4147 border
 export function LoginPage({ onLogin, error, isLoading }: LoginPageProps) {
   return (
-    <div className="flex h-screen items-center justify-center bg-[#1E1F22] px-4">
+    <div className="flex h-screen items-center justify-center bg-[rgba(12,12,18,0.95)] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">MAGIC</h1>
-          <p className="mt-1 text-sm text-[#949BA4]">
+          <p className="mt-1 text-sm text-[rgba(255,255,255,0.4)]">
             Multi-Agent Governance &amp; Intelligent Collaboration
           </p>
         </div>
 
-        <div className="rounded-xl bg-[#2B2D31] p-6 shadow-2xl">
+        <div className="rounded-xl bg-[rgba(18,18,26,0.85)] p-6 shadow-2xl">
           <LoginForm onSubmit={onLogin} isLoading={isLoading} error={error} />
         </div>
 
-        <p className="mt-6 text-center text-xs text-[#6D6F78]">
+        <p className="mt-6 text-center text-xs text-[rgba(255,255,255,0.2)]">
           由 Magic 平台提供 · 基于 Matrix 协议
         </p>
       </div>

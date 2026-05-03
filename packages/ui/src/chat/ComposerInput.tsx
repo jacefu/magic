@@ -160,7 +160,7 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
           placeholder={placeholder}
           rows={1}
           className="block w-full resize-none bg-transparent py-0 text-[15px]
-                     text-[#DBDEE1] placeholder:text-[#6D6F78]
+                     text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
                      outline-none disabled:opacity-50"
           style={{
             minHeight: MIN_HEIGHT,

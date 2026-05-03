@@ -24,7 +24,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="mb-2 text-xs text-[#949BA4] transition-colors hover:text-[#DBDEE1]"
+          className="mb-2 text-xs text-[rgba(255,255,255,0.4)] transition-colors hover:text-[rgba(255,255,255,0.85)]"
         >
           {showAdvanced ? "▾ 隐藏高级设置" : "▸ Homeserver 设置"}
         </button>
@@ -35,10 +35,10 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
             onChange={(e) => setHomeserver(e.target.value)}
             placeholder="https://matrix.magic.com"
             disabled={isLoading}
-            className="w-full rounded-md border border-[#3F4147] bg-[#1E1F22]
-                       px-3 py-2 text-sm text-[#DBDEE1] placeholder:text-[#6D6F78]
-                       focus:border-[#5865F2] focus:outline-none focus:ring-1
-                       focus:ring-[#5865F2] disabled:opacity-50"
+            className="w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(12,12,18,0.95)]
+                       px-3 py-2 text-sm text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
+                       focus:border-[rgba(108,92,231,0.4)] focus:outline-none focus:ring-1
+                       focus:ring-[#6C5CE7] disabled:opacity-50"
           />
         )}
       </div>
@@ -46,7 +46,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
       <div>
         <label
           htmlFor="username"
-          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[#949BA4]"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[rgba(255,255,255,0.4)]"
         >
           用户名
         </label>
@@ -59,17 +59,17 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           disabled={isLoading}
           autoFocus
           autoComplete="username"
-          className="w-full rounded-md border border-[#3F4147] bg-[#1E1F22]
-                     px-3 py-2.5 text-sm text-[#DBDEE1] placeholder:text-[#6D6F78]
-                     focus:border-[#5865F2] focus:outline-none focus:ring-1
-                     focus:ring-[#5865F2] disabled:opacity-50"
+          className="w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(12,12,18,0.95)]
+                     px-3 py-2.5 text-sm text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
+                     focus:border-[rgba(108,92,231,0.4)] focus:outline-none focus:ring-1
+                     focus:ring-[#6C5CE7] disabled:opacity-50"
         />
       </div>
 
       <div>
         <label
           htmlFor="password"
-          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[#949BA4]"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[rgba(255,255,255,0.4)]"
         >
           密码
         </label>
@@ -81,15 +81,15 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           placeholder="输入密码"
           disabled={isLoading}
           autoComplete="current-password"
-          className="w-full rounded-md border border-[#3F4147] bg-[#1E1F22]
-                     px-3 py-2.5 text-sm text-[#DBDEE1] placeholder:text-[#6D6F78]
-                     focus:border-[#5865F2] focus:outline-none focus:ring-1
-                     focus:ring-[#5865F2] disabled:opacity-50"
+          className="w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(12,12,18,0.95)]
+                     px-3 py-2.5 text-sm text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
+                     focus:border-[rgba(108,92,231,0.4)] focus:outline-none focus:ring-1
+                     focus:ring-[#6C5CE7] disabled:opacity-50"
         />
       </div>
 
       {error && (
-        <div className="rounded-md border border-[#F23F43]/40 bg-[#F23F43]/10 px-3 py-2 text-sm text-[#F23F43]">
+        <div className="rounded-md border border-[#F23F43]/40 bg-[#F43F5E]/10 px-3 py-2 text-sm text-[#F43F5E]">
           {error}
         </div>
       )}
@@ -97,9 +97,12 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
       <button
         type="submit"
         disabled={isLoading || !username.trim() || !password.trim()}
-        className="w-full rounded-md bg-[#5865F2] px-4 py-2.5 text-sm font-medium
-                   text-white transition-colors hover:bg-[#4752C4]
-                   disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white
+                   transition-opacity hover:opacity-90
+                   disabled:cursor-not-allowed disabled:opacity-40"
+        style={{
+          background: "linear-gradient(135deg, #6C5CE7, #3B82F6)",
+        }}
       >
         {isLoading ? (
           <span className="flex items-center justify-center gap-2">

@@ -36,13 +36,23 @@ export function WorkspaceBar() {
   const [showAdd, setShowAdd] = useState(false);
 
   return (
-    <div className="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto bg-[#1E1F22] pb-3 pt-0">
+    <div
+      className="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto pb-3 pt-0"
+      style={{ background: "rgba(12,12,18,0.95)" }}
+    >
       {/* Magic brand mark — opens the settings overlay. Always at the
           top of the rail. Highlighted with the same selection
           indicator as session icons when settings is open. */}
       <MagicBrandIcon active={settingsOpen} onClick={openSettings} />
 
-      <div className="mx-auto h-0.5 w-7 rounded-full bg-[#3F4147]" />
+      <span
+        aria-hidden="true"
+        className="mx-auto h-px w-7"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+        }}
+      />
 
       {sessions.map((session) => (
         <WorkspaceIcon
@@ -62,7 +72,14 @@ export function WorkspaceBar() {
       ))}
 
       {sessions.length > 0 && (
-        <div className="mx-auto h-0.5 w-7 rounded-full bg-[#3F4147]" />
+        <span
+          aria-hidden="true"
+          className="mx-auto h-px w-7"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+          }}
+        />
       )}
 
       <WorkspaceIcon
@@ -88,14 +105,23 @@ function MagicBrandIcon({
   return (
     <div className="relative flex items-center pt-2">
       {active && (
-        <span className="absolute -left-3 h-5 w-1 rounded-r-full bg-white" />
+        <span
+          aria-hidden="true"
+          className="absolute -left-3 h-[18px] w-[3px] rounded-r-[3px]"
+          style={{ background: "linear-gradient(180deg, #6C5CE7, #00B4D8)" }}
+        />
       )}
       <button
         type="button"
         onClick={onClick}
         title="Magic 设置"
-        className="flex h-12 w-12 items-center justify-center rounded-2xl
-                   bg-[#5865F2] text-white transition-colors hover:bg-[#4752C4]"
+        className="flex h-11 w-11 items-center justify-center rounded-[14px]
+                   text-white transition-opacity hover:opacity-90"
+        style={{
+          background: "linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0)",
+          backgroundSize: "200% 200%",
+          animation: active ? "gradient-shift 3s ease infinite" : undefined,
+        }}
       >
         <svg
           className="h-6 w-6"

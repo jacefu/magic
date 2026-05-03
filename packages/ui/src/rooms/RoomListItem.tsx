@@ -61,34 +61,53 @@ export const RoomListItem = memo(function RoomListItem({
   const dmPeerId = useDmPeerId(room.roomId, isDm);
   const dmStatusColor = dmPeerId
     ? getPresenceColor(getUserPresence(dmPeerId))
-    : "#6D6F78";
+    : "rgba(255,255,255,0.15)";
+  const dmStatusGlow =
+    dmStatusColor === "#00F5A0"
+      ? "0 0 6px rgba(0,245,160,0.4)"
+      : dmStatusColor === "#FBBF24"
+        ? "0 0 6px rgba(251,191,36,0.3)"
+        : dmStatusColor === "#F43F5E"
+          ? "0 0 6px rgba(244,63,94,0.3)"
+          : undefined;
+
+  // Cosmic AI § 7.2 — selected items get a translucent purple→cyan
+  // gradient + a subtle brand-tinted border instead of a flat grey.
+  const activeStyle: React.CSSProperties | undefined = isActive
+    ? {
+        background:
+          "linear-gradient(135deg, rgba(108,92,231,0.12), rgba(0,180,216,0.08))",
+        borderColor: "rgba(108,92,231,0.2)",
+      }
+    : undefined;
 
   return (
     <button
       onClick={onSelect}
       className={`mx-1.5 flex h-[30px] w-[calc(100%-12px)] items-center gap-1.5
-                  rounded-[4px] px-2.5 py-[5px] text-left
-                  transition-colors duration-100 ${
+                  rounded-lg border-[0.5px] border-transparent px-2.5 py-[5px] text-left
+                  transition-colors duration-150 ${
                     isActive
-                      ? "bg-[#404249] text-white"
+                      ? "text-white"
                       : isUnread
-                        ? "text-[#DBDEE1] hover:bg-[#35373C]"
-                        : "text-[#949BA4] hover:bg-[#35373C] hover:text-[#DBDEE1]"
+                        ? "text-[rgba(255,255,255,0.85)] hover:bg-[rgba(255,255,255,0.04)]"
+                        : "text-[rgba(255,255,255,0.4)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.7)]"
                   }`}
+      style={activeStyle}
     >
       {isDm ? (
         <span
-          className="h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: dmStatusColor }}
+          className="h-[7px] w-[7px] shrink-0 rounded-full"
+          style={{ backgroundColor: dmStatusColor, boxShadow: dmStatusGlow }}
           aria-hidden
         />
       ) : (
-        <span className="shrink-0 text-[16px] leading-none opacity-60">#</span>
+        <span className="shrink-0 text-[14px] leading-none opacity-40">#</span>
       )}
 
       <span
-        className={`truncate text-[13px] ${
-          isUnread || isActive ? "font-semibold" : "font-medium"
+        className={`truncate text-[12.5px] ${
+          isUnread || isActive ? "font-medium" : "font-normal"
         }`}
       >
         {name}

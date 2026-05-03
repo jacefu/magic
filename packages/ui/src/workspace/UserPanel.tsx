@@ -14,21 +14,27 @@ export function UserPanel() {
   const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
-    <div className="relative flex items-center gap-1.5 bg-[#232428] px-1.5 py-1.5">
+    <div className="relative flex items-center gap-1.5 bg-[rgba(12,12,18,0.6)] px-1.5 py-1.5">
       <div className="relative shrink-0">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5865F2] text-[11px] font-semibold text-white">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+          style={{ background: "linear-gradient(135deg, #6C5CE7, #3B82F6)" }}
+        >
           {initials}
         </div>
-        <div className="absolute -bottom-px -right-px flex h-3 w-3 items-center justify-center rounded-full bg-[#232428]">
-          <div className="h-2 w-2 rounded-full bg-[#23A55A]" />
+        <div className="absolute -bottom-px -right-px flex h-3 w-3 items-center justify-center rounded-full bg-[rgba(12,12,18,0.6)]">
+          <div
+            className="h-2 w-2 rounded-full bg-[#00F5A0]"
+            style={{ boxShadow: "0 0 6px rgba(0,245,160,0.4)" }}
+          />
         </div>
       </div>
 
       <div className="min-w-0 flex-1 px-0.5">
-        <p className="truncate text-[13px] font-semibold leading-tight text-[#DBDEE1]">
+        <p className="truncate text-[13px] font-semibold leading-tight text-[rgba(255,255,255,0.85)]">
           {displayName}
         </p>
-        <p className="truncate text-[11px] leading-tight text-[#949BA4]">
+        <p className="truncate text-[11px] leading-tight text-[rgba(255,255,255,0.4)]">
           在线
         </p>
       </div>
@@ -39,7 +45,7 @@ export function UserPanel() {
           title="设置"
           onClick={openSettings}
           className="flex h-8 w-8 items-center justify-center rounded text-[#B5BAC1]
-                     transition-colors hover:bg-[#35373C] hover:text-[#DBDEE1]"
+                     transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]"
         >
           <GearIcon />
         </button>

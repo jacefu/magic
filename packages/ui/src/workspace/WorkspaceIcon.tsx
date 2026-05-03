@@ -21,6 +21,16 @@ interface WorkspaceIconProps {
   onClick: () => void;
 }
 
+// Cosmic AI § 7.1 — selected workspace icons get a slowly-rotating
+// gradient halo (purple → cyan → mint). The halo is a 2px ring drawn
+// by an outer wrapper whose background is the brand gradient; the
+// inner button sits on top with the deep-space fill, leaving the ring
+// visible. `gradient-shift` (defined in index.css) keeps the gradient
+// position cycling so the halo subtly breathes.
+const HALO_GRADIENT =
+  "linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0)";
+const INDICATOR_GRADIENT = "linear-gradient(180deg, #6C5CE7, #00B4D8)";
+
 export const WorkspaceIcon = memo(function WorkspaceIcon({
   initial,
   name,
@@ -43,50 +53,90 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
     (syncState === "SYNCING" && !initialSyncComplete) ||
     (syncState === "STOPPED" && !initialSyncComplete);
 
+  const buttonClasses =
+    "flex h-11 w-11 items-center justify-center text-[15px] font-semibold transition-all duration-250";
+  const buttonRadius = isActive ? "rounded-[14px]" : "rounded-full";
+  const buttonStateClasses = isActive
+    ? "text-white"
+    : variant === "add"
+      ? "border-[1.5px] border-dashed border-[rgba(255,255,255,0.2)] text-[rgba(255,255,255,0.4)] text-lg hover:rounded-[14px] hover:border-[rgba(0,245,160,0.4)] hover:text-[#00F5A0]"
+      : "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.7)] hover:rounded-[14px] hover:bg-[rgba(255,255,255,0.1)] hover:text-white";
+  const errorRing = isError ? "ring-2 ring-[#F43F5E]" : "";
+
+  const buttonStyle: React.CSSProperties | undefined = isActive
+    ? color
+      ? { backgroundColor: color }
+      : { background: "#1A1A24" }
+    : color && variant !== "add"
+      ? { backgroundColor: color, color: "#fff" }
+      : undefined;
+
   return (
     <div className="relative flex items-center">
-      {/* Left selected indicator — sits in the rail's left margin */}
+      {/* Left selected/unread indicator — Cosmic AI § 7.1 uses a 3px
+          gradient bar; longer when active, shorter when there's just
+          unread activity. */}
       {isActive && (
-        <div className="absolute -left-3 h-5 w-1 rounded-r-full bg-white" />
+        <span
+          aria-hidden="true"
+          className="absolute -left-3 h-[18px] w-[3px] rounded-r-[3px]"
+          style={{ background: INDICATOR_GRADIENT }}
+        />
       )}
       {!isActive && hasNotification && (
-        <div className="absolute -left-3 h-2 w-1 rounded-r-full bg-white" />
+        <span
+          aria-hidden="true"
+          className="absolute -left-3 h-2 w-[3px] rounded-r-[3px]"
+          style={{ background: INDICATOR_GRADIENT }}
+        />
       )}
 
-      <button
-        onClick={onClick}
-        title={`${name}${isSyncing ? "（同步中）" : isError ? "（连接错误）" : ""}`}
-        className={`flex h-12 w-12 items-center justify-center text-base font-semibold
-                    transition-all duration-200
-                    ${
-                      isActive
-                        ? "rounded-2xl bg-[#5865F2] text-white"
-                        : variant === "add"
-                          ? "rounded-full border-[1.5px] border-dashed border-[#6D6F78] text-[#6D6F78] text-lg hover:rounded-2xl hover:border-[#23A55A] hover:text-[#23A55A]"
-                          : "rounded-2xl bg-[#313338] text-[#DBDEE1] hover:bg-[#5865F2] hover:text-white"
-                    }
-                    ${isError ? "ring-2 ring-[#F23F43]" : ""}`}
-        style={
-          !isActive && color && variant !== "add"
-            ? { backgroundColor: color, color: "#fff" }
-            : isActive && color
-              ? { backgroundColor: color }
-              : undefined
-        }
-      >
-        {isSyncing ? (
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-        ) : (
-          initial
-        )}
-      </button>
+      {isActive ? (
+        <span
+          className="relative inline-flex p-[2px] rounded-[16px]"
+          style={{
+            background: HALO_GRADIENT,
+            backgroundSize: "200% 200%",
+            animation: "gradient-shift 3s ease infinite",
+          }}
+        >
+          <button
+            onClick={onClick}
+            title={`${name}${isSyncing ? "（同步中）" : isError ? "（连接错误）" : ""}`}
+            className={`${buttonClasses} ${buttonRadius} ${buttonStateClasses} ${errorRing}`}
+            style={buttonStyle}
+          >
+            {isSyncing ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              initial
+            )}
+          </button>
+        </span>
+      ) : (
+        <button
+          onClick={onClick}
+          title={`${name}${isSyncing ? "（同步中）" : isError ? "（连接错误）" : ""}`}
+          className={`${buttonClasses} ${buttonRadius} ${buttonStateClasses} ${errorRing}`}
+          style={buttonStyle}
+        >
+          {isSyncing ? (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          ) : (
+            initial
+          )}
+        </button>
+      )}
 
-      {/* Notification badge */}
+      {/* Notification badge — gradient pill matching UnreadBadge. */}
       {notificationCount && notificationCount > 0 ? (
         <span
           className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center
-                     rounded-full bg-[#F23F43] px-1 text-[10px] font-bold text-white
-                     ring-2 ring-[#1E1F22]"
+                     rounded-md px-1 text-[9px] font-bold text-white"
+          style={{
+            background: "linear-gradient(135deg, #E040A0, #F06040)",
+            boxShadow: "0 0 0 2px rgba(12,12,18,0.95)",
+          }}
         >
           {notificationCount > 99 ? "99+" : notificationCount}
         </span>
