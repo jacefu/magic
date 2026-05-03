@@ -17,6 +17,13 @@ export interface ServerSession {
   /** Hex colour for the workspace icon. */
   serverColor: string | null;
   syncState: SyncState;
+  /**
+   * Latches `true` the first time the session reaches PREPARED. Used by
+   * the workspace icon to decide whether to show the spinner: SYNCING
+   * during the initial sync = spinner; SYNCING during steady-state
+   * long-poll afterwards = no spinner (just the static initial).
+   */
+  initialSyncComplete: boolean;
   unreadCount: number;
   highlightCount: number;
   /** Timestamp (ms) the session was first added — drives stable ordering. */

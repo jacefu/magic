@@ -10,10 +10,14 @@ interface WorkspaceIconProps {
   variant?: "default" | "add";
   /**
    * Per-spec 016: workspace icons reflect the matrix-js-sdk sync state
-   * of their session. SYNCING/RECONNECTING shows a spinner, ERROR adds
-   * a red ring, otherwise the initial.
+   * of their session. The spinner only shows during the *initial* sync
+   * (or during a true reconnect) — once the session has reached
+   * PREPARED for the first time, ongoing SYNCING ↔ PREPARED churn from
+   * long-polling no longer flips the icon, since `initialSyncComplete`
+   * stays latched.
    */
   syncState?: "STOPPED" | "SYNCING" | "PREPARED" | "ERROR" | "RECONNECTING";
+  initialSyncComplete?: boolean;
   onClick: () => void;
 }
 
@@ -26,10 +30,18 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
   notificationCount,
   variant = "default",
   syncState,
+  initialSyncComplete = false,
   onClick,
 }: WorkspaceIconProps) {
-  const isSyncing = syncState === "SYNCING" || syncState === "RECONNECTING";
   const isError = syncState === "ERROR";
+  // Spinner only during the *first* connect (before we've ever seen
+  // PREPARED) and during a real reconnect. Steady-state long-polling
+  // alternates SYNCING ↔ PREPARED forever; we don't want that to
+  // animate the icon perpetually.
+  const isSyncing =
+    syncState === "RECONNECTING" ||
+    (syncState === "SYNCING" && !initialSyncComplete) ||
+    (syncState === "STOPPED" && !initialSyncComplete);
 
   return (
     <div className="relative flex items-center">

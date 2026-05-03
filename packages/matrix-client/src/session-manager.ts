@@ -108,6 +108,7 @@ export async function addServer(
     serverInitial: serverName.charAt(0).toUpperCase() || "?",
     serverColor: pickColor(homeserver),
     syncState: "STOPPED",
+    initialSyncComplete: false,
     unreadCount: 0,
     highlightCount: 0,
     addedAt: Date.now(),
@@ -296,9 +297,19 @@ function registerSessionWatchers(
   client: MatrixClient,
 ): void {
   const onSync = (state: string) => {
-    useSessionStore.getState().updateSession(sessionId, {
+    const updates: Partial<ServerSession> = {
       syncState: state as ServerSession["syncState"],
-    });
+    };
+    // First time we hit PREPARED, latch `initialSyncComplete = true` so
+    // the workspace icon stops showing a spinner during steady-state
+    // long-polling (which keeps cycling SYNCING ↔ PREPARED forever).
+    if (state === "PREPARED") {
+      const current = useSessionStore.getState().sessions[sessionId];
+      if (current && !current.initialSyncComplete) {
+        updates.initialSyncComplete = true;
+      }
+    }
+    useSessionStore.getState().updateSession(sessionId, updates);
   };
   const recomputeUnread = () => {
     let total = 0;
@@ -452,6 +463,7 @@ function loadPersistedSessions(): ServerSession[] {
         serverInitial: s.serverInitial,
         serverColor: s.serverColor,
         syncState: "STOPPED",
+        initialSyncComplete: false,
         unreadCount: 0,
         highlightCount: 0,
         addedAt: s.addedAt,

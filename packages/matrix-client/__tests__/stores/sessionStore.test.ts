@@ -21,6 +21,7 @@ function makeSession(overrides: Partial<ServerSession> = {}): ServerSession {
     serverInitial: "A",
     serverColor: "#5865F2",
     syncState: "STOPPED",
+    initialSyncComplete: false,
     unreadCount: 0,
     highlightCount: 0,
     addedAt: 1000,
