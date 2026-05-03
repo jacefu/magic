@@ -37,7 +37,7 @@ export const InviteSection = memo(function InviteSection({
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
         <span>邀请</span>
-        <span className="ml-1 rounded-full bg-[#FBBF24]/20 px-1.5 py-0.5 text-[10px]">
+        <span className="ml-1 rounded-full bg-[var(--color-warning)]/20 px-1.5 py-0.5 text-[10px]">
           {invites.length}
         </span>
       </button>

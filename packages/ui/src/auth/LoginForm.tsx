@@ -89,7 +89,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
       </div>
 
       {error && (
-        <div className="rounded-md border border-[#F23F43]/40 bg-[#F43F5E]/10 px-3 py-2 text-sm text-[var(--color-danger)]">
+        <div className="rounded-md border border-[var(--color-danger)]/40 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-danger)]">
           {error}
         </div>
       )}

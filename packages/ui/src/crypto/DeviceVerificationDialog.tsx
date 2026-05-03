@@ -28,9 +28,9 @@ export function DeviceVerificationDialog({
 
   return (
     <DialogOverlay onClose={handleClose}>
-      <div className="w-full max-w-md rounded-xl bg-bg-secondary p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold text-text-normal">设备验证</h2>
-        <p className="mt-1 text-sm text-text-muted">与 {deviceId} 进行安全验证</p>
+      <div className="w-full max-w-md rounded-xl bg-[var(--bg-glass)] p-6 shadow-2xl">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">设备验证</h2>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">与 {deviceId} 进行安全验证</p>
 
         <div className="mt-6">
           {phase === "requested" && <PhaseRequested />}
@@ -60,9 +60,9 @@ export function DeviceVerificationDialog({
 function PhaseRequested() {
   return (
     <div className="py-6 text-center">
-      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-      <p className="mt-4 text-sm text-text-normal">等待对方设备响应…</p>
-      <p className="mt-1 text-xs text-text-muted">请在另一台设备上确认验证请求</p>
+      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-purple)] border-t-transparent" />
+      <p className="mt-4 text-sm text-[var(--text-primary)]">等待对方设备响应…</p>
+      <p className="mt-1 text-xs text-[var(--text-secondary)]">请在另一台设备上确认验证请求</p>
     </div>
   );
 }
@@ -70,8 +70,8 @@ function PhaseRequested() {
 function PhaseReady() {
   return (
     <div className="py-6 text-center">
-      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-      <p className="mt-4 text-sm text-text-normal">正在建立安全通道…</p>
+      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-purple)] border-t-transparent" />
+      <p className="mt-4 text-sm text-[var(--text-primary)]">正在建立安全通道…</p>
     </div>
   );
 }
@@ -87,7 +87,7 @@ function PhaseSas({
 }) {
   return (
     <div>
-      <p className="text-center text-sm text-text-normal">
+      <p className="text-center text-sm text-[var(--text-primary)]">
         请确认以下 emoji 与另一台设备上显示的完全一致：
       </p>
       <div className="my-6">
@@ -96,15 +96,15 @@ function PhaseSas({
       <div className="flex gap-3">
         <button
           onClick={onReject}
-          className="flex-1 rounded-lg border border-divider px-4 py-2 text-sm
-                     text-text-normal transition-colors hover:bg-bg-modifier"
+          className="flex-1 rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm
+                     text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-surface)]"
         >
           不一致
         </button>
         <button
           onClick={onConfirm}
-          className="flex-1 rounded-lg bg-green px-4 py-2 text-sm font-medium
-                     text-white transition-colors hover:bg-green/90"
+          className="flex-1 rounded-lg bg-[var(--color-success)] px-4 py-2 text-sm font-medium
+                     text-white transition-colors hover:bg-[var(--color-success)]/90"
         >
           一致，确认验证
         </button>
@@ -116,8 +116,8 @@ function PhaseSas({
 function PhaseConfirmed() {
   return (
     <div className="py-6 text-center">
-      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-green border-t-transparent" />
-      <p className="mt-4 text-sm text-text-normal">正在完成验证…</p>
+      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-success)] border-t-transparent" />
+      <p className="mt-4 text-sm text-[var(--text-primary)]">正在完成验证…</p>
     </div>
   );
 }
@@ -125,9 +125,9 @@ function PhaseConfirmed() {
 function PhaseDone({ onClose }: { onClose: () => void }) {
   return (
     <div className="py-6 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green/20">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-success)]/20">
         <svg
-          className="h-6 w-6 text-green"
+          className="h-6 w-6 text-[var(--color-success)]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -136,12 +136,12 @@ function PhaseDone({ onClose }: { onClose: () => void }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <p className="mt-4 text-sm font-medium text-green">验证成功</p>
-      <p className="mt-1 text-xs text-text-muted">设备已通过安全验证</p>
+      <p className="mt-4 text-sm font-medium text-[var(--color-success)]">验证成功</p>
+      <p className="mt-1 text-xs text-[var(--text-secondary)]">设备已通过安全验证</p>
       <button
         onClick={onClose}
-        className="mt-4 rounded-lg bg-brand px-6 py-2 text-sm font-medium
-                   text-white transition-colors hover:bg-brand-hover"
+        className="mt-4 rounded-lg bg-[var(--brand-purple)] px-6 py-2 text-sm font-medium
+                   text-white transition-colors hover:opacity-90"
       >
         完成
       </button>
@@ -160,9 +160,9 @@ function PhaseError({
 }) {
   return (
     <div className="py-6 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red/20">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-danger)]/20">
         <svg
-          className="h-6 w-6 text-red"
+          className="h-6 w-6 text-[var(--color-danger)]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -171,20 +171,20 @@ function PhaseError({
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </div>
-      <p className="mt-4 text-sm font-medium text-red">验证失败</p>
-      <p className="mt-1 text-xs text-text-muted">{error ?? "未知错误"}</p>
+      <p className="mt-4 text-sm font-medium text-[var(--color-danger)]">验证失败</p>
+      <p className="mt-1 text-xs text-[var(--text-secondary)]">{error ?? "未知错误"}</p>
       <div className="mt-4 flex justify-center gap-3">
         <button
           onClick={onClose}
-          className="rounded-lg border border-divider px-4 py-2 text-sm text-text-normal
-                     transition-colors hover:bg-bg-modifier"
+          className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)]
+                     transition-colors hover:bg-[var(--bg-surface)]"
         >
           关闭
         </button>
         <button
           onClick={onRetry}
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-text-normal
-                     transition-colors hover:bg-brand-hover"
+          className="rounded-lg bg-[var(--brand-purple)] px-4 py-2 text-sm font-medium text-[var(--text-primary)]
+                     transition-colors hover:opacity-90"
         >
           重试
         </button>

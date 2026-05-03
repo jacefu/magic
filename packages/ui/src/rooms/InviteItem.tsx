@@ -47,12 +47,12 @@ export const InviteItem = memo(function InviteItem({
       )}
       {invite.status === "declining" && (
         <div
-          className="h-3 w-3 animate-spin rounded-full border border-[#F23F43] border-t-transparent"
+          className="h-3 w-3 animate-spin rounded-full border border-[var(--color-danger)] border-t-transparent"
           aria-label="拒绝中"
         />
       )}
       {invite.status === "pending" && (
-        <span className="shrink-0 rounded bg-[#FBBF24]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-warning)]">
+        <span className="shrink-0 rounded bg-[var(--color-warning)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-warning)]">
           邀请
         </span>
       )}

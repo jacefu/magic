@@ -88,8 +88,8 @@ export function MonacoWrapper({
         },
       }}
       loading={
-        <div className="flex h-full items-center justify-center bg-bg-primary">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+        <div className="flex h-full items-center justify-center bg-[var(--bg-primary)]">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--brand-purple)] border-t-transparent" />
         </div>
       }
     />

@@ -99,8 +99,8 @@ export function CollaborationGraph({ roomId }: CollaborationGraphProps) {
   if (agents.length === 0) {
     return (
       <div className="space-y-2 px-2 py-8 text-center">
-        <p className="text-sm text-text-muted">暂无 Agent 协作数据</p>
-        <p className="text-xs leading-relaxed text-text-faint">
+        <p className="text-sm text-[var(--text-secondary)]">暂无 Agent 协作数据</p>
+        <p className="text-xs leading-relaxed text-[var(--text-tertiary)]">
           需要房间内有至少一个发布 agent.status 事件的 Agent 才能渲染协作图。
         </p>
       </div>

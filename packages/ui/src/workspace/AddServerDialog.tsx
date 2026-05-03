@@ -105,7 +105,7 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
           </div>
 
           {error && (
-            <div className="rounded-lg border-[0.5px] border-[rgba(244,63,94,0.3)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--color-danger)]">
+            <div className="rounded-lg border-[0.5px] border-[var(--color-danger)]/40 bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--color-danger)]">
               {error}
             </div>
           )}

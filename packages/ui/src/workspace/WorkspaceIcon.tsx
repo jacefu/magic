@@ -59,8 +59,8 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
   const buttonStateClasses = isActive
     ? "text-white"
     : variant === "add"
-      ? "border-[1.5px] border-dashed border-[rgba(255,255,255,0.2)] text-[var(--text-secondary)] text-lg hover:rounded-[14px] hover:border-[rgba(0,245,160,0.4)] hover:text-[var(--color-success)]"
-      : "bg-[var(--ws-icon-bg)] text-[var(--text-primary)] hover:rounded-[14px] hover:bg-[var(--badge-muted)] hover:text-white";
+      ? "border-[1.5px] border-dashed border-[var(--text-tertiary)] text-[var(--text-secondary)] text-lg hover:rounded-[14px] hover:border-[var(--color-success)]/60 hover:text-[var(--color-success)]"
+      : "bg-[var(--ws-icon-bg)] text-[var(--text-primary)] hover:rounded-[14px] hover:bg-[var(--badge-muted)] hover:text-[var(--text-primary)]";
   const errorRing = isError ? "ring-2 ring-[var(--color-danger)]" : "";
 
   const buttonStyle: React.CSSProperties | undefined = isActive

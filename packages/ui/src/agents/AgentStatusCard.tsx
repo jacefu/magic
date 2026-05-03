@@ -15,7 +15,7 @@ export const AgentStatusCard = memo(function AgentStatusCard({
   const displayName = extractName(agent.userId);
 
   return (
-    <div className="rounded-xl border border-divider-light bg-bg-secondary p-3 transition-colors hover:border-divider">
+    <div className="rounded-xl border border-[var(--border-default)]-light bg-[var(--bg-glass)] p-3 transition-colors hover:border-[var(--border-default)]">
       <div className="flex items-center gap-2.5">
         <div className="relative">
           <RoomAvatar name={displayName} avatarMxc={null} isDirect size={32} />
@@ -24,17 +24,17 @@ export const AgentStatusCard = memo(function AgentStatusCard({
           </span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-text-normal">{displayName}</p>
-          <p className="truncate text-xs text-text-muted">{agent.model ?? "Agent"}</p>
+          <p className="truncate text-sm font-medium text-[var(--text-primary)]">{displayName}</p>
+          <p className="truncate text-xs text-[var(--text-secondary)]">{agent.model ?? "Agent"}</p>
         </div>
       </div>
 
       {taskName && (
-        <div className="mt-2 rounded-lg bg-bg-primary px-2 py-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-text-muted">
+        <div className="mt-2 rounded-lg bg-[var(--bg-primary)] px-2 py-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
             当前任务
           </p>
-          <p className="mt-0.5 truncate text-xs text-text-normal">{taskName}</p>
+          <p className="mt-0.5 truncate text-xs text-[var(--text-primary)]">{taskName}</p>
         </div>
       )}
 
@@ -43,13 +43,13 @@ export const AgentStatusCard = memo(function AgentStatusCard({
           {agent.capabilities.slice(0, 3).map((cap) => (
             <span
               key={cap}
-              className="rounded-full bg-bg-secondary px-2 py-0.5 text-[10px] text-text-muted"
+              className="rounded-full bg-[var(--bg-glass)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]"
             >
               {cap}
             </span>
           ))}
           {agent.capabilities.length > 3 && (
-            <span className="text-[10px] text-text-muted">
+            <span className="text-[10px] text-[var(--text-secondary)]">
               +{agent.capabilities.length - 3}
             </span>
           )}

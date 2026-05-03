@@ -10,10 +10,12 @@ describe("UnreadDivider", () => {
 
   it("does not render a date label when date is null", () => {
     const { container } = render(<UnreadDivider date={null} />);
-    // Only one rule + the badge — no date span between rules. The
-    // divider uses Cosmic AI's danger token (#F43F5E) for both.
-    const rules = container.querySelectorAll(".bg-\\[\\#F43F5E\\]");
-    expect(rules.length).toBe(2);
+    // The divider rule + the "新的" badge both use the danger CSS
+    // variable; no centred date span sits between the two rules.
+    const dangerEls = container.querySelectorAll(
+      "[class*='var(--color-danger)']",
+    );
+    expect(dangerEls.length).toBe(2);
   });
 
   it("renders the date label centered between two rules when provided", () => {

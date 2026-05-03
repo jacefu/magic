@@ -123,7 +123,7 @@ export function MessageComposer({
                         transition-colors ${
                           emojiOpen
                             ? "text-[var(--text-primary)]"
-                            : "text-[#B5BAC1] hover:text-[var(--text-primary)]"
+                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         }`}
           >
             <EmojiIcon />
@@ -166,7 +166,7 @@ function ComposerIconButton({
     <button
       title={title}
       onClick={onClick}
-      className="flex h-9 w-9 shrink-0 items-center justify-center text-[#B5BAC1]
+      className="flex h-9 w-9 shrink-0 items-center justify-center text-[var(--text-secondary)]
                  transition-colors hover:text-[var(--text-primary)]"
     >
       {children}

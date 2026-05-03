@@ -72,7 +72,7 @@ export function TextMessage({
       return (
         <code
           className={`rounded px-1 py-0.5 text-[13px] ${
-            isOwn ? "bg-brand-hover/40" : "bg-bg-modifier"
+            isOwn ? "bg-[var(--bg-active)]" : "bg-[var(--bg-surface)]"
           } ${className ?? ""}`}
         >
           {children}
@@ -102,7 +102,7 @@ export function TextMessage({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#00A8FC] hover:underline break-all"
+          className="text-[var(--brand-cyan)] hover:underline break-all"
         >
           {children}
         </a>
@@ -176,7 +176,7 @@ export function TextMessage({
     },
     blockquote({ children }) {
       return (
-        <blockquote className="my-1.5 border-l-[3px] border-[#4E5058] pl-3 text-[#B5BAC1]">
+        <blockquote className="my-1.5 border-l-[3px] border-[var(--border-hover)] pl-3 text-[var(--text-secondary)]">
           {children}
         </blockquote>
       );

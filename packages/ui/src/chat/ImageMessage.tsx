@@ -34,7 +34,7 @@ export function ImageMessage({ body, url }: ImageMessageProps) {
             onError={() => setThumbError(true)}
           />
         ) : (
-          <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-bg-secondary text-xs text-text-muted">
+          <div className="flex h-32 w-48 items-center justify-center rounded-lg bg-[var(--bg-glass)] text-xs text-[var(--text-secondary)]">
             {thumbError ? "图片加载失败" : "加载中…"}
           </div>
         )}

@@ -24,7 +24,7 @@ export const TypingIndicator = memo(function TypingIndicator({ users }: TypingIn
   return (
     <div className="flex items-center gap-2 px-4 py-2">
       <BouncingDots />
-      <span className="text-xs text-text-muted">{text}</span>
+      <span className="text-xs text-[var(--text-secondary)]">{text}</span>
     </div>
   );
 });

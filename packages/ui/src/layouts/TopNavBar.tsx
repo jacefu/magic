@@ -121,10 +121,10 @@ function NavIconButton({
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-7 w-7 items-center justify-center rounded text-[#B5BAC1]
+      className="flex h-7 w-7 items-center justify-center rounded text-[var(--text-secondary)]
                  transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]
-                 disabled:cursor-not-allowed disabled:text-[#4E5058]
-                 disabled:hover:bg-transparent disabled:hover:text-[#4E5058]"
+                 disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]
+                 disabled:hover:bg-transparent disabled:hover:text-[var(--text-disabled)]"
     >
       {children}
     </button>

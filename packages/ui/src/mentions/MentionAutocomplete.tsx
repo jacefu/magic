@@ -31,11 +31,11 @@ export function MentionAutocomplete({
     <div
       ref={listRef}
       className="absolute bottom-full left-0 right-0 mb-1 max-h-52 overflow-y-auto
-                 rounded-xl border border-divider bg-bg-secondary shadow-xl"
+                 rounded-xl border border-[var(--border-default)] bg-[var(--bg-glass)] shadow-xl"
       role="listbox"
     >
-      <div className="border-b border-divider-light px-3 py-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-text-muted">
+      <div className="border-b border-[var(--border-default)]-light px-3 py-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
           提及成员
         </span>
       </div>

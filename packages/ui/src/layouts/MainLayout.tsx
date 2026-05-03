@@ -66,7 +66,7 @@ export function MainLayout() {
         <div className="flex w-[240px] shrink-0 flex-col" style={glassStyle}>
           {/* Header — workspace name dropdown + invite */}
           <div className="flex h-12 items-center justify-between border-b border-[var(--border-default)] px-3">
-            <button className="flex min-w-0 items-center gap-1 text-[13.5px] font-semibold text-[var(--text-primary)] transition-colors hover:text-white">
+            <button className="flex min-w-0 items-center gap-1 text-[13.5px] font-semibold text-[var(--text-primary)] transition-colors hover:text-[var(--brand-purple)]">
               <span className="truncate">Magic 工作区</span>
               <svg
                 className="h-3 w-3 shrink-0 text-[var(--text-secondary)]"

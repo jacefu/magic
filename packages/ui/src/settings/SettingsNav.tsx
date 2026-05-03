@@ -54,7 +54,7 @@ export function SettingsNav({ activeTab, onTabChange }: SettingsNavProps) {
                               text-sm transition-colors ${
                                 activeTab === item.key
                                   ? "bg-[var(--ws-icon-bg)] text-[var(--text-primary)]"
-                                  : "text-[#B5BAC1] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
+                                  : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
                               }`}
                 >
                   {item.label}

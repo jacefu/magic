@@ -16,7 +16,7 @@ export function LoginPage({ onLogin, error, isLoading }: LoginPageProps) {
     <div className="flex h-screen items-center justify-center bg-[var(--bg-deepest)] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-white">MAGIC</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">MAGIC</h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
             Multi-Agent Governance &amp; Intelligent Collaboration
           </p>

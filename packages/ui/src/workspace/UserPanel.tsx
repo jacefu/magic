@@ -47,7 +47,7 @@ export function UserPanel() {
           type="button"
           title="设置"
           onClick={openSettings}
-          className="flex h-8 w-8 items-center justify-center rounded text-[#B5BAC1]
+          className="flex h-8 w-8 items-center justify-center rounded text-[var(--text-secondary)]
                      transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
         >
           <GearIcon />

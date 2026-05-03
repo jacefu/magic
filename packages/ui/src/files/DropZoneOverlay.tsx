@@ -2,12 +2,12 @@ export function DropZoneOverlay() {
   return (
     <div
       className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center
-                 border-2 border-dashed border-brand bg-brand/10"
+                 border-2 border-dashed border-[var(--brand-purple)] bg-[var(--brand-purple)]/10"
     >
       <div className="text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/20">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-purple)]/20">
           <svg
-            className="h-7 w-7 text-brand"
+            className="h-7 w-7 text-[var(--brand-purple)]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -20,8 +20,8 @@ export function DropZoneOverlay() {
             />
           </svg>
         </div>
-        <p className="text-sm font-medium text-brand">拖放文件到此处上传</p>
-        <p className="mt-1 text-xs text-text-muted">支持图片、文档、音视频等文件</p>
+        <p className="text-sm font-medium text-[var(--brand-purple)]">拖放文件到此处上传</p>
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">支持图片、文档、音视频等文件</p>
       </div>
     </div>
   );

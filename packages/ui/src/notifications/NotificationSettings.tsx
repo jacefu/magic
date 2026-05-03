@@ -84,7 +84,7 @@ function ToggleSwitch({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative h-5 w-9 rounded-full transition-colors ${
-        checked ? "" : "bg-[rgba(255,255,255,0.15)]"
+        checked ? "" : "bg-[var(--text-disabled)]"
       }`}
       style={
         checked

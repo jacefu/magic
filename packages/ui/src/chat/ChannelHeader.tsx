@@ -29,7 +29,7 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
       {/* Channel marker + name */}
       <div className="flex shrink-0 items-center gap-1.5">
         <span className="text-[20px] leading-none text-[var(--text-secondary)]">#</span>
-        <span className="text-[16px] font-semibold text-white">
+        <span className="text-[16px] font-semibold text-[var(--text-primary)]">
           {room.name || "未命名房间"}
         </span>
       </div>
@@ -37,8 +37,8 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
       {/* Topic (with vertical divider) */}
       {room.topic ? (
         <>
-          <div className="h-6 w-px bg-[#3F4147]" />
-          <span className="min-w-0 flex-1 truncate text-[14px] text-[#B5BAC1]">
+          <div className="h-6 w-px bg-[var(--border-hover)]" />
+          <span className="min-w-0 flex-1 truncate text-[14px] text-[var(--text-secondary)]">
             {room.topic}
           </span>
         </>
@@ -93,7 +93,7 @@ function HeaderIconButton({
                   ${
                     isActive
                       ? "bg-[var(--ws-icon-bg)] text-[var(--text-primary)]"
-                      : "text-[#B5BAC1] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
                   }`}
     >
       {children}

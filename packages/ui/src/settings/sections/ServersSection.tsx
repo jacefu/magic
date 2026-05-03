@@ -89,7 +89,7 @@ export function ServersSection() {
               type="button"
               onClick={() => handleRemove(session.id)}
               className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-[var(--color-danger)]
-                         transition-colors hover:bg-[#F43F5E]/10"
+                         transition-colors hover:bg-[var(--color-danger)]/10"
             >
               断开
             </button>

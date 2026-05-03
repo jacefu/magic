@@ -50,13 +50,13 @@ export function MessageContent({ event, isOwn }: MessageContentProps) {
       );
     case "m.emote":
       return (
-        <span className="italic text-text-normal">
+        <span className="italic text-[var(--text-primary)]">
           * {extractDisplayName(event.sender)} {content.body as string}
         </span>
       );
     default:
       return (
-        <span className="text-text-muted">[不支持的消息类型: {msgtype}]</span>
+        <span className="text-[var(--text-secondary)]">[不支持的消息类型: {msgtype}]</span>
       );
   }
 }

@@ -74,8 +74,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             onClick={onClose}
             title="关闭设置 (ESC)"
             className="flex h-9 w-9 items-center justify-center rounded-full
-                       border border-[#6D6F78] text-[var(--text-secondary)]
-                       transition-colors hover:border-[#DBDEE1] hover:text-[var(--text-primary)]"
+                       border border-[var(--text-tertiary)] text-[var(--text-secondary)]
+                       transition-colors hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]"
           >
             <svg
               className="h-4 w-4"

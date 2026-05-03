@@ -37,7 +37,7 @@ describe("TextMessage", () => {
     expect(link?.getAttribute("href")).toBe("https://example.com");
     expect(link?.getAttribute("target")).toBe("_blank");
     expect(link?.getAttribute("rel")).toContain("noopener");
-    expect(link?.className).toContain("text-[#00A8FC]");
+    expect(link?.className).toContain("text-[var(--brand-cyan)]");
   });
 
   it("auto-links bare URLs in body", () => {
@@ -64,13 +64,14 @@ describe("TextMessage", () => {
   it("applies own-message code style when isOwn=true", () => {
     render(<TextMessage body="use `x`" isOwn={true} roomId="!r:example.com" />);
     const code = document.querySelector("code");
-    expect(code?.className).toContain("bg-brand-hover");
+    // Own-message code chips reuse the active-state bg gradient.
+    expect(code?.className).toContain("bg-[var(--bg-active)]");
   });
 
   it("applies other-message code style when isOwn=false", () => {
     render(<TextMessage body="use `x`" isOwn={false} roomId="!r:example.com" />);
     const code = document.querySelector("code");
-    expect(code?.className).toContain("bg-bg-modifier");
+    expect(code?.className).toContain("bg-[var(--bg-surface)]");
   });
 
   it("does NOT leak the raw `node` AST prop onto rendered <code>", () => {

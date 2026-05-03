@@ -64,7 +64,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
           >
             M
           </div>
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#6C5CE7] border-t-transparent" />
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--brand-purple)] border-t-transparent" />
           {progress ? (
             <>
               <p className="mt-3 text-sm text-[var(--text-secondary)]">

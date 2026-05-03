@@ -105,8 +105,8 @@ export function EmojiPicker({
               className={`flex flex-1 items-center justify-center py-1.5
                           text-[15px] transition-colors ${
                             activeCategory === c.key
-                              ? "bg-[var(--ws-icon-bg)] text-white"
-                              : "text-[#B5BAC1] hover:bg-[var(--bg-surface)]"
+                              ? "bg-[var(--ws-icon-bg)] text-[var(--text-primary)]"
+                              : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]"
                           }`}
             >
               {c.icon}

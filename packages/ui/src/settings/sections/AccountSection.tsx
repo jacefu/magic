@@ -32,7 +32,7 @@ export function AccountSection() {
         <span className="break-all">{session.homeserver}</span>
       </Field>
       <Field label="设备 ID">
-        <code className="rounded bg-[var(--bg-deepest)] px-1.5 py-0.5 text-xs text-[#B5BAC1]">
+        <code className="rounded bg-[var(--bg-deepest)] px-1.5 py-0.5 text-xs text-[var(--text-secondary)]">
           {session.deviceId}
         </code>
       </Field>

@@ -94,7 +94,7 @@ export function WelcomePage() {
         >
           <div
             className="flex h-11 w-11 items-center justify-center rounded-full
-                       border-[1.5px] border-dashed border-[rgba(255,255,255,0.2)] text-lg text-[var(--text-secondary)]"
+                       border-[1.5px] border-dashed border-[var(--text-tertiary)] text-lg text-[var(--text-secondary)]"
             aria-label="添加服务器"
           >
             +
@@ -192,7 +192,7 @@ export function WelcomePage() {
               </div>
 
               {error && (
-                <div className="rounded-lg border-[0.5px] border-[rgba(244,63,94,0.3)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--color-danger)]">
+                <div className="rounded-lg border-[0.5px] border-[var(--color-danger)]/40 bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--color-danger)]">
                   {error}
                 </div>
               )}

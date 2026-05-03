@@ -77,7 +77,7 @@ export function WorkspaceBar() {
           className="mx-auto h-px w-7"
           style={{
             background:
-              "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+              "linear-gradient(90deg, transparent, var(--border-hover), transparent)",
           }}
         />
       )}

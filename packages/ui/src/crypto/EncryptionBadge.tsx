@@ -16,22 +16,22 @@ export const EncryptionBadge = memo(function EncryptionBadge({
     case "verified":
       return (
         <span className="flex items-center gap-1" title="所有设备已验证">
-          <ShieldCheckIcon className={`${iconSize} text-green`} />
-          {size === "md" && <span className="text-xs text-green">已验证</span>}
+          <ShieldCheckIcon className={`${iconSize} text-[var(--color-success)]`} />
+          {size === "md" && <span className="text-xs text-[var(--color-success)]">已验证</span>}
         </span>
       );
     case "encrypted-unverified":
       return (
         <span className="flex items-center gap-1" title="已加密，部分设备未验证">
-          <ShieldIcon className={`${iconSize} text-yellow`} />
-          {size === "md" && <span className="text-xs text-yellow">部分验证</span>}
+          <ShieldIcon className={`${iconSize} text-[var(--color-warning)]`} />
+          {size === "md" && <span className="text-xs text-[var(--color-warning)]">部分验证</span>}
         </span>
       );
     case "unencrypted":
       return (
         <span className="flex items-center gap-1" title="未加密">
-          <ShieldOffIcon className={`${iconSize} text-text-muted`} />
-          {size === "md" && <span className="text-xs text-text-muted">未加密</span>}
+          <ShieldOffIcon className={`${iconSize} text-[var(--text-secondary)]`} />
+          {size === "md" && <span className="text-xs text-[var(--text-secondary)]">未加密</span>}
         </span>
       );
     default:

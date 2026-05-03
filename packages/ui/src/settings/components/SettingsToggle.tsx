@@ -32,7 +32,7 @@ export function SettingsToggle({
         onClick={() => !disabled && onChange(!checked)}
         disabled={disabled}
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? "" : "bg-[rgba(255,255,255,0.15)]"
+          checked ? "" : "bg-[var(--text-disabled)]"
         } ${disabled ? "cursor-not-allowed" : ""}`}
         style={
           checked

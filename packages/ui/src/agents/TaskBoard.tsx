@@ -11,9 +11,9 @@ export function TaskBoard({ roomId }: TaskBoardProps) {
   if (totalTasks === 0) {
     return (
       <div className="space-y-2 px-2 py-8 text-center">
-        <p className="text-sm text-text-muted">当前房间暂无任务</p>
-        <p className="text-xs leading-relaxed text-text-faint">
-          任务通过 <code className="rounded bg-bg-secondary px-1 py-0.5 text-[10px]">com.magic.task.assignment</code> 状态事件创建。
+        <p className="text-sm text-[var(--text-secondary)]">当前房间暂无任务</p>
+        <p className="text-xs leading-relaxed text-[var(--text-tertiary)]">
+          任务通过 <code className="rounded bg-[var(--bg-glass)] px-1 py-0.5 text-[10px]">com.magic.task.assignment</code> 状态事件创建。
         </p>
       </div>
     );
@@ -29,7 +29,7 @@ export function TaskBoard({ roomId }: TaskBoardProps) {
             >
               {col.label}
             </span>
-            <span className="rounded-full bg-bg-secondary px-1.5 py-0.5 text-[10px] text-text-muted">
+            <span className="rounded-full bg-[var(--bg-glass)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
               {col.tasks.length}
             </span>
           </div>
@@ -39,7 +39,7 @@ export function TaskBoard({ roomId }: TaskBoardProps) {
               <TaskCard key={task.taskId} task={task} />
             ))}
             {col.tasks.length === 0 && (
-              <div className="rounded-lg border border-dashed border-divider-light py-6 text-center text-xs text-text-faint">
+              <div className="rounded-lg border border-dashed border-[var(--border-default)]-light py-6 text-center text-xs text-[var(--text-tertiary)]">
                 暂无
               </div>
             )}
