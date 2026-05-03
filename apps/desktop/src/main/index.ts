@@ -4,6 +4,7 @@ import { join } from "path";
 import { registerIPCHandlers } from "./ipc/registry.js";
 import { createWindowHandlers } from "./ipc/window.js";
 import { createSettingsHandlers } from "./ipc/settings.js";
+import { createSessionsHandlers } from "./ipc/sessions.js";
 import { createShellHandlers } from "./ipc/shell.js";
 import { createAppHandlers } from "./ipc/app.js";
 import { createNotifyHandlers } from "./ipc/notify.js";
@@ -80,6 +81,7 @@ app.whenReady().then(() => {
   registerIPCHandlers(mainWindow, [
     createWindowHandlers(),
     createSettingsHandlers(),
+    createSessionsHandlers(),
     createShellHandlers(),
     createAppHandlers(),
     createNotifyHandlers(),

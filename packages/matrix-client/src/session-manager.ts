@@ -3,16 +3,16 @@ import {
   NotificationCountType,
   type MatrixClient,
 } from "matrix-js-sdk";
+import type { PersistedSession } from "@magic/shared-types";
 import { bridgeToStores } from "./bridge.js";
+import {
+  loadPersistedSessions as loadEncryptedSessions,
+  savePersistedSessions as saveEncryptedSessions,
+} from "./session-persistence.js";
 import { useAuthStore } from "./stores/authStore.js";
-import { useAgentStore } from "./stores/agentStore.js";
-import { useAgentRegistryStore } from "./stores/agentRegistryStore.js";
-import { useNotificationStore } from "./stores/notificationStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
 import { useSessionStore, type ServerSession } from "./stores/sessionStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
-
-const STORAGE_KEY = "magic_sessions";
 
 /**
  * Per-session MatrixClient instances. Kept outside React state because
@@ -22,10 +22,10 @@ const STORAGE_KEY = "magic_sessions";
 const clients = new Map<string, MatrixClient>();
 
 /**
- * Bridge cleanup is registered ONLY for the currently-active session.
- * All bridges write to the same global roomStore; running concurrent
- * bridges would mix events across servers. When the user switches we
- * tear the old bridge down and stand up a new one.
+ * Bridge cleanups, one per session. After Spec 017 every session has
+ * its own bridge running concurrently — writes are partitioned by
+ * sessionId in roomStore / typingStore so they don't contaminate each
+ * other. Cleanup runs on logout.
  */
 const bridgeCleanups = new Map<string, () => void>();
 
@@ -35,6 +35,37 @@ const bridgeCleanups = new Map<string, () => void>();
  * spinners and unread counts for inactive servers.
  */
 const sessionWatchers = new Map<string, () => void>();
+
+/**
+ * Spec 017 BUG-5: pollers attached to inactive sessions to keep their
+ * unread badges fresh on the workspace rail. The MatrixClient long-poll
+ * itself is left running so notifications still arrive (AC-8); this
+ * timer is a safety belt for environments where the per-room
+ * `Room.unreadNotifications` event might be missed.
+ */
+const inactivePollers = new Map<string, ReturnType<typeof setInterval>>();
+const INACTIVE_POLL_INTERVAL_MS = 30_000;
+
+/**
+ * Reported by `restoreAllSessions` once per session as it goes. `null`
+ * is emitted when the restore loop finishes (or there's nothing to
+ * restore) so the UI can clear the splash.
+ */
+export interface RestoreProgress {
+  current: number;
+  total: number;
+  serverName: string;
+}
+
+let progressCallback: ((progress: RestoreProgress | null) => void) | null =
+  null;
+
+/** Subscribe to restore progress. Pass `null` to unsubscribe. */
+export function onRestoreProgress(
+  cb: ((progress: RestoreProgress | null) => void) | null,
+): void {
+  progressCallback = cb;
+}
 
 /** Stable id derived from the homeserver URL — same input → same id. */
 export function createSessionId(homeserver: string): string {
@@ -119,15 +150,17 @@ export async function addServer(
   // spinner + unread badge live regardless of which session is active.
   registerSessionWatchers(sessionId, client);
 
-  // If this is now the active session (likely the very first one),
-  // stand up the bridge BEFORE starting the client so initial-sync
-  // events flow into the global stores.
-  const isNowActive =
-    useSessionStore.getState().activeSessionId === sessionId;
-  if (isNowActive) {
-    activateBridge(sessionId);
+  // Concurrent bridges: every session has its own bridge writing to its
+  // own per-session partition in roomStore / typingStore. Adding a new
+  // server doesn't disturb other sessions' bridges.
+  activateBridge(sessionId);
+
+  if (useSessionStore.getState().activeSessionId === sessionId) {
+    useRoomStore.getState().setActiveSession(sessionId);
+    useTypingStore.getState().setActiveSession(sessionId);
     syncAuthStoreFromActive();
   }
+  throttleInactiveSessions(useSessionStore.getState().activeSessionId);
 
   // Kick off the sync loop without awaiting it. `startClient` only
   // resolves once the initial /sync round-trip completes — on a busy
@@ -144,39 +177,27 @@ export async function addServer(
       );
     });
 
-  persistSessions();
+  void persistSessions();
   return sessionId;
 }
 
 /**
- * Switch the active session. Tears down the old bridge, clears the
- * per-server UI stores, then re-bridges + re-populates from the new
- * client's already-known rooms.
+ * Switch the active session. Spec 017: trivially cheap — every
+ * session's data already lives in its own partition, so we just toggle
+ * `activeSessionId` on the partitioned stores and the UI re-reads
+ * from the matching slice.
  */
 export function switchSession(targetSessionId: string): void {
   const store = useSessionStore.getState();
-  const currentId = store.activeSessionId;
-  if (currentId === targetSessionId) return;
+  if (store.activeSessionId === targetSessionId) return;
   if (!clients.has(targetSessionId)) return;
 
-  if (currentId) {
-    bridgeCleanups.get(currentId)?.();
-    bridgeCleanups.delete(currentId);
-  }
-
   store.setActiveSession(targetSessionId);
-
-  // Reset everything that's tied to a specific server.
-  useRoomStore.getState().reset();
-  useTypingStore.getState().reset();
-  useAgentStore.getState().reset();
-  useAgentRegistryStore.getState().reset();
-  useNotificationStore.getState().setUnreadCounts(0, 0);
-
-  activateBridge(targetSessionId);
-  populateRoomStoreFromClient(targetSessionId);
+  useRoomStore.getState().setActiveSession(targetSessionId);
+  useTypingStore.getState().setActiveSession(targetSessionId);
   syncAuthStoreFromActive();
-  persistSessions();
+  throttleInactiveSessions(targetSessionId);
+  void persistSessions();
 }
 
 /**
@@ -188,12 +209,15 @@ export async function removeServer(sessionId: string): Promise<void> {
   const wasActive =
     useSessionStore.getState().activeSessionId === sessionId;
 
-  if (wasActive) {
-    bridgeCleanups.get(sessionId)?.();
-    bridgeCleanups.delete(sessionId);
-  }
+  bridgeCleanups.get(sessionId)?.();
+  bridgeCleanups.delete(sessionId);
   sessionWatchers.get(sessionId)?.();
   sessionWatchers.delete(sessionId);
+  const poller = inactivePollers.get(sessionId);
+  if (poller) {
+    clearInterval(poller);
+    inactivePollers.delete(sessionId);
+  }
 
   const client = clients.get(sessionId);
   if (client) {
@@ -210,25 +234,25 @@ export async function removeServer(sessionId: string): Promise<void> {
     clients.delete(sessionId);
   }
 
+  // Drop the per-session partitions so no stale rooms/typing leak
+  // back if the user re-adds the server later.
+  useRoomStore.getState().removeSession(sessionId);
+  useTypingStore.getState().removeSession(sessionId);
+
   useSessionStore.getState().removeSession(sessionId);
-  persistSessions();
+  void persistSessions();
 
   if (wasActive) {
-    useRoomStore.getState().reset();
-    useTypingStore.getState().reset();
-    useAgentStore.getState().reset();
-    useAgentRegistryStore.getState().reset();
-    useNotificationStore.getState().setUnreadCounts(0, 0);
-
     const nextId = useSessionStore.getState().activeSessionId;
     if (nextId) {
-      activateBridge(nextId);
-      populateRoomStoreFromClient(nextId);
+      useRoomStore.getState().setActiveSession(nextId);
+      useTypingStore.getState().setActiveSession(nextId);
       syncAuthStoreFromActive();
     } else {
       useAuthStore.getState().reset();
     }
   }
+  throttleInactiveSessions(useSessionStore.getState().activeSessionId);
 }
 
 /**
@@ -236,10 +260,48 @@ export async function removeServer(sessionId: string): Promise<void> {
  * AuthGuard before deciding whether to show WelcomePage or main UI.
  */
 export async function restoreAllSessions(): Promise<void> {
-  const saved = loadPersistedSessions();
-  if (saved.length === 0) return;
+  const { sessions: saved, activeSessionId } = await loadEncryptedSessions();
+  if (saved.length === 0) {
+    progressCallback?.(null);
+    return;
+  }
 
-  for (const session of saved) {
+  // Restore the user's last-active session pointer before we start
+  // bridging — that way the first session whose sync hits PREPARED won't
+  // accidentally claim the active slot if it isn't the right one.
+  if (activeSessionId) {
+    useSessionStore.setState({ activeSessionId });
+  }
+
+  const sessionsList: ServerSession[] = saved
+    .map(
+      (s): ServerSession => ({
+        id: s.id,
+        homeserver: s.homeserver,
+        userId: s.userId,
+        deviceId: s.deviceId,
+        accessToken: s.accessToken,
+        displayName: null,
+        avatarMxc: null,
+        serverName: s.serverName,
+        serverInitial: s.serverInitial,
+        serverColor: s.serverColor,
+        syncState: "STOPPED",
+        initialSyncComplete: false,
+        unreadCount: 0,
+        highlightCount: 0,
+        addedAt: s.addedAt,
+      }),
+    )
+    .sort((a, b) => a.addedAt - b.addedAt);
+
+  for (let i = 0; i < sessionsList.length; i++) {
+    const session = sessionsList[i]!;
+    progressCallback?.({
+      current: i + 1,
+      total: sessionsList.length,
+      serverName: session.serverName ?? session.homeserver,
+    });
     try {
       const client = createClient({
         baseUrl: session.homeserver,
@@ -255,12 +317,16 @@ export async function restoreAllSessions(): Promise<void> {
       useSessionStore.getState().addSession(session);
       registerSessionWatchers(session.id, client);
 
-      const isActive =
-        useSessionStore.getState().activeSessionId === session.id;
-      if (isActive) {
-        activateBridge(session.id);
+      // Bridge every restored session immediately. Per-partition writes
+      // mean concurrent bridges don't contaminate each other.
+      activateBridge(session.id);
+
+      if (useSessionStore.getState().activeSessionId === session.id) {
+        useRoomStore.getState().setActiveSession(session.id);
+        useTypingStore.getState().setActiveSession(session.id);
         syncAuthStoreFromActive();
       }
+
       // Fire-and-forget — same reasoning as addServer: blocking the
       // app boot on N initial syncs (one per persisted session) would
       // leave the user staring at the "正在恢复会话…" splash for a
@@ -280,6 +346,9 @@ export async function restoreAllSessions(): Promise<void> {
       );
     }
   }
+
+  throttleInactiveSessions(useSessionStore.getState().activeSessionId);
+  progressCallback?.(null);
 }
 
 // ---- internals ----
@@ -288,30 +357,51 @@ function activateBridge(sessionId: string): void {
   const client = clients.get(sessionId);
   if (!client) return;
   bridgeCleanups.get(sessionId)?.();
-  bridgeCleanups.set(sessionId, bridgeToStores(client));
+  bridgeCleanups.set(sessionId, bridgeToStores(client, sessionId));
 }
 
-function populateRoomStoreFromClient(sessionId: string): void {
-  const client = clients.get(sessionId);
-  if (!client) return;
-  const roomStore = useRoomStore.getState();
-  for (const room of client.getRooms()) {
-    roomStore.upsertRoom(room.roomId, {
-      name: room.name,
-      topic:
-        room.currentState
-          .getStateEvents("m.room.topic", "")
-          ?.getContent()?.topic ?? "",
-      memberCount: room.getJoinedMemberCount(),
-      unreadCount:
-        room.getUnreadNotificationCount(NotificationCountType.Total) ?? 0,
-      highlightCount:
-        room.getUnreadNotificationCount(NotificationCountType.Highlight) ?? 0,
-      isEncrypted: room.hasEncryptionStateEvent(),
-      isDirect: !!room.getDMInviter(),
-      lastActivityTs: room.getLastActiveTimestamp(),
-    });
+/**
+ * Spec 017 BUG-5: stop polling the now-active session and start polling
+ * the rest. The MatrixClient long-poll keeps running on every session
+ * regardless — this timer just keeps the workspace-icon unread badge
+ * fresh in case the per-room event is missed.
+ */
+function throttleInactiveSessions(activeSessionId: string | null): void {
+  for (const [sessionId, client] of clients.entries()) {
+    const existing = inactivePollers.get(sessionId);
+    if (sessionId === activeSessionId) {
+      if (existing) {
+        clearInterval(existing);
+        inactivePollers.delete(sessionId);
+      }
+      continue;
+    }
+    if (existing) continue;
+    const poller = setInterval(() => {
+      let total = 0;
+      let highlight = 0;
+      for (const room of client.getRooms()) {
+        total +=
+          room.getUnreadNotificationCount(NotificationCountType.Total) ?? 0;
+        highlight +=
+          room.getUnreadNotificationCount(NotificationCountType.Highlight) ??
+          0;
+      }
+      useSessionStore.getState().updateSession(sessionId, {
+        unreadCount: total,
+        highlightCount: highlight,
+      });
+    }, INACTIVE_POLL_INTERVAL_MS);
+    inactivePollers.set(sessionId, poller);
   }
+}
+
+/** Stop every inactive-session poller. Call on app shutdown. */
+export function cleanupAllPollers(): void {
+  for (const poller of inactivePollers.values()) {
+    clearInterval(poller);
+  }
+  inactivePollers.clear();
 }
 
 function registerSessionWatchers(
@@ -425,78 +515,25 @@ function pickColor(seed: string): string {
 
 // ---- persistence ----
 
-interface PersistedSession {
-  id: string;
-  homeserver: string;
-  userId: string;
-  deviceId: string;
-  accessToken: string;
-  serverName: string;
-  serverInitial: string;
-  serverColor: string | null;
-  addedAt: number;
-}
-
-function persistSessions(): void {
-  if (typeof localStorage === "undefined") return;
+async function persistSessions(): Promise<void> {
+  const sessions: PersistedSession[] = Object.values(
+    useSessionStore.getState().sessions,
+  ).map((s) => ({
+    id: s.id,
+    homeserver: s.homeserver,
+    userId: s.userId,
+    deviceId: s.deviceId,
+    accessToken: s.accessToken,
+    serverName: s.serverName,
+    serverInitial: s.serverInitial,
+    serverColor: s.serverColor,
+    addedAt: s.addedAt,
+  }));
+  const activeSessionId = useSessionStore.getState().activeSessionId;
   try {
-    const sessions: PersistedSession[] = Object.values(
-      useSessionStore.getState().sessions,
-    ).map((s) => ({
-      id: s.id,
-      homeserver: s.homeserver,
-      userId: s.userId,
-      deviceId: s.deviceId,
-      accessToken: s.accessToken,
-      serverName: s.serverName,
-      serverInitial: s.serverInitial,
-      serverColor: s.serverColor,
-      addedAt: s.addedAt,
-    }));
-    const activeSessionId = useSessionStore.getState().activeSessionId;
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ sessions, activeSessionId }),
-    );
+    await saveEncryptedSessions(sessions, activeSessionId);
   } catch {
-    /* silent */
-  }
-}
-
-function loadPersistedSessions(): ServerSession[] {
-  if (typeof localStorage === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as
-      | { sessions: PersistedSession[]; activeSessionId: string | null }
-      | PersistedSession[];
-    const list = Array.isArray(parsed) ? parsed : (parsed.sessions ?? []);
-    const sessions = list.map(
-      (s): ServerSession => ({
-        id: s.id,
-        homeserver: s.homeserver,
-        userId: s.userId,
-        deviceId: s.deviceId,
-        accessToken: s.accessToken,
-        displayName: null,
-        avatarMxc: null,
-        serverName: s.serverName,
-        serverInitial: s.serverInitial,
-        serverColor: s.serverColor,
-        syncState: "STOPPED",
-        initialSyncComplete: false,
-        unreadCount: 0,
-        highlightCount: 0,
-        addedAt: s.addedAt,
-      }),
-    );
-    if (!Array.isArray(parsed) && parsed.activeSessionId) {
-      useSessionStore.setState({ activeSessionId: parsed.activeSessionId });
-    }
-    return sessions.sort((a, b) => a.addedAt - b.addedAt);
-  } catch {
-    return [];
+    /* silent — best-effort persistence */
   }
 }
 
@@ -506,6 +543,7 @@ export function __resetSessionsForTests(): void {
   for (const cleanup of sessionWatchers.values()) cleanup();
   bridgeCleanups.clear();
   sessionWatchers.clear();
+  cleanupAllPollers();
   for (const c of clients.values()) {
     try {
       c.stopClient();
@@ -516,4 +554,6 @@ export function __resetSessionsForTests(): void {
   }
   clients.clear();
   useSessionStore.getState().reset();
+  useRoomStore.getState().reset();
+  useTypingStore.getState().reset();
 }

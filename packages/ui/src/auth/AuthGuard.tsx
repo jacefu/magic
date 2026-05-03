@@ -1,5 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { restoreAllSessions, useSessionStore } from "@magic/matrix-client";
+import {
+  onRestoreProgress,
+  restoreAllSessions,
+  useSessionStore,
+  type RestoreProgress,
+} from "@magic/matrix-client";
 import { WelcomePage } from "./WelcomePage.js";
 
 interface AuthGuardProps {
@@ -11,7 +16,9 @@ interface AuthGuardProps {
  *
  *   - On mount, fire `restoreAllSessions()` once to rehydrate every
  *     persisted session.
- *   - While restoring → boot screen with the MAGIC mark + spinner.
+ *   - While restoring → boot screen with the MAGIC mark + spinner +
+ *     a "正在恢复会话 (n/m)" progress label so users know how many
+ *     servers are queued (Spec 017 BUG-4).
  *   - No sessions when restore finishes → WelcomePage.
  *   - Any session present → main UI (`children`).
  *
@@ -24,14 +31,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
     (s) => Object.keys(s.sessions).length,
   );
   const [restored, setRestored] = useState(false);
+  const [progress, setProgress] = useState<RestoreProgress | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    onRestoreProgress((p) => {
+      if (!cancelled) setProgress(p);
+    });
     restoreAllSessions().finally(() => {
       if (!cancelled) setRestored(true);
     });
     return () => {
       cancelled = true;
+      onRestoreProgress(null);
     };
   }, []);
 
@@ -43,7 +55,18 @@ export function AuthGuard({ children }: AuthGuardProps) {
             M
           </div>
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#5865F2] border-t-transparent" />
-          <p className="mt-3 text-sm text-[#949BA4]">正在恢复会话…</p>
+          {progress ? (
+            <>
+              <p className="mt-3 text-sm text-[#949BA4]">
+                正在恢复会话 ({progress.current}/{progress.total})
+              </p>
+              <p className="mt-1 text-xs text-[#6D6F78]">
+                {progress.serverName}
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-[#949BA4]">正在恢复会话…</p>
+          )}
         </div>
       </div>
     );

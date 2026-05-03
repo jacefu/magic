@@ -38,7 +38,24 @@ export function registerNotificationCallback(
   notificationCallback = cb;
 }
 
-export function bridgeToStores(client: MatrixClient): () => void {
+/**
+ * Bridge a MatrixClient's events into the Zustand stores.
+ *
+ * Spec 017: every callback writes to the per-session partition keyed
+ * by `sessionId`. Multiple concurrent bridges (one per logged-in
+ * homeserver) don't contaminate each other because their writes go
+ * into disjoint slices of `useRoomStore.sessionRooms` /
+ * `useTypingStore.sessionTyping`.
+ *
+ * Returns a cleanup function — call it before discarding the client.
+ */
+export function bridgeToStores(
+  client: MatrixClient,
+  sessionId: string,
+): () => void {
+  // Make sure the per-session partitions exist before any writes land.
+  useRoomStore.getState().initSession(sessionId);
+
   const onSync = (
     state: string,
     _prevState: string | null,
@@ -48,7 +65,7 @@ export function bridgeToStores(client: MatrixClient): () => void {
     syncStore.setSyncState(mapSyncState(state));
     if (state === "PREPARED") {
       syncStore.setInitialSyncComplete();
-      syncRoomList(client);
+      syncRoomList(client, sessionId);
 
       // Best-effort: pull the Worker / Manager registry from the HiClaw
       // Controller. Failure is silent — agentDetection falls back to
@@ -69,22 +86,27 @@ export function bridgeToStores(client: MatrixClient): () => void {
   ) => {
     if (!room || toStartOfTimeline) return;
     const serialized = serializeEvent(event);
-    useRoomStore.getState().addMessage(room.roomId, serialized);
+    useRoomStore.getState().addMessage(sessionId, room.roomId, serialized);
     notificationCallback?.(serialized);
   };
   client.on(RoomEvent.Timeline, onTimeline);
 
   const onRoomName = (room: Room) => {
-    useRoomStore.getState().upsertRoom(room.roomId, { name: room.name });
+    useRoomStore
+      .getState()
+      .upsertRoom(sessionId, room.roomId, { name: room.name });
   };
   client.on(RoomEvent.Name, onRoomName);
 
   const onUnreadCount = (room: Room) => {
-    useRoomStore.getState().setUnreadCount(
-      room.roomId,
-      room.getUnreadNotificationCount(NotificationCountType.Total) ?? 0,
-      room.getUnreadNotificationCount(NotificationCountType.Highlight) ?? 0,
-    );
+    useRoomStore
+      .getState()
+      .setUnreadCount(
+        sessionId,
+        room.roomId,
+        room.getUnreadNotificationCount(NotificationCountType.Total) ?? 0,
+        room.getUnreadNotificationCount(NotificationCountType.Highlight) ?? 0,
+      );
   };
   // RoomEvent.UnreadNotifications handler — cast needed as MatrixClient typed events differ
   (client as MatrixClient & { on(e: string, h: (r: Room) => void): void }).on(
@@ -93,13 +115,15 @@ export function bridgeToStores(client: MatrixClient): () => void {
   );
 
   const onTyping = (_event: MatrixEvent, member: RoomMember) => {
-    useTypingStore.getState().setTyping(member.roomId, member.userId, member.typing);
+    useTypingStore
+      .getState()
+      .setTyping(sessionId, member.roomId, member.userId, member.typing);
   };
   client.on(RoomMemberEvent.Typing, onTyping);
 
   const onMembership = (room: Room, membership: string) => {
     if (membership === "leave") {
-      useRoomStore.getState().removeRoom(room.roomId);
+      useRoomStore.getState().removeRoom(sessionId, room.roomId);
     }
   };
   client.on(RoomEvent.MyMembership, onMembership);
@@ -175,10 +199,11 @@ function handleMagicEvent(event: MatrixEvent, room: Room | undefined): void {
   }
 }
 
-function syncRoomList(client: MatrixClient): void {
+function syncRoomList(client: MatrixClient, sessionId: string): void {
   const roomStore = useRoomStore.getState();
+  roomStore.initSession(sessionId);
   for (const room of client.getRooms()) {
-    roomStore.upsertRoom(room.roomId, {
+    roomStore.upsertRoom(sessionId, room.roomId, {
       name: room.name,
       topic:
         room.currentState

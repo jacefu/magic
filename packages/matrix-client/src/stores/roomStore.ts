@@ -18,24 +18,63 @@ export interface RoomData {
 }
 
 interface RoomStoreState {
-  rooms: Record<string, RoomData>;
-  activeRoomId: string | null;
   /**
-   * Browser-style navigation history. Every `setActiveRoom` call pushes
-   * the previous activeRoomId onto `backStack` and clears `forwardStack`.
-   * `goBack` / `goForward` move between the two.
+   * Per-session partition of room state. Spec 017 — each Matrix
+   * homeserver session writes to its own slice so events from one
+   * server can never leak into another's room list.
+   *
+   * `sessionRooms[sessionId]` is the source of truth for that session.
    */
+  sessionRooms: Record<string, Record<string, RoomData>>;
+  /**
+   * Mirror of `sessionRooms[activeSessionId]`. Maintained so existing
+   * components that subscribe via `useRoomStore((s) => s.rooms[id])`
+   * keep working unchanged. Within an immer producer the assignment
+   * `s.rooms = s.sessionRooms[id]` makes them aliases — modifying one
+   * modifies the other.
+   */
+  rooms: Record<string, RoomData>;
+  /** Id of the session whose data the UI currently shows. */
+  activeSessionId: string | null;
+  activeRoomId: string | null;
+  /** Browser-style navigation history (per app, shared across sessions). */
   backStack: string[];
   forwardStack: string[];
 
+  // ---- session lifecycle ----
+  initSession: (sessionId: string) => void;
+  setActiveSession: (sessionId: string | null) => void;
+  removeSession: (sessionId: string) => void;
+
+  // ---- room navigation ----
   setActiveRoom: (roomId: string | null) => void;
   goBack: () => void;
   goForward: () => void;
-  upsertRoom: (roomId: string, data: Partial<RoomData>) => void;
-  removeRoom: (roomId: string) => void;
-  addMessage: (roomId: string, event: SerializedMatrixEvent) => void;
-  prependMessages: (roomId: string, events: SerializedMatrixEvent[]) => void;
-  setUnreadCount: (roomId: string, count: number, highlight: number) => void;
+
+  // ---- per-session writes ----
+  upsertRoom: (
+    sessionId: string,
+    roomId: string,
+    data: Partial<RoomData>,
+  ) => void;
+  removeRoom: (sessionId: string, roomId: string) => void;
+  addMessage: (
+    sessionId: string,
+    roomId: string,
+    event: SerializedMatrixEvent,
+  ) => void;
+  prependMessages: (
+    sessionId: string,
+    roomId: string,
+    events: SerializedMatrixEvent[],
+  ) => void;
+  setUnreadCount: (
+    sessionId: string,
+    roomId: string,
+    count: number,
+    highlight: number,
+  ) => void;
+
   reset: () => void;
 }
 
@@ -56,19 +95,67 @@ function createDefaultRoom(roomId: string): RoomData {
   };
 }
 
+/**
+ * Re-establish the alias between `s.rooms` and `s.sessionRooms[active]`.
+ * Call this after any mutation that might have replaced the active
+ * session's record (createSession, removeSession, setActiveSession).
+ * Mutations that go *through* `s.rooms` (e.g. `s.rooms[roomId] = …`)
+ * already propagate to `s.sessionRooms[active]` because they share the
+ * same draft proxy under immer.
+ */
+function relinkActiveRooms(s: RoomStoreState): void {
+  if (s.activeSessionId && s.sessionRooms[s.activeSessionId]) {
+    s.rooms = s.sessionRooms[s.activeSessionId];
+  } else {
+    s.rooms = {};
+  }
+}
+
 export const useRoomStore = create<RoomStoreState>()(
   immer((set) => ({
+    sessionRooms: {},
     rooms: {},
+    activeSessionId: null,
     activeRoomId: null,
     backStack: [],
     forwardStack: [],
 
+    initSession: (sessionId) =>
+      set((s) => {
+        if (!s.sessionRooms[sessionId]) {
+          s.sessionRooms[sessionId] = {};
+        }
+        relinkActiveRooms(s);
+      }),
+
+    setActiveSession: (sessionId) =>
+      set((s) => {
+        if (s.activeSessionId === sessionId) return;
+        s.activeSessionId = sessionId;
+        s.activeRoomId = null;
+        s.backStack = [];
+        s.forwardStack = [];
+        if (sessionId && !s.sessionRooms[sessionId]) {
+          s.sessionRooms[sessionId] = {};
+        }
+        relinkActiveRooms(s);
+      }),
+
+    removeSession: (sessionId) =>
+      set((s) => {
+        delete s.sessionRooms[sessionId];
+        if (s.activeSessionId === sessionId) {
+          s.activeSessionId = Object.keys(s.sessionRooms)[0] ?? null;
+          s.activeRoomId = null;
+          s.backStack = [];
+          s.forwardStack = [];
+        }
+        relinkActiveRooms(s);
+      }),
+
     setActiveRoom: (roomId) =>
       set((s) => {
         if (s.activeRoomId === roomId) return;
-        // Pushing the *current* room before switching means goBack() will
-        // return to it. New navigation always invalidates the forward
-        // stack — same semantics as a browser.
         if (s.activeRoomId !== null) s.backStack.push(s.activeRoomId);
         s.forwardStack = [];
         s.activeRoomId = roomId;
@@ -90,53 +177,74 @@ export const useRoomStore = create<RoomStoreState>()(
         s.activeRoomId = next;
       }),
 
-    upsertRoom: (roomId, data) =>
+    upsertRoom: (sessionId, roomId, data) =>
       set((s) => {
-        if (!s.rooms[roomId]) {
-          s.rooms[roomId] = createDefaultRoom(roomId);
+        if (!s.sessionRooms[sessionId]) s.sessionRooms[sessionId] = {};
+        if (!s.sessionRooms[sessionId][roomId]) {
+          s.sessionRooms[sessionId][roomId] = createDefaultRoom(roomId);
         }
-        Object.assign(s.rooms[roomId], data);
+        Object.assign(s.sessionRooms[sessionId][roomId], data);
+        relinkActiveRooms(s);
       }),
 
-    removeRoom: (roomId) =>
+    removeRoom: (sessionId, roomId) =>
       set((s) => {
-        delete s.rooms[roomId];
-        if (s.activeRoomId === roomId) s.activeRoomId = null;
+        if (s.sessionRooms[sessionId]) {
+          delete s.sessionRooms[sessionId][roomId];
+        }
+        if (
+          s.activeSessionId === sessionId &&
+          s.activeRoomId === roomId
+        ) {
+          s.activeRoomId = null;
+        }
+        relinkActiveRooms(s);
       }),
 
-    addMessage: (roomId, event) =>
+    addMessage: (sessionId, roomId, event) =>
       set((s) => {
-        if (!s.rooms[roomId]) s.rooms[roomId] = createDefaultRoom(roomId);
-        const room = s.rooms[roomId];
+        if (!s.sessionRooms[sessionId]) s.sessionRooms[sessionId] = {};
+        const partition = s.sessionRooms[sessionId];
+        if (!partition[roomId]) partition[roomId] = createDefaultRoom(roomId);
+        const room = partition[roomId];
         if (!room.timeline.some((e) => e.eventId === event.eventId)) {
           room.timeline.push(event);
           room.lastMessage = event;
           room.lastActivityTs = event.timestamp;
         }
+        relinkActiveRooms(s);
       }),
 
-    prependMessages: (roomId, events) =>
+    prependMessages: (sessionId, roomId, events) =>
       set((s) => {
-        if (!s.rooms[roomId]) return;
-        const existing = new Set(s.rooms[roomId].timeline.map((e) => e.eventId));
+        const partition = s.sessionRooms[sessionId];
+        if (!partition?.[roomId]) return;
+        const existing = new Set(
+          partition[roomId].timeline.map((e) => e.eventId),
+        );
         const newEvents = events.filter((e) => !existing.has(e.eventId));
-        s.rooms[roomId].timeline.unshift(...newEvents);
+        partition[roomId].timeline.unshift(...newEvents);
+        relinkActiveRooms(s);
       }),
 
-    setUnreadCount: (roomId, count, highlight) =>
+    setUnreadCount: (sessionId, roomId, count, highlight) =>
       set((s) => {
-        if (s.rooms[roomId]) {
-          s.rooms[roomId].unreadCount = count;
-          s.rooms[roomId].highlightCount = highlight;
+        const partition = s.sessionRooms[sessionId];
+        if (partition?.[roomId]) {
+          partition[roomId].unreadCount = count;
+          partition[roomId].highlightCount = highlight;
         }
+        relinkActiveRooms(s);
       }),
 
     reset: () =>
       set({
+        sessionRooms: {},
         rooms: {},
+        activeSessionId: null,
         activeRoomId: null,
         backStack: [],
         forwardStack: [],
       }),
-  }))
+  })),
 );

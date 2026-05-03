@@ -70,7 +70,6 @@ export { ComposerToolbar } from "./chat/ComposerToolbar.js";
 export { ReplyPreview } from "./chat/ReplyPreview.js";
 
 // Hooks
-export { useAuth } from "./hooks/useAuth.js";
 export { useElectronAPI, isElectron } from "./hooks/useElectronAPI.js";
 export { useFilteredRooms } from "./hooks/useFilteredRooms.js";
 export type { RoomGroup } from "./hooks/useFilteredRooms.js";

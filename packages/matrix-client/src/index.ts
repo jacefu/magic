@@ -46,7 +46,7 @@ export { useNotificationStore } from "./stores/notificationStore.js";
 export { useSessionStore } from "./stores/sessionStore.js";
 export type { ServerSession } from "./stores/sessionStore.js";
 
-// Multi-server session manager (spec 016)
+// Multi-server session manager (specs 016 + 017)
 export {
   addServer,
   removeServer,
@@ -54,7 +54,10 @@ export {
   restoreAllSessions,
   getSessionClient,
   createSessionId,
+  onRestoreProgress,
+  cleanupAllPollers,
 } from "./session-manager.js";
+export type { RestoreProgress } from "./session-manager.js";
 export type { RoomData } from "./stores/roomStore.js";
 export type { SyncState } from "./stores/syncStore.js";
 export type { AgentData, TaskData } from "./stores/agentStore.js";

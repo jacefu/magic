@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { IElectronAPI, AppSettings } from "@magic/shared-types";
+import type {
+  IElectronAPI,
+  AppSettings,
+  PersistedSession,
+} from "@magic/shared-types";
 
 const electronAPI: IElectronAPI = {
   // ---- Matrix (placeholders, 004-auth-flow will implement) ----
@@ -27,6 +31,12 @@ const electronAPI: IElectronAPI = {
   // ---- Settings ----
   getSettings: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,
   setSetting: (key, value) => ipcRenderer.invoke("settings:set", key, value),
+
+  // ---- Sessions ----
+  saveSessions: (sessions) =>
+    ipcRenderer.invoke("sessions:save", sessions) as Promise<void>,
+  loadSessions: () =>
+    ipcRenderer.invoke("sessions:load") as Promise<PersistedSession[]>,
 
   // ---- Window ----
   windowMinimize: () => ipcRenderer.send("window:minimize"),

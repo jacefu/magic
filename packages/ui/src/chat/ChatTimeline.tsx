@@ -7,6 +7,7 @@ import {
   sendReadReceipt,
   useAuthStore,
   useRoomStore,
+  useSessionStore,
 } from "@magic/matrix-client";
 import { useTimeline, type TimelineItem } from "../hooks/useTimeline.js";
 import { MessageBubble } from "./MessageBubble.js";
@@ -47,7 +48,10 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
     void sendReadReceipt(roomId, latestMessageEventId).catch(() => {
       /* best-effort */
     });
-    useRoomStore.getState().setUnreadCount(roomId, 0, 0);
+    const sessionId = useSessionStore.getState().activeSessionId;
+    if (sessionId) {
+      useRoomStore.getState().setUnreadCount(sessionId, roomId, 0, 0);
+    }
   }, [isAtBottom, latestMessageEventId, roomId]);
 
   const handleStartReached = useCallback(async () => {

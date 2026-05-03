@@ -14,6 +14,10 @@ export interface IElectronAPI {
   getSettings: () => Promise<AppSettings>;
   setSetting: (key: string, value: unknown) => Promise<void>;
 
+  // ---- Sessions (Spec 017: encrypted at rest via electron-store) ----
+  saveSessions: (sessions: PersistedSession[]) => Promise<void>;
+  loadSessions: () => Promise<PersistedSession[]>;
+
   // ---- Window ----
   windowMinimize: () => void;
   windowMaximize: () => void;
@@ -64,6 +68,24 @@ export interface AppSettings {
   notifications: boolean;
   startMinimized: boolean;
   homeserver: string;
+}
+
+/**
+ * On-disk shape of a saved Matrix session. Spec 017 — Electron stores
+ * these in `magic-sessions.json` (encrypted via electron-store's
+ * `encryptionKey`). Web stores them in localStorage, AES-GCM-encrypted
+ * with a non-extractable key kept in IndexedDB.
+ */
+export interface PersistedSession {
+  id: string;
+  homeserver: string;
+  userId: string;
+  deviceId: string;
+  accessToken: string;
+  serverName: string;
+  serverInitial: string;
+  serverColor: string | null;
+  addedAt: number;
 }
 
 export interface NotifyPayload {
