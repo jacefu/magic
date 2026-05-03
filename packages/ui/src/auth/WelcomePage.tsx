@@ -64,26 +64,39 @@ export function WelcomePage() {
   };
 
   return (
-    <div className="flex h-screen bg-[#313338]">
-      {/* Empty workspace rail — only the "+" button + vertical hint */}
-      <div className="flex w-[72px] shrink-0 flex-col items-center bg-[#1E1F22] pt-3">
-        <div
-          className="flex h-12 w-12 items-center justify-center rounded-full
-                     border-[1.5px] border-dashed border-[#6D6F78] text-lg text-[#6D6F78]"
-          aria-label="添加服务器"
-        >
-          +
-        </div>
-        <span
-          className="mt-3 text-[10px] text-[#6D6F78]"
-          style={{ writingMode: "vertical-rl" }}
-        >
-          添加服务器
-        </span>
-      </div>
+    <div className="flex h-screen flex-col bg-[#313338]">
+      {/*
+        Top draggable bar — must be present even on the welcome screen so
+        the user can move the window before logging in. macOS reserves
+        the top-left ~80px for the traffic-light buttons; the rest of
+        the bar is a drag region (`WebkitAppRegion: drag`) wired the
+        same way as TopNavBar.
+      */}
+      <div
+        className="h-9 shrink-0 bg-[#1E1F22]"
+        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+      />
 
-      {/* Centred welcome card */}
-      <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8">
+      <div className="flex min-h-0 flex-1">
+        {/* Empty workspace rail — only the "+" button + vertical hint */}
+        <div className="flex w-[72px] shrink-0 flex-col items-center bg-[#1E1F22] pt-3">
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-full
+                       border-[1.5px] border-dashed border-[#6D6F78] text-lg text-[#6D6F78]"
+            aria-label="添加服务器"
+          >
+            +
+          </div>
+          <span
+            className="mt-3 text-[10px] text-[#6D6F78]"
+            style={{ writingMode: "vertical-rl" }}
+          >
+            添加服务器
+          </span>
+        </div>
+
+        {/* Centred welcome card */}
+        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#5865F2] text-[28px] font-semibold text-white">
             M
@@ -212,9 +225,10 @@ export function WelcomePage() {
           </div>
         </div>
 
-        <p className="mt-6 text-[11px] text-[#6D6F78]">
-          MAGIC Client v0.0.1 · 基于 Matrix 协议
-        </p>
+          <p className="mt-6 text-[11px] text-[#6D6F78]">
+            MAGIC Client v0.0.1 · 基于 Matrix 协议
+          </p>
+        </div>
       </div>
     </div>
   );
