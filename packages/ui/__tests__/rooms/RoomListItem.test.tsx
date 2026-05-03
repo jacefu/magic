@@ -129,6 +129,8 @@ describe("RoomListItem", () => {
     // CSS variables (--bg-active gradient + --border-active edge).
     expect(button.style.background).toBe("var(--bg-active)");
     expect(button.style.borderColor).toBe("var(--border-active)");
-    expect(button.className).toContain("text-white");
+    // Active text uses --text-primary so it stays readable in both
+    // themes (white-ish on dark, black-ish on light).
+    expect(button.className).toContain("text-[var(--text-primary)]");
   });
 });

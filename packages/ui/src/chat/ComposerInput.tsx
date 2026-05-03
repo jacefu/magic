@@ -29,6 +29,36 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
     const [cursorPosition, setCursorPosition] = useState(0);
     const [escapedAt, setEscapedAt] = useState<number | null>(null);
 
+    // Spec 019 FIX-2 — Chinese / Japanese / Korean IMEs use Enter to
+    // commit the candidate phrase. Without these guards, the same
+    // Enter that confirms the IME selection also fires onSend(),
+    // shipping a half-typed message. Three layers of protection:
+    //   1. `e.nativeEvent.isComposing` — standard, set true while the
+    //      composition session is open. Modern browsers all support it.
+    //   2. `isComposingRef` — fallback for browsers/IMEs where (1)
+    //      lies (older Safari has been known to).
+    //   3. `justFinishedComposingRef` — Chrome/Safari fire a phantom
+    //      `keydown` *immediately after* `compositionend` whose
+    //      `isComposing` is already false. That ghost keystroke is the
+    //      one that historically reached `onSend`. Block any Enter for
+    //      a tick after compositionend.
+    const isComposingRef = useRef(false);
+    const justFinishedComposingRef = useRef(false);
+
+    const handleCompositionStart = useCallback(() => {
+      isComposingRef.current = true;
+    }, []);
+
+    const handleCompositionEnd = useCallback(() => {
+      isComposingRef.current = false;
+      justFinishedComposingRef.current = true;
+      // setTimeout(0) flushes after the ghost keydown that some
+      // browsers dispatch right after compositionend.
+      setTimeout(() => {
+        justFinishedComposingRef.current = false;
+      }, 0);
+    }, []);
+
     const adjustHeight = useCallback(() => {
       const textarea = textareaRef.current;
       if (!textarea) return;
@@ -80,6 +110,17 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        // Skip every Enter-driven branch (autocomplete-pick AND send)
+        // while an IME composition is active or just ended. Other keys
+        // like ArrowUp/Escape are still allowed through — those don't
+        // ship a message.
+        const enterDuringIME =
+          e.key === "Enter" &&
+          (e.nativeEvent.isComposing ||
+            isComposingRef.current ||
+            justFinishedComposingRef.current);
+        if (enterDuringIME) return;
+
         if (autocompleteOpen) {
           if (e.key === "ArrowUp") {
             e.preventDefault();
@@ -154,6 +195,8 @@ export const ComposerInput = forwardRef<HTMLTextAreaElement, ComposerInputProps>
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           onSelect={trackCursor}
           onClick={trackCursor}
           disabled={disabled}

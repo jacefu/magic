@@ -128,6 +128,8 @@ export type {
 // Presence (matrix-js-sdk-backed)
 export {
   getUserPresence,
+  getAgentPresence,
+  getEffectivePresence,
   getPresenceColor,
   getPresenceGlow,
   getPresenceLabel,

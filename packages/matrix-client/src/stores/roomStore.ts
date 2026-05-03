@@ -207,8 +207,35 @@ export const useRoomStore = create<RoomStoreState>()(
         const partition = s.sessionRooms[sessionId];
         if (!partition[roomId]) partition[roomId] = createDefaultRoom(roomId);
         const room = partition[roomId];
-        if (!room.timeline.some((e) => e.eventId === event.eventId)) {
+        if (room.timeline.some((e) => e.eventId === event.eventId)) {
+          relinkActiveRooms(s);
+          return;
+        }
+
+        // Matrix /sync can deliver events out of timestamp order
+        // (federation delay, late delivery from another device,
+        // re-bridged history). Naïve `push` would leave a 20:47
+        // message sitting *after* a 20:53 message in the array.
+        // Hot path: ~all live events arrive in order — append.
+        // Cold path: binary-search the correct insertion index.
+        const tail = room.timeline[room.timeline.length - 1];
+        if (!tail || event.timestamp >= tail.timestamp) {
           room.timeline.push(event);
+        } else {
+          let lo = 0;
+          let hi = room.timeline.length;
+          while (lo < hi) {
+            const mid = (lo + hi) >>> 1;
+            if (room.timeline[mid]!.timestamp <= event.timestamp) lo = mid + 1;
+            else hi = mid;
+          }
+          room.timeline.splice(lo, 0, event);
+        }
+
+        // Track the chronologically newest event, not whichever was
+        // inserted most recently — otherwise a late-arriving older
+        // event would clobber `lastMessage`.
+        if (!room.lastMessage || event.timestamp >= room.lastMessage.timestamp) {
           room.lastMessage = event;
           room.lastActivityTs = event.timestamp;
         }
@@ -223,7 +250,18 @@ export const useRoomStore = create<RoomStoreState>()(
           partition[roomId].timeline.map((e) => e.eventId),
         );
         const newEvents = events.filter((e) => !existing.has(e.eventId));
+        if (newEvents.length === 0) {
+          relinkActiveRooms(s);
+          return;
+        }
+        // Pagination usually returns history in order (older → newer)
+        // and prepends to a tail-sorted timeline, so the simple
+        // unshift is correct most of the time. Re-sort defensively
+        // anyway — Matrix backfill can still hand back events whose
+        // timestamps interleave with what we already have (edits,
+        // late state events).
         partition[roomId].timeline.unshift(...newEvents);
+        partition[roomId].timeline.sort((a, b) => a.timestamp - b.timestamp);
         relinkActiveRooms(s);
       }),
 

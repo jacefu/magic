@@ -12,11 +12,17 @@ import { hasMentions, parseMentions } from "../lib/mentionParser.js";
 
 interface UseComposerOptions {
   roomId: string;
+  /**
+   * Fires after a successful send. ChatView wires it to
+   * `ChatTimeline.scrollToBottomRef` so the view follows the
+   * message you just shipped (Spec 019 FIX-3).
+   */
+  onSent?: () => void;
 }
 
 const drafts = new Map<string, string>();
 
-export function useComposer({ roomId }: UseComposerOptions) {
+export function useComposer({ roomId, onSent }: UseComposerOptions) {
   const [value, setValue] = useState(() => drafts.get(roomId) ?? "");
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -125,12 +131,28 @@ export function useComposer({ roomId }: UseComposerOptions) {
       setValue("");
       drafts.delete(roomId);
       inputRef.current?.focus();
+      // Defer the scroll-to-bottom callback so the just-sent event has
+      // a chance to round-trip through the bridge → roomStore →
+      // useTimeline → Virtuoso pipeline. ~50ms covers the local-echo
+      // path; if the homeserver is slow, the existing grow-driven
+      // useEffect in ChatTimeline catches the late append on its own.
+      if (onSent) {
+        setTimeout(onSent, 50);
+      }
     } catch (err) {
       console.error("发送消息失败:", err);
     } finally {
       setIsSending(false);
     }
-  }, [value, isSending, roomId, replyToEventId, setReplyTo, stopTyping]);
+  }, [
+    value,
+    isSending,
+    roomId,
+    replyToEventId,
+    setReplyTo,
+    stopTyping,
+    onSent,
+  ]);
 
   const cancelReply = useCallback(() => {
     setReplyTo(null);

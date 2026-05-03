@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { ChannelHeader } from "./ChannelHeader.js";
 import { ChatTimeline } from "./ChatTimeline.js";
@@ -69,13 +69,26 @@ function ChatViewContent({
     pending.forEach((t) => removeTask(t.id));
   }, [tasks, removeTask]);
 
+  // Spec 019 FIX-3 — bridge the composer's post-send signal to the
+  // timeline's scroll-to-bottom call so the view always lands on the
+  // freshly-sent message instead of staying parked at whatever offset
+  // the user happened to be at.
+  const scrollToBottomRef = useRef<(() => void) | null>(null);
+  const handleSent = useCallback(() => {
+    scrollToBottomRef.current?.();
+  }, []);
+
   return (
     <div
       className="relative flex flex-1 flex-col overflow-hidden bg-[var(--bg-primary)]"
       {...dragProps}
     >
       <ChannelHeader roomId={roomId} />
-      <ChatTimeline roomId={roomId} onReply={onReply} />
+      <ChatTimeline
+        roomId={roomId}
+        onReply={onReply}
+        scrollToBottomRef={scrollToBottomRef}
+      />
 
       <UploadProgressBar tasks={tasks} onCancel={cancelTask} />
 
@@ -90,6 +103,7 @@ function ChatViewContent({
         roomId={roomId}
         onPasteFile={handlePasteFile}
         onFilesSelected={handleFilesSelected}
+        onSent={handleSent}
       />
 
       {isDragging && <DropZoneOverlay />}

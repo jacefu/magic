@@ -1,14 +1,27 @@
-import { getClient, hasClient } from "@magic/matrix-client";
+import {
+  getClient,
+  hasClient,
+  useAgentStore,
+} from "@magic/matrix-client";
+import { getAgentInfo } from "./agentDetection.js";
 
 export type OnlineStatus = "online" | "idle" | "offline";
 
 /**
- * Read a user's online status straight from matrix-js-sdk's `User` object.
- * The SDK already maintains presence via `/sync` — no extra subscription
- * or store is needed. Works the same way for humans and Agents because
- * an Agent is itself a Matrix client kept alive by its container's sync
- * loop (and stops being "online" the instant `hiclaw worker sleep`
- * terminates that loop).
+ * If we haven't received a heartbeat from an Agent in this many ms, we
+ * treat it as offline regardless of the last `agent.status` event.
+ * HiClaw workers heartbeat every ~30s; 90s gives 2-3 missed cycles
+ * before we flip the dot.
+ */
+const HEARTBEAT_STALE_MS = 90_000;
+
+/**
+ * Read a *human* user's online status from matrix-js-sdk Presence.
+ * Reliable for real Matrix users with a live SDK client. NOT reliable
+ * for HiClaw worker accounts — Synapse caches presence for ~5 min
+ * after the container's sync loop dies, so a stopped worker keeps
+ * advertising "online" until the homeserver times it out. For agents,
+ * use {@link getEffectivePresence} or {@link getAgentPresence} instead.
  */
 export function getUserPresence(userId: string): OnlineStatus {
   if (!hasClient()) return "offline";
@@ -30,6 +43,56 @@ export function getUserPresence(userId: string): OnlineStatus {
   } catch {
     return "offline";
   }
+}
+
+/**
+ * Truth source for whether a HiClaw Agent is actually running right
+ * now. Reads the latest `com.magic.agent.status` event from the
+ * agentStore and gates it on heartbeat freshness — so a worker whose
+ * container was killed shows offline within 90s even if the homeserver
+ * still has stale Matrix Presence cached for it.
+ *
+ * Returns "offline" when no agent record exists yet (registry-only
+ * agents that haven't emitted a status event count as offline because
+ * we have no positive signal they're up).
+ */
+export function getAgentPresence(userId: string): OnlineStatus {
+  const agent = Object.values(useAgentStore.getState().agents).find(
+    (a) => a.userId === userId,
+  );
+  if (!agent) return "offline";
+
+  if (Date.now() - agent.lastHeartbeat > HEARTBEAT_STALE_MS) {
+    return "offline";
+  }
+
+  switch (agent.status) {
+    case "active":
+      return "online";
+    case "idle":
+      return "idle";
+    case "error":
+    case "offline":
+    default:
+      return "offline";
+  }
+}
+
+/**
+ * Pick the right presence source per user type:
+ *   - Agents (per `getAgentInfo`) → {@link getAgentPresence} so the
+ *     dot reflects actual container heartbeats, not stale Matrix
+ *     Presence.
+ *   - Humans → {@link getUserPresence} (Matrix Presence).
+ *
+ * Use this anywhere you render a status dot for a userId you don't
+ * already know is human (room list DMs, member panel, mention items).
+ */
+export function getEffectivePresence(userId: string): OnlineStatus {
+  if (getAgentInfo(userId).isAgent) {
+    return getAgentPresence(userId);
+  }
+  return getUserPresence(userId);
 }
 
 // Spec § 7.7 + § 11 — presence dot colors resolve to CSS variables so

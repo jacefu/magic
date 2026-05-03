@@ -42,6 +42,24 @@ describe("roomStore", () => {
     expect(useRoomStore.getState().rooms["!room:example.com"].lastMessage?.eventId).toBe("$evt2");
   });
 
+  it("addMessage inserts late-arriving events in timestamp order", () => {
+    // /sync can deliver an older event after a newer one (federation
+    // delay). The timeline must stay chronologically sorted regardless
+    // of arrival order.
+    useRoomStore.getState().addMessage(SID, "!room:example.com", makeEvent("$late", 2053));
+    useRoomStore.getState().addMessage(SID, "!room:example.com", makeEvent("$early", 2047));
+    const timeline = useRoomStore.getState().rooms["!room:example.com"].timeline;
+    expect(timeline.map((e) => e.eventId)).toEqual(["$early", "$late"]);
+  });
+
+  it("addMessage keeps lastMessage pinned to the newest event, even if an older one arrives later", () => {
+    useRoomStore.getState().addMessage(SID, "!room:example.com", makeEvent("$newer", 2053));
+    useRoomStore.getState().addMessage(SID, "!room:example.com", makeEvent("$older", 2047));
+    expect(
+      useRoomStore.getState().rooms["!room:example.com"].lastMessage?.eventId,
+    ).toBe("$newer");
+  });
+
   it("prependMessages prepends without duplicates", () => {
     useRoomStore.getState().addMessage(SID, "!room:example.com", makeEvent("$evt2"));
     useRoomStore.getState().prependMessages(SID, "!room:example.com", [makeEvent("$evt1"), makeEvent("$evt2")]);

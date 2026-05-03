@@ -1,36 +1,29 @@
 import { useRoomMembers, type RoomMember } from "../hooks/useRoomMembers.js";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
 import { AgentTag } from "../agents/AgentTag.js";
-import {
-  getUserPresence,
-  getPresenceColor,
-} from "../lib/presenceUtils.js";
 
 interface MemberPanelProps {
   roomId: string;
 }
 
+// Spec 019 FIX-1 — Tuwunel Presence is unreliable, so the panel no
+// longer groups by online/offline. Members are split by role (Agent
+// vs human) which is information we always have correctly via
+// `getAgentInfo`. Avatar status dot is dropped along with the
+// presence-driven grouping.
 export function MemberPanel({ roomId }: MemberPanelProps) {
   const members = useRoomMembers(roomId);
 
-  // Online vs offline grouping comes from Matrix Presence — same source
-  // for humans and Agents (Agents are themselves Matrix clients whose
-  // sync loop the homeserver tracks).
-  const online = members.filter((m) => {
-    const status = getUserPresence(m.userId);
-    return status === "online" || status === "idle";
-  });
-  const offline = members.filter(
-    (m) => getUserPresence(m.userId) === "offline",
-  );
+  const agents = members.filter((m) => m.isAgent);
+  const humans = members.filter((m) => !m.isAgent);
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      {online.length > 0 && (
-        <MemberSection label={`在线 — ${online.length}`} members={online} />
+      {agents.length > 0 && (
+        <MemberSection label={`Agent — ${agents.length}`} members={agents} />
       )}
-      {offline.length > 0 && (
-        <MemberSection label={`离线 — ${offline.length}`} members={offline} />
+      {humans.length > 0 && (
+        <MemberSection label={`成员 — ${humans.length}`} members={humans} />
       )}
     </div>
   );
@@ -57,20 +50,10 @@ function MemberSection({
 
 function MemberItem({ member }: { member: RoomMember }) {
   const name = member.displayName;
-  const statusColor = getPresenceColor(getUserPresence(member.userId));
 
   return (
     <div className="group flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-[var(--bg-surface)]">
-      {/* Avatar with status dot — 8px dot inside 12px ring (panel-bg colored) */}
-      <div className="relative">
-        <RoomAvatar name={name} avatarMxc={member.avatarMxc} isDirect size={28} />
-        <div className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[var(--bg-glass)]">
-          <div
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: statusColor }}
-          />
-        </div>
-      </div>
+      <RoomAvatar name={name} avatarMxc={member.avatarMxc} isDirect size={28} />
 
       {/* Name + runtime tag */}
       <span

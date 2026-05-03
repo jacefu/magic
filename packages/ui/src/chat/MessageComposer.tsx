@@ -14,6 +14,9 @@ interface MessageComposerProps {
   roomId: string;
   onPasteFile?: (file: File) => void;
   onFilesSelected?: (files: File[]) => void;
+  /** Fires after the composer ships a message — ChatView uses this
+   *  to scroll the timeline to the latest event. */
+  onSent?: () => void;
 }
 
 // Discord composer layout (single horizontal field with all controls inline):
@@ -23,6 +26,7 @@ export function MessageComposer({
   roomId,
   onPasteFile,
   onFilesSelected,
+  onSent,
 }: MessageComposerProps) {
   const {
     value,
@@ -33,7 +37,7 @@ export function MessageComposer({
     handleSend,
     cancelReply,
     switchRoom,
-  } = useComposer({ roomId });
+  } = useComposer({ roomId, onSent });
 
   const room = useRoomStore((s) => s.rooms[roomId]);
   const placeholder = room?.name ? `发消息到 #${room.name}` : "输入消息…";

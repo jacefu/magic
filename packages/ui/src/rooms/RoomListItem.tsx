@@ -1,17 +1,9 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import {
-  getClient,
-  hasClient,
   useAgentRegistryStore,
   useAgentStore,
-  useAuthStore,
   type RoomData,
 } from "@magic/matrix-client";
-import {
-  getUserPresence,
-  getPresenceColor,
-  getPresenceGlow,
-} from "../lib/presenceUtils.js";
 import { isDmRoom } from "../lib/isDmRoom.js";
 import { UnreadBadge } from "./UnreadBadge.js";
 
@@ -21,27 +13,11 @@ interface RoomListItemProps {
   onSelect: () => void;
 }
 
-/** Find the non-self member of a DM room. Returns null if not a DM or no peer. */
-function useDmPeerId(roomId: string, isDm: boolean): string | null {
-  const currentUserId = useAuthStore((s) => s.userId);
-  return useMemo(() => {
-    if (!isDm || !currentUserId || !hasClient()) return null;
-    const room = getClient().getRoom(roomId);
-    if (!room) return null;
-    const peer = room
-      .getJoinedMembers()
-      .find((m) => m.userId !== currentUserId);
-    return peer?.userId ?? null;
-  }, [roomId, isDm, currentUserId]);
-}
-
-// Discord-channel layout per design-system § 7.2:
-//   - 30px row height, padding 5px 10px, 1px gap
-//   - Group rooms: # prefix + name (single line)
-//   - DMs: 8px status dot + name (color from Matrix presence)
-//   - default text #949BA4, hover #DBDEE1 + bg #35373C, active white + bg #404249,
-//     unread #DBDEE1 + font-weight 600
-//   - UnreadBadge on the right
+// Spec 019 FIX-1 — Tuwunel's Matrix Presence is unreliable enough that
+// the on/off dot was lying often enough to mislead users. The dot is
+// gone for now; DMs get a simple "@" prefix matching the "#" used for
+// group rooms. presenceUtils / presenceStore stay in the tree for a
+// future revival once Presence is reliable.
 export const RoomListItem = memo(function RoomListItem({
   room,
   isActive,
@@ -50,21 +26,13 @@ export const RoomListItem = memo(function RoomListItem({
   const isUnread = room.unreadCount > 0;
   const name = room.name || "未命名房间";
 
-  // Subscribe to agent stores so a registry-driven re-tag still re-renders.
-  // Presence itself is read directly from matrix-js-sdk, which doesn't need
-  // a Zustand subscription — but the dot will repaint on the next render
-  // triggered by any of these stores or by the parent list refresh.
+  // Subscribe so a registry-driven re-tag (e.g. agent label resolution
+  // landing late) still triggers a re-render of the row.
   useAgentStore((s) => s.agents);
   useAgentRegistryStore((s) => s.agents);
   useAgentRegistryStore((s) => s.loaded);
 
   const isDm = isDmRoom(room);
-  const dmPeerId = useDmPeerId(room.roomId, isDm);
-  const dmPresence = dmPeerId ? getUserPresence(dmPeerId) : "offline";
-  const dmStatusColor = dmPeerId
-    ? getPresenceColor(dmPresence)
-    : "var(--offline-dot)";
-  const dmStatusGlow = dmPeerId ? getPresenceGlow(dmPresence) : undefined;
 
   // Spec § 7.2 — selected items get a theme-aware translucent
   // purple→cyan gradient + a subtle brand-tinted border. Both come
@@ -84,22 +52,20 @@ export const RoomListItem = memo(function RoomListItem({
                   rounded-lg border-[0.5px] border-transparent px-2.5 py-[5px] text-left
                   transition-colors duration-150 ${
                     isActive
-                      ? "text-white"
+                      ? "text-[var(--text-primary)]"
                       : isUnread
                         ? "text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
                         : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
                   }`}
       style={activeStyle}
     >
-      {isDm ? (
-        <span
-          className="h-[7px] w-[7px] shrink-0 rounded-full"
-          style={{ backgroundColor: dmStatusColor, boxShadow: dmStatusGlow }}
-          aria-hidden
-        />
-      ) : (
-        <span className="shrink-0 text-[14px] leading-none opacity-40">#</span>
-      )}
+      <span
+        className="w-4 shrink-0 text-center leading-none opacity-40"
+        style={{ fontSize: isDm ? 13 : 14 }}
+        aria-hidden
+      >
+        {isDm ? "@" : "#"}
+      </span>
 
       <span
         className={`truncate text-[12.5px] ${

@@ -20,9 +20,21 @@ import { EmptyRoom } from "./EmptyRoom.js";
 interface ChatTimelineProps {
   roomId: string;
   onReply?: (eventId: string) => void;
+  /**
+   * Spec 019 FIX-3 — parents (e.g. ChatView) hold a ref and call
+   * `current()` after a message is sent so the view jumps to the
+   * latest message regardless of where the timeline-driven
+   * `useEffect` happened to land. Belt-and-suspenders next to the
+   * automatic scroll-on-grow logic below.
+   */
+  scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
+export function ChatTimeline({
+  roomId,
+  onReply,
+  scrollToBottomRef,
+}: ChatTimelineProps) {
   const currentUserId = useAuthStore((s) => s.userId);
   const unreadMarker = useUnreadMarker(roomId, currentUserId);
   const { items, messageCount } = useTimeline({
@@ -136,6 +148,19 @@ export function ChatTimeline({ roomId, onReply }: ChatTimelineProps) {
       behavior: "smooth",
     });
   }, []);
+
+  // Expose scrollToBottom to parents that wire it to send completion.
+  // The grow-driven useEffect above handles most cases automatically,
+  // but Virtuoso races with rapid data updates can occasionally swallow
+  // the auto-scroll; the explicit post-send call guarantees the view
+  // lands on the freshly-sent message.
+  useEffect(() => {
+    if (!scrollToBottomRef) return;
+    scrollToBottomRef.current = scrollToBottom;
+    return () => {
+      scrollToBottomRef.current = null;
+    };
+  }, [scrollToBottom, scrollToBottomRef]);
 
   if (messageCount === 0 && items.length === 0) {
     return <EmptyRoom />;

@@ -1,9 +1,5 @@
 import { memo } from "react";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
-import {
-  getUserPresence,
-  getPresenceColor,
-} from "../lib/presenceUtils.js";
 import type { MentionCandidate } from "../hooks/useMentionAutocomplete.js";
 
 interface MentionItemProps {
@@ -47,21 +43,12 @@ export const MentionItem = memo(function MentionItem({
         isSelected ? "bg-[var(--brand-purple)]/15" : "hover:bg-[var(--bg-glass)]"
       }`}
     >
-      <div className="relative">
-        <RoomAvatar
-          name={member.displayName}
-          avatarMxc={member.avatarMxc}
-          isDirect
-          size={28}
-        />
-        <span
-          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-bg-primary"
-          style={{
-            backgroundColor: getPresenceColor(getUserPresence(member.userId)),
-          }}
-          aria-hidden
-        />
-      </div>
+      <RoomAvatar
+        name={member.displayName}
+        avatarMxc={member.avatarMxc}
+        isDirect
+        size={28}
+      />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
