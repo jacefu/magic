@@ -45,7 +45,7 @@ function MemberSection({
 }) {
   return (
     <div className="px-3 pt-4">
-      <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wider text-[rgba(255,255,255,0.4)]">
+      <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
         {label}
       </p>
       {members.map((m) => (
@@ -60,11 +60,11 @@ function MemberItem({ member }: { member: RoomMember }) {
   const statusColor = getPresenceColor(getUserPresence(member.userId));
 
   return (
-    <div className="group flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-[rgba(255,255,255,0.04)]">
+    <div className="group flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-[var(--bg-surface)]">
       {/* Avatar with status dot — 8px dot inside 12px ring (panel-bg colored) */}
       <div className="relative">
         <RoomAvatar name={name} avatarMxc={member.avatarMxc} isDirect size={28} />
-        <div className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[rgba(18,18,26,0.85)]">
+        <div className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-[var(--bg-glass)]">
           <div
             className="h-2 w-2 rounded-full"
             style={{ backgroundColor: statusColor }}
@@ -75,7 +75,7 @@ function MemberItem({ member }: { member: RoomMember }) {
       {/* Name + runtime tag */}
       <span
         className={`flex-1 truncate text-[12.5px] ${
-          member.isAgent ? "" : "text-[rgba(255,255,255,0.4)] group-hover:text-[rgba(255,255,255,0.85)]"
+          member.isAgent ? "" : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]"
         }`}
         style={
           member.isAgent ? { color: member.agentInfo.nameColor } : undefined

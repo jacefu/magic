@@ -48,9 +48,9 @@ export function InviteDialog({ invite, onClose }: InviteDialogProps) {
     <DialogOverlay onClose={isBusy ? () => {} : onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-xl bg-[rgba(15,15,21,0.95)] p-8 text-center shadow-2xl"
+        className="w-full max-w-sm rounded-xl bg-[var(--bg-primary)] p-8 text-center shadow-2xl"
       >
-        <h2 className="text-base font-semibold text-[rgba(255,255,255,0.85)]">
+        <h2 className="text-base font-semibold text-[var(--text-primary)]">
           {invite.isDirect
             ? `${inviterShortName} 想与你私聊`
             : `是否加入 ${displayName}？`}
@@ -65,21 +65,21 @@ export function InviteDialog({ invite, onClose }: InviteDialogProps) {
           />
         </div>
 
-        <p className="mt-3 text-sm text-[rgba(255,255,255,0.4)]">
+        <p className="mt-3 text-sm text-[var(--text-secondary)]">
           邀请者{" "}
-          <span className="font-semibold text-[rgba(255,255,255,0.85)]">
+          <span className="font-semibold text-[var(--text-primary)]">
             {inviterShortName}
           </span>
         </p>
-        <p className="text-xs text-[rgba(255,255,255,0.2)]">{invite.inviterId}</p>
+        <p className="text-xs text-[var(--text-tertiary)]">{invite.inviterId}</p>
 
         {invite.isEncrypted && (
-          <p className="mt-2 text-xs text-[#00F5A0]">
+          <p className="mt-2 text-xs text-[var(--color-success)]">
             🔒 此房间已启用端到端加密
           </p>
         )}
 
-        {error && <p className="mt-3 text-sm text-[#F43F5E]">{error}</p>}
+        {error && <p className="mt-3 text-sm text-[var(--color-danger)]">{error}</p>}
 
         <div className="mt-6 space-y-2">
           <button
@@ -89,7 +89,7 @@ export function InviteDialog({ invite, onClose }: InviteDialogProps) {
             className="w-full rounded-lg py-2 text-sm font-medium text-white
                        transition-opacity hover:opacity-90 disabled:opacity-40"
             style={{
-              background: "linear-gradient(135deg, #6C5CE7, #3B82F6)",
+              background: "var(--gradient-button)",
             }}
           >
             {busyAction === "accept" ? "加入中…" : "接受"}
@@ -99,8 +99,8 @@ export function InviteDialog({ invite, onClose }: InviteDialogProps) {
             type="button"
             onClick={() => run("decline", () => declineInvite(invite.roomId))}
             disabled={isBusy}
-            className="w-full rounded-lg py-2 text-sm font-medium text-[rgba(255,255,255,0.85)]
-                       transition-colors hover:bg-[rgba(255,255,255,0.04)] disabled:opacity-50"
+            className="w-full rounded-lg py-2 text-sm font-medium text-[var(--text-primary)]
+                       transition-colors hover:bg-[var(--bg-surface)] disabled:opacity-50"
           >
             {busyAction === "decline" ? "拒绝中…" : "拒绝"}
           </button>
@@ -111,7 +111,7 @@ export function InviteDialog({ invite, onClose }: InviteDialogProps) {
               run("block", () => declineAndBlockInvite(invite.roomId))
             }
             disabled={isBusy}
-            className="w-full py-2 text-sm text-[#F43F5E] transition-colors
+            className="w-full py-2 text-sm text-[var(--color-danger)] transition-colors
                        hover:underline disabled:opacity-50"
           >
             {busyAction === "block" ? "处理中…" : "拒绝并屏蔽"}

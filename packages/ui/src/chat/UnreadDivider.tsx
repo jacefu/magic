@@ -21,7 +21,7 @@ export const UnreadDivider = memo(function UnreadDivider({
       <div className="h-px flex-1 bg-[#F43F5E]" />
       {date && (
         <>
-          <span className="text-xs font-semibold text-[#F43F5E]">{date}</span>
+          <span className="text-xs font-semibold text-[var(--color-danger)]">{date}</span>
           <div className="h-px flex-1 bg-[#F43F5E]" />
         </>
       )}

@@ -83,10 +83,10 @@ export function MessageComposer({
   });
 
   return (
-    <div className="bg-[rgba(15,15,21,0.95)] px-4 pb-3 pt-2">
+    <div className="bg-[var(--bg-primary)] px-4 pb-3 pt-2">
       {replyEvent && <ReplyPreview event={replyEvent} onCancel={cancelReply} />}
 
-      <div className="flex items-center gap-1 rounded-lg bg-[rgba(255,255,255,0.04)] pr-2">
+      <div className="flex items-center gap-1 rounded-lg bg-[var(--bg-surface)] pr-2">
         {/* + attach button (left, inside field) */}
         <input
           ref={fileInputRef}
@@ -122,8 +122,8 @@ export function MessageComposer({
             className={`flex h-9 w-9 shrink-0 items-center justify-center
                         transition-colors ${
                           emojiOpen
-                            ? "text-[rgba(255,255,255,0.85)]"
-                            : "text-[#B5BAC1] hover:text-[rgba(255,255,255,0.85)]"
+                            ? "text-[var(--text-primary)]"
+                            : "text-[#B5BAC1] hover:text-[var(--text-primary)]"
                         }`}
           >
             <EmojiIcon />
@@ -140,8 +140,8 @@ export function MessageComposer({
             <button
               onClick={handleSend}
               disabled={isSending}
-              className="ml-0.5 rounded-md p-1.5 text-[#6C5CE7] transition-colors
-                         hover:bg-[rgba(108,92,231,0.1)] disabled:opacity-50"
+              className="ml-0.5 rounded-md p-1.5 text-[var(--brand-purple)] transition-colors
+                         hover:bg-[var(--bg-surface)] disabled:opacity-50"
               title="发送 (Enter)"
             >
               <SendIcon />
@@ -167,7 +167,7 @@ function ComposerIconButton({
       title={title}
       onClick={onClick}
       className="flex h-9 w-9 shrink-0 items-center justify-center text-[#B5BAC1]
-                 transition-colors hover:text-[rgba(255,255,255,0.85)]"
+                 transition-colors hover:text-[var(--text-primary)]"
     >
       {children}
     </button>

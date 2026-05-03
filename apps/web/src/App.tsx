@@ -1,6 +1,13 @@
-import { AuthGuard, MainLayout, useAutoAccept, useNotifications } from "@magic/ui";
+import {
+  AuthGuard,
+  MainLayout,
+  useAutoAccept,
+  useNotifications,
+  useTheme,
+} from "@magic/ui";
 
 export default function App() {
+  useTheme();
   useNotifications();
   useAutoAccept(true);
 

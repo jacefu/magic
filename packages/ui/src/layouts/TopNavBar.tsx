@@ -58,7 +58,7 @@ export function TopNavBar() {
 
   return (
     <div
-      className="relative flex h-12 shrink-0 items-center border-b border-[rgba(255,255,255,0.04)] bg-[rgba(12,12,18,0.95)]"
+      className="relative flex h-12 shrink-0 items-center border-b border-[var(--border-default)] bg-[var(--bg-deepest)]"
       style={drag}
     >
       {/* Left: 80px traffic-light reservation + back / forward arrows */}
@@ -84,8 +84,8 @@ export function TopNavBar() {
       <button
         title="工作区设置"
         className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5
-                   rounded px-2 py-1 text-[14px] font-semibold text-[rgba(255,255,255,0.85)]
-                   transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                   rounded px-2 py-1 text-[14px] font-semibold text-[var(--text-primary)]
+                   transition-colors hover:bg-[var(--bg-surface)]"
         style={noDrag}
       >
         <BrandMark />
@@ -122,7 +122,7 @@ function NavIconButton({
       onClick={onClick}
       disabled={disabled}
       className="flex h-7 w-7 items-center justify-center rounded text-[#B5BAC1]
-                 transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]
+                 transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]
                  disabled:cursor-not-allowed disabled:text-[#4E5058]
                  disabled:hover:bg-transparent disabled:hover:text-[#4E5058]"
     >

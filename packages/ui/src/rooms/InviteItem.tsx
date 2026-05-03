@@ -17,10 +17,10 @@ export const InviteItem = memo(function InviteItem({
     <button
       onClick={onClick}
       className="mx-1.5 flex w-[calc(100%-12px)] items-center gap-1.5 rounded-md
-                 px-2.5 py-[5px] text-left text-[rgba(255,255,255,0.4)] transition-colors
-                 duration-100 hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]"
+                 px-2.5 py-[5px] text-left text-[var(--text-secondary)] transition-colors
+                 duration-100 hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
     >
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[#FBBF24]">
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--color-warning)]">
         <svg
           className="h-3.5 w-3.5"
           fill="none"
@@ -41,7 +41,7 @@ export const InviteItem = memo(function InviteItem({
 
       {invite.status === "accepting" && (
         <div
-          className="h-3 w-3 animate-spin rounded-full border border-[#00F5A0] border-t-transparent"
+          className="h-3 w-3 animate-spin rounded-full border border-[var(--color-success)] border-t-transparent"
           aria-label="接受中"
         />
       )}
@@ -52,7 +52,7 @@ export const InviteItem = memo(function InviteItem({
         />
       )}
       {invite.status === "pending" && (
-        <span className="shrink-0 rounded bg-[#FBBF24]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#FBBF24]">
+        <span className="shrink-0 rounded bg-[#FBBF24]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-warning)]">
           邀请
         </span>
       )}

@@ -2,119 +2,341 @@
 @source "../../../../../packages/ui/src";
 
 /*
- * Cosmic AI design tokens (specs/shared/design-system.md).
+ * Cosmic AI dual-theme design tokens (specs/shared/design-system.md § 11).
  *
- * The legacy Discord-Onyx hex tokens are kept as aliases for now so
- * components that haven't been migrated keep rendering. New work
- * should reach for the cosmic tokens (--color-text-primary,
- * --color-bg-glass, etc.) and the gradient utilities below.
+ * Components reach for these via `var(--name)` — either inline as
+ * `style={{ color: 'var(--text-primary)' }}` or via Tailwind v4
+ * arbitrary values like `text-[var(--text-primary)]`. Switching the
+ * `data-theme` attribute on <html> swaps every variable atomically,
+ * with no JS-side cascade required.
  */
-@theme {
-  /* ---- Cosmic AI: backgrounds ---- */
-  --color-bg-deepest: rgba(12, 12, 18, 0.95);
-  --color-bg-glass: rgba(18, 18, 26, 0.85);
-  --color-bg-primary: rgba(15, 15, 21, 0.95);
-  --color-bg-surface: rgba(255, 255, 255, 0.04);
-  --color-bg-hover: rgba(255, 255, 255, 0.03);
-  --color-bg-panel: rgba(12, 12, 18, 0.6);
 
-  /* ---- Cosmic AI: text ---- */
-  --color-text-primary: rgba(255, 255, 255, 0.85);
-  --color-text-secondary: rgba(255, 255, 255, 0.4);
-  --color-text-tertiary: rgba(255, 255, 255, 0.2);
-  --color-text-disabled: rgba(255, 255, 255, 0.1);
+/* ===== Dark theme (default) ===== */
+:root,
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg-deepest: rgba(12, 12, 18, 0.95);
+  --bg-glass: rgba(18, 18, 26, 0.85);
+  --bg-primary: rgba(15, 15, 21, 0.95);
+  --bg-surface: rgba(255, 255, 255, 0.04);
+  --bg-hover: rgba(255, 255, 255, 0.03);
+  --bg-panel: rgba(12, 12, 18, 0.6);
+  --bg-active: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.12),
+    rgba(0, 180, 216, 0.08)
+  );
+  --bg-base: #0f0f14;
 
-  /* ---- Cosmic AI: brand & semantic ---- */
-  --color-brand-purple: #6c5ce7;
-  --color-brand-cyan: #00b4d8;
-  --color-brand-mint: #00f5a0;
+  /* Text */
+  --text-primary: rgba(255, 255, 255, 0.85);
+  --text-secondary: rgba(255, 255, 255, 0.4);
+  --text-tertiary: rgba(255, 255, 255, 0.2);
+  --text-disabled: rgba(255, 255, 255, 0.1);
+
+  /* Brand gradients */
+  --gradient-brand: linear-gradient(135deg, #6c5ce7, #00b4d8, #00f5a0);
+  --gradient-brand-v: linear-gradient(180deg, #6c5ce7, #00b4d8, #00f5a0);
+  --gradient-text: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+  --gradient-button: linear-gradient(135deg, #6c5ce7, #3b82f6);
+  --gradient-badge: linear-gradient(135deg, #e040a0, #f06040);
+
+  /* Brand colors */
+  --brand-purple: #6c5ce7;
+  --brand-cyan: #00b4d8;
+  --brand-mint: #00f5a0;
+
+  /* Semantic colors */
   --color-success: #00f5a0;
   --color-warning: #fbbf24;
   --color-danger: #f43f5e;
+  --glow-success: 0 0 6px rgba(0, 245, 160, 0.4);
+  --glow-warning: 0 0 6px rgba(251, 191, 36, 0.3);
+  --glow-danger: 0 0 6px rgba(244, 63, 94, 0.3);
 
-  /* ---- Cosmic AI: roles ---- */
-  --color-role-human: #a5b4fc;
-  --color-role-openclaw: #34d399;
-  --color-role-hermes: #fb923c;
-  --color-role-qwenpaw: #fbbf24;
-  --color-role-manager: #2dd4bf;
-  --color-role-leader: #a78bfa;
+  /* Roles */
+  --role-human: #a5b4fc;
+  --role-openclaw: #34d399;
+  --role-hermes: #fb923c;
+  --role-qwenpaw: #fbbf24;
+  --role-manager: #2dd4bf;
 
-  /* ---- Cosmic AI: borders ---- */
-  --color-border-default: rgba(255, 255, 255, 0.04);
-  --color-border-hover: rgba(255, 255, 255, 0.08);
-  --color-border-active: rgba(108, 92, 231, 0.2);
+  /* Borders */
+  --border-default: rgba(255, 255, 255, 0.04);
+  --border-hover: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(108, 92, 231, 0.2);
 
-  /* ---- Legacy aliases (Onyx) — pending migration ---- */
-  --color-bg-tertiary: #1e1f22;
-  --color-bg-secondary: #2b2d31;
-  --color-bg-modifier: #383a40;
-  --color-bg-active: #404249;
-  --color-bg-user-panel: #232428;
-  --color-text-normal: rgba(255, 255, 255, 0.85);
-  --color-text-muted: rgba(255, 255, 255, 0.4);
-  --color-text-faint: rgba(255, 255, 255, 0.2);
-  --color-text-link: #00b4d8;
-  --color-brand: #6c5ce7;
-  --color-brand-hover: #5b4cd1;
-  --color-green: #00f5a0;
-  --color-yellow: #fbbf24;
-  --color-red: #f43f5e;
-  --color-divider: rgba(255, 255, 255, 0.06);
-  --color-divider-light: rgba(255, 255, 255, 0.04);
-  --color-role-admin: #a78bfa;
+  /* AI message stripe */
+  --ai-bar-opacity: 0.5;
 
-  /* ---- Radius ---- */
+  /* Code */
+  --code-bg: rgba(255, 255, 255, 0.06);
+  --code-color: #a78bfa;
+
+  /* Workspace icon */
+  --ws-icon-bg: rgba(255, 255, 255, 0.06);
+  --ws-icon-active-inner: #1a1a24;
+
+  /* @mention */
+  --mention-bg: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.25),
+    rgba(0, 180, 216, 0.15)
+  );
+  --mention-color: #a5b4fc;
+  --mention-bg-hover: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.4),
+    rgba(0, 180, 216, 0.3)
+  );
+  --mention-color-hover: #ffffff;
+
+  /* Agent runtime tags */
+  --tag-agent-bg: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.3),
+    rgba(52, 211, 153, 0.2)
+  );
+  --tag-agent-color: #a78bfa;
+  --tag-hermes-bg: linear-gradient(
+    135deg,
+    rgba(220, 38, 38, 0.25),
+    rgba(249, 115, 22, 0.2)
+  );
+  --tag-hermes-color: #fb923c;
+  --tag-qwenpaw-bg: linear-gradient(
+    135deg,
+    rgba(217, 119, 6, 0.25),
+    rgba(251, 191, 36, 0.2)
+  );
+  --tag-qwenpaw-color: #fbbf24;
+  --tag-manager-bg: linear-gradient(
+    135deg,
+    rgba(13, 148, 136, 0.25),
+    rgba(45, 212, 191, 0.2)
+  );
+  --tag-manager-color: #2dd4bf;
+
+  /* Offline elements */
+  --offline-dot: rgba(255, 255, 255, 0.15);
+  --offline-avatar-bg: rgba(255, 255, 255, 0.08);
+
+  /* Message hover */
+  --msg-hover: rgba(255, 255, 255, 0.02);
+
+  /* Muted unread badge (non-mention) */
+  --badge-muted: rgba(255, 255, 255, 0.1);
+  --badge-muted-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== Light theme ===== */
+[data-theme="light"] {
+  /* Backgrounds */
+  --bg-deepest: #f0eff4;
+  --bg-glass: rgba(248, 247, 252, 0.85);
+  --bg-primary: #ffffff;
+  --bg-surface: rgba(0, 0, 0, 0.02);
+  --bg-hover: rgba(0, 0, 0, 0.025);
+  --bg-panel: rgba(240, 239, 244, 0.6);
+  --bg-active: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.08),
+    rgba(0, 180, 216, 0.05)
+  );
+  --bg-base: #ffffff;
+
+  /* Text */
+  --text-primary: rgba(0, 0, 0, 0.8);
+  --text-secondary: rgba(0, 0, 0, 0.4);
+  --text-tertiary: rgba(0, 0, 0, 0.25);
+  --text-disabled: rgba(0, 0, 0, 0.12);
+
+  /* Brand gradients (desaturated for light bg) */
+  --gradient-brand: linear-gradient(135deg, #6c5ce7, #0891b2, #059669);
+  --gradient-brand-v: linear-gradient(180deg, #6c5ce7, #0891b2, #059669);
+  --gradient-text: linear-gradient(135deg, #6c5ce7, #0891b2, #059669);
+  --gradient-button: linear-gradient(135deg, #6c5ce7, #3b82f6);
+  --gradient-badge: linear-gradient(135deg, #c026d3, #e11d48);
+
+  /* Brand colors */
+  --brand-purple: #6c5ce7;
+  --brand-cyan: #0891b2;
+  --brand-mint: #059669;
+
+  /* Semantic colors (no glow) */
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-danger: #e11d48;
+  --glow-success: none;
+  --glow-warning: none;
+  --glow-danger: none;
+
+  /* Roles (deepened) */
+  --role-human: #4338ca;
+  --role-openclaw: #047857;
+  --role-hermes: #c2410c;
+  --role-qwenpaw: #b45309;
+  --role-manager: #0f766e;
+
+  /* Borders */
+  --border-default: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.1);
+  --border-active: rgba(108, 92, 231, 0.15);
+
+  /* AI message stripe */
+  --ai-bar-opacity: 0.6;
+
+  /* Code */
+  --code-bg: rgba(108, 92, 231, 0.06);
+  --code-color: #6c5ce7;
+
+  /* Workspace icon */
+  --ws-icon-bg: rgba(0, 0, 0, 0.05);
+  --ws-icon-active-inner: #5b50d6;
+
+  /* @mention */
+  --mention-bg: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.12),
+    rgba(0, 180, 216, 0.08)
+  );
+  --mention-color: #5b50d6;
+  --mention-bg-hover: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.2),
+    rgba(0, 180, 216, 0.15)
+  );
+  --mention-color-hover: #4338ca;
+
+  /* Agent runtime tags (paler) */
+  --tag-agent-bg: linear-gradient(
+    135deg,
+    rgba(108, 92, 231, 0.1),
+    rgba(5, 150, 105, 0.08)
+  );
+  --tag-agent-color: #6c5ce7;
+  --tag-hermes-bg: linear-gradient(
+    135deg,
+    rgba(220, 38, 38, 0.1),
+    rgba(249, 115, 22, 0.08)
+  );
+  --tag-hermes-color: #dc2626;
+  --tag-qwenpaw-bg: linear-gradient(
+    135deg,
+    rgba(217, 119, 6, 0.1),
+    rgba(251, 191, 36, 0.08)
+  );
+  --tag-qwenpaw-color: #b45309;
+  --tag-manager-bg: linear-gradient(
+    135deg,
+    rgba(13, 148, 136, 0.1),
+    rgba(45, 212, 191, 0.08)
+  );
+  --tag-manager-color: #0f766e;
+
+  /* Offline elements */
+  --offline-dot: rgba(0, 0, 0, 0.12);
+  --offline-avatar-bg: rgba(0, 0, 0, 0.06);
+
+  /* Message hover */
+  --msg-hover: rgba(0, 0, 0, 0.015);
+
+  /* Muted unread badge */
+  --badge-muted: rgba(0, 0, 0, 0.08);
+  --badge-muted-color: rgba(0, 0, 0, 0.4);
+}
+
+/* Theme-independent tokens (radii, fonts) live in @theme so Tailwind
+ * picks them up as design tokens for utility class generation. */
+@theme {
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 14px;
   --radius-full: 9999px;
-  /* Legacy radius aliases */
-  --radius-xs: 4px;
 
-  /* ---- Fonts ---- */
-  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-mono: "JetBrains Mono", "Consolas", "Monaco", "Noto Sans Mono", monospace;
+  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", "Monaco", "Noto Sans Mono",
+    monospace;
 }
 
-/* Body deep-space backdrop — required so the glassmorphism panels
- * (backdrop-filter: blur) have something to actually blur. */
-html, body {
-  background-color: #0f0f14;
+html,
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
 }
 
-/* ---- Cosmic AI animations ---- */
+/* ===== Cosmic AI animations ===== */
 @keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 @keyframes glow-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes indeterminate {
-  0% { transform: translateX(-100%); width: 40%; }
-  50% { transform: translateX(60%); width: 60%; }
-  100% { transform: translateX(200%); width: 40%; }
+  0% {
+    transform: translateX(-100%);
+    width: 40%;
+  }
+  50% {
+    transform: translateX(60%);
+    width: 60%;
+  }
+  100% {
+    transform: translateX(200%);
+    width: 40%;
+  }
 }
 
 @keyframes bounce {
-  0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-4px); }
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
 }
 
-/* Scrollbars: transparent track, subtle translucent thumb. */
+/* Scrollbars: transparent track, subtle translucent thumb. The light
+ * theme inherits these too — `currentColor` would interfere with body
+ * text, so we keep the dark-mode rgba on both themes (acceptable since
+ * scrollbars are visually low-impact). */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -124,13 +346,13 @@ html, body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(127, 127, 127, 0.25);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.18);
+  background-color: rgba(127, 127, 127, 0.45);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: rgba(127, 127, 127, 0.25) transparent;
 }

@@ -77,8 +77,12 @@ function getInitials(name: string): string {
  * pairs read like "energy" — purples, cyans, mints — keeping room
  * avatars cohesive with the rest of the gradient-driven UI rather than
  * the previous flat bright primaries.
+ *
+ * Exported so other components (e.g. MessageBubble's brand stripe) can
+ * reuse the same color for the same name without duplicating the
+ * hash-and-palette dance.
  */
-const GRADIENTS = [
+export const AVATAR_GRADIENTS = [
   "linear-gradient(135deg, #6C5CE7, #3B82F6)", // human-blue (default)
   "linear-gradient(135deg, #059669, #34D399)", // openclaw-green
   "linear-gradient(135deg, #DC2626, #F97316)", // hermes-flame
@@ -89,10 +93,13 @@ const GRADIENTS = [
   "linear-gradient(135deg, #E040A0, #F06040)", // mention pink→orange
 ] as const;
 
-function pickGradient(name: string): string {
+export function pickGradient(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return GRADIENTS[Math.abs(hash) % GRADIENTS.length] ?? GRADIENTS[0]!;
+  return (
+    AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length] ??
+    AVATAR_GRADIENTS[0]!
+  );
 }

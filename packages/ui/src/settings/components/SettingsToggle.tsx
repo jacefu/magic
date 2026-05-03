@@ -20,9 +20,9 @@ export function SettingsToggle({
       }`}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-[rgba(255,255,255,0.85)]">{label}</p>
+        <p className="text-sm font-medium text-[var(--text-primary)]">{label}</p>
         {description && (
-          <p className="mt-0.5 text-xs text-[rgba(255,255,255,0.4)]">{description}</p>
+          <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{description}</p>
         )}
       </div>
       <button
@@ -36,7 +36,7 @@ export function SettingsToggle({
         } ${disabled ? "cursor-not-allowed" : ""}`}
         style={
           checked
-            ? { background: "linear-gradient(135deg, #6C5CE7, #3B82F6)" }
+            ? { background: "var(--gradient-button)" }
             : undefined
         }
       >

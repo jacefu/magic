@@ -24,7 +24,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="mb-2 text-xs text-[rgba(255,255,255,0.4)] transition-colors hover:text-[rgba(255,255,255,0.85)]"
+          className="mb-2 text-xs text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
         >
           {showAdvanced ? "▾ 隐藏高级设置" : "▸ Homeserver 设置"}
         </button>
@@ -35,10 +35,10 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
             onChange={(e) => setHomeserver(e.target.value)}
             placeholder="https://matrix.magic.com"
             disabled={isLoading}
-            className="w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(12,12,18,0.95)]
-                       px-3 py-2 text-sm text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
-                       focus:border-[rgba(108,92,231,0.4)] focus:outline-none focus:ring-1
-                       focus:ring-[#6C5CE7] disabled:opacity-50"
+            className="w-full rounded-md border border-[var(--border-default)] bg-[var(--bg-deepest)]
+                       px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]
+                       focus:border-[var(--border-active)] focus:outline-none focus:ring-1
+                       focus:ring-[var(--brand-purple)] disabled:opacity-50"
           />
         )}
       </div>
@@ -46,7 +46,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
       <div>
         <label
           htmlFor="username"
-          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[rgba(255,255,255,0.4)]"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[var(--text-secondary)]"
         >
           用户名
         </label>
@@ -59,17 +59,17 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           disabled={isLoading}
           autoFocus
           autoComplete="username"
-          className="w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(12,12,18,0.95)]
-                     px-3 py-2.5 text-sm text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
-                     focus:border-[rgba(108,92,231,0.4)] focus:outline-none focus:ring-1
-                     focus:ring-[#6C5CE7] disabled:opacity-50"
+          className="w-full rounded-md border border-[var(--border-default)] bg-[var(--bg-deepest)]
+                     px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]
+                     focus:border-[var(--border-active)] focus:outline-none focus:ring-1
+                     focus:ring-[var(--brand-purple)] disabled:opacity-50"
         />
       </div>
 
       <div>
         <label
           htmlFor="password"
-          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[rgba(255,255,255,0.4)]"
+          className="mb-1 block text-xs font-bold uppercase tracking-[0.04em] text-[var(--text-secondary)]"
         >
           密码
         </label>
@@ -81,15 +81,15 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           placeholder="输入密码"
           disabled={isLoading}
           autoComplete="current-password"
-          className="w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(12,12,18,0.95)]
-                     px-3 py-2.5 text-sm text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
-                     focus:border-[rgba(108,92,231,0.4)] focus:outline-none focus:ring-1
-                     focus:ring-[#6C5CE7] disabled:opacity-50"
+          className="w-full rounded-md border border-[var(--border-default)] bg-[var(--bg-deepest)]
+                     px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]
+                     focus:border-[var(--border-active)] focus:outline-none focus:ring-1
+                     focus:ring-[var(--brand-purple)] disabled:opacity-50"
         />
       </div>
 
       {error && (
-        <div className="rounded-md border border-[#F23F43]/40 bg-[#F43F5E]/10 px-3 py-2 text-sm text-[#F43F5E]">
+        <div className="rounded-md border border-[#F23F43]/40 bg-[#F43F5E]/10 px-3 py-2 text-sm text-[var(--color-danger)]">
           {error}
         </div>
       )}
@@ -101,7 +101,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
                    transition-opacity hover:opacity-90
                    disabled:cursor-not-allowed disabled:opacity-40"
         style={{
-          background: "linear-gradient(135deg, #6C5CE7, #3B82F6)",
+          background: "var(--gradient-button)",
         }}
       >
         {isLoading ? (

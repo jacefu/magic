@@ -68,20 +68,20 @@ export function WelcomePage() {
   // primary CTA uses the purple→blue brand-button gradient; quick-
   // connect rows are subtle glass tiles.
   const inputClasses =
-    "w-full rounded-lg border-[0.5px] border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] px-3 py-2 " +
-    "text-sm text-[rgba(255,255,255,0.85)] placeholder-[rgba(255,255,255,0.2)] " +
-    "transition-colors focus:border-[rgba(108,92,231,0.4)] focus:outline-none disabled:opacity-50";
+    "w-full rounded-lg border-[0.5px] border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 " +
+    "text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] " +
+    "transition-colors focus:border-[var(--border-active)] focus:outline-none disabled:opacity-50";
 
   return (
     <div
       className="flex h-screen flex-col"
-      style={{ background: "#0F0F14" }}
+      style={{ background: "var(--bg-base)" }}
     >
       {/* Top draggable bar — keeps the window movable before login. */}
       <div
         className="h-9 shrink-0"
         style={{
-          background: "rgba(12,12,18,0.95)",
+          background: "var(--bg-deepest)",
           WebkitAppRegion: "drag",
         } as React.CSSProperties}
       />
@@ -90,17 +90,17 @@ export function WelcomePage() {
         {/* Empty workspace rail — placeholder + button + vertical hint */}
         <div
           className="flex w-[72px] shrink-0 flex-col items-center pt-3"
-          style={{ background: "rgba(12,12,18,0.95)" }}
+          style={{ background: "var(--bg-deepest)" }}
         >
           <div
             className="flex h-11 w-11 items-center justify-center rounded-full
-                       border-[1.5px] border-dashed border-[rgba(255,255,255,0.2)] text-lg text-[rgba(255,255,255,0.4)]"
+                       border-[1.5px] border-dashed border-[rgba(255,255,255,0.2)] text-lg text-[var(--text-secondary)]"
             aria-label="添加服务器"
           >
             +
           </div>
           <span
-            className="mt-3 text-[10px] text-[rgba(255,255,255,0.2)]"
+            className="mt-3 text-[10px] text-[var(--text-tertiary)]"
             style={{ writingMode: "vertical-rl" }}
           >
             添加服务器
@@ -121,33 +121,33 @@ export function WelcomePage() {
             >
               M
             </div>
-            <h1 className="text-[22px] font-semibold text-[rgba(255,255,255,0.85)]">
+            <h1 className="text-[22px] font-semibold text-[var(--text-primary)]">
               欢迎使用 MAGIC
             </h1>
-            <p className="mt-1.5 text-[13px] text-[rgba(255,255,255,0.4)]">
+            <p className="mt-1.5 text-[13px] text-[var(--text-secondary)]">
               Multi-Agent Governance &amp; Intelligent Collaboration
             </p>
           </div>
 
           <div
-            className="w-[380px] rounded-[14px] border-[0.5px] border-[rgba(255,255,255,0.06)] px-8 py-7"
+            className="w-[380px] rounded-[14px] border-[0.5px] border-[var(--border-default)] px-8 py-7"
             style={{
-              background: "rgba(18,18,26,0.85)",
+              background: "var(--bg-glass)",
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
               boxShadow: "0 24px 48px rgba(0,0,0,0.4)",
             }}
           >
-            <h2 className="text-[15px] font-semibold text-[rgba(255,255,255,0.85)]">
+            <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
               连接 Matrix 服务器
             </h2>
-            <p className="mb-5 mt-1 text-xs leading-relaxed text-[rgba(255,255,255,0.4)]">
+            <p className="mb-5 mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
               输入你的 Matrix homeserver 地址和账号信息，开始多 Agent 协同工作
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-[rgba(255,255,255,0.4)]">
+                <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
                   服务器地址
                 </label>
                 <input
@@ -162,7 +162,7 @@ export function WelcomePage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-[rgba(255,255,255,0.4)]">
+                <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
                   用户名
                 </label>
                 <input
@@ -177,7 +177,7 @@ export function WelcomePage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-[rgba(255,255,255,0.4)]">
+                <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
                   密码
                 </label>
                 <input
@@ -192,7 +192,7 @@ export function WelcomePage() {
               </div>
 
               {error && (
-                <div className="rounded-lg border-[0.5px] border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.08)] px-3 py-2 text-sm text-[#F43F5E]">
+                <div className="rounded-lg border-[0.5px] border-[rgba(244,63,94,0.3)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--color-danger)]">
                   {error}
                 </div>
               )}
@@ -203,7 +203,7 @@ export function WelcomePage() {
                 className="w-full rounded-lg py-2.5 text-sm font-medium text-white
                            transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{
-                  background: "linear-gradient(135deg, #6C5CE7, #3B82F6)",
+                  background: "var(--gradient-button)",
                 }}
               >
                 {isLoading ? "连接中…" : "连接服务器"}
@@ -215,15 +215,15 @@ export function WelcomePage() {
                 className="h-px flex-1"
                 style={{
                   background:
-                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+                    "linear-gradient(90deg, transparent, var(--border-default), transparent)",
                 }}
               />
-              <span className="text-[11px] text-[rgba(255,255,255,0.2)]">或快速连接</span>
+              <span className="text-[11px] text-[var(--text-tertiary)]">或快速连接</span>
               <div
                 className="h-px flex-1"
                 style={{
                   background:
-                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+                    "linear-gradient(90deg, transparent, var(--border-default), transparent)",
                 }}
               />
             </div>
@@ -239,9 +239,9 @@ export function WelcomePage() {
                   }}
                   disabled={isLoading}
                   className="flex w-full items-center gap-3 rounded-lg border-[0.5px]
-                             border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] px-3 py-2.5
+                             border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5
                              text-left transition-colors
-                             hover:border-[rgba(108,92,231,0.3)] hover:bg-[rgba(255,255,255,0.06)]
+                             hover:border-[var(--border-active)] hover:bg-[var(--ws-icon-bg)]
                              disabled:opacity-50"
                 >
                   <div
@@ -251,20 +251,20 @@ export function WelcomePage() {
                     {server.initial}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-[rgba(255,255,255,0.85)]">
+                    <p className="text-[13px] font-medium text-[var(--text-primary)]">
                       {server.name}
                     </p>
-                    <p className="truncate text-[11px] text-[rgba(255,255,255,0.2)]">
+                    <p className="truncate text-[11px] text-[var(--text-tertiary)]">
                       {server.url}
                     </p>
                   </div>
-                  <span className="text-sm text-[rgba(255,255,255,0.2)]">→</span>
+                  <span className="text-sm text-[var(--text-tertiary)]">→</span>
                 </button>
               ))}
             </div>
           </div>
 
-          <p className="mt-6 text-[11px] text-[rgba(255,255,255,0.2)]">
+          <p className="mt-6 text-[11px] text-[var(--text-tertiary)]">
             MAGIC Client v0.0.1 · 基于 Matrix 协议
           </p>
         </div>

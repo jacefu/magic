@@ -1,6 +1,11 @@
 import { SettingsRadioGroup } from "../components/SettingsRadioGroup.js";
 import { useSettings } from "../../hooks/useSettings.js";
 
+/**
+ * Theme picker per spec § 12.3 — three options, with `applyTheme`
+ * called automatically by `useSettings` so the choice takes effect
+ * synchronously on selection (no reload needed).
+ */
 export function AppearanceSection() {
   const { theme, setTheme } = useSettings();
 
@@ -11,18 +16,18 @@ export function AppearanceSection() {
         options={[
           {
             value: "dark",
-            label: "深色（推荐）",
-            description: "Discord Onyx 主题，适合长时间阅读",
-          },
-          {
-            value: "system",
-            label: "跟随系统",
-            description: "根据操作系统的外观偏好自动切换",
+            label: "暗色",
+            description: "深空宇宙感（默认）",
           },
           {
             value: "light",
             label: "浅色",
-            description: "目前为预览，部分组件仍以深色呈现",
+            description: "明亮清新",
+          },
+          {
+            value: "system",
+            label: "跟随系统",
+            description: "自动跟随操作系统外观",
           },
         ]}
         value={theme}

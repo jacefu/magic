@@ -31,7 +31,7 @@ export function ServersSection() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-xs text-[rgba(255,255,255,0.4)]">
+        <p className="text-xs text-[var(--text-secondary)]">
           你已登录 {sessions.length} 个 Matrix 服务器。每个服务器在左侧栏显示为独立的工作区图标。
         </p>
         <button
@@ -40,7 +40,7 @@ export function ServersSection() {
           className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white
                      transition-opacity hover:opacity-90"
           style={{
-            background: "linear-gradient(135deg, #6C5CE7, #3B82F6)",
+            background: "var(--gradient-button)",
           }}
         >
           + 添加服务器
@@ -53,8 +53,8 @@ export function ServersSection() {
             key={session.id}
             className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
               session.id === activeId
-                ? "border border-[rgba(108,92,231,0.3)] bg-[rgba(108,92,231,0.1)]"
-                : "bg-[rgba(18,18,26,0.85)]"
+                ? "border border-[var(--border-active)] bg-[var(--bg-surface)]"
+                : "bg-[var(--bg-glass)]"
             }`}
           >
             <button
@@ -69,18 +69,18 @@ export function ServersSection() {
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-[rgba(255,255,255,0.85)]">
+                <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
                   {session.serverName}
                 </p>
                 {session.id === activeId && (
-                  <span className="shrink-0 rounded bg-[rgba(108,92,231,0.2)] px-1.5 py-0.5 text-[10px] font-medium text-[#6C5CE7]">
+                  <span className="shrink-0 rounded bg-[var(--bg-surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--brand-purple)]">
                     当前
                   </span>
                 )}
                 <SyncBadge state={session.syncState} />
               </div>
-              <p className="truncate text-xs text-[rgba(255,255,255,0.2)]">{session.userId}</p>
-              <p className="truncate text-xs text-[rgba(255,255,255,0.2)]">
+              <p className="truncate text-xs text-[var(--text-tertiary)]">{session.userId}</p>
+              <p className="truncate text-xs text-[var(--text-tertiary)]">
                 {session.homeserver}
               </p>
             </div>
@@ -88,7 +88,7 @@ export function ServersSection() {
             <button
               type="button"
               onClick={() => handleRemove(session.id)}
-              className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-[#F43F5E]
+              className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-[var(--color-danger)]
                          transition-colors hover:bg-[#F43F5E]/10"
             >
               断开
@@ -104,12 +104,12 @@ export function ServersSection() {
 
 function SyncBadge({ state }: { state: string }) {
   if (state === "PREPARED")
-    return <span className="text-[10px] text-[#00F5A0]">● 已连接</span>;
+    return <span className="text-[10px] text-[var(--color-success)]">● 已连接</span>;
   if (state === "SYNCING")
-    return <span className="text-[10px] text-[#FBBF24]">● 同步中</span>;
+    return <span className="text-[10px] text-[var(--color-warning)]">● 同步中</span>;
   if (state === "ERROR")
-    return <span className="text-[10px] text-[#F43F5E]">● 连接错误</span>;
+    return <span className="text-[10px] text-[var(--color-danger)]">● 连接错误</span>;
   if (state === "RECONNECTING")
-    return <span className="text-[10px] text-[#FBBF24]">● 重连中</span>;
-  return <span className="text-[10px] text-[rgba(255,255,255,0.2)]">● 已断开</span>;
+    return <span className="text-[10px] text-[var(--color-warning)]">● 重连中</span>;
+  return <span className="text-[10px] text-[var(--text-tertiary)]">● 已断开</span>;
 }

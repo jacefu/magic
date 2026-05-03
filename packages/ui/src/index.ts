@@ -129,9 +129,11 @@ export type {
 export {
   getUserPresence,
   getPresenceColor,
+  getPresenceGlow,
   getPresenceLabel,
 } from "./lib/presenceUtils.js";
 export type { OnlineStatus } from "./lib/presenceUtils.js";
+export { applyTheme, watchSystemTheme, useTheme } from "./lib/theme.js";
 
 // Mentions
 export { MentionAutocomplete } from "./mentions/MentionAutocomplete.js";

@@ -22,7 +22,7 @@ export const InviteSection = memo(function InviteSection({
         onClick={() => setCollapsed((c) => !c)}
         className="flex w-full items-center gap-1 px-2.5 py-1.5
                    text-[10.5px] font-bold uppercase tracking-[0.04em]
-                   text-[#FBBF24] transition-colors hover:text-[rgba(255,255,255,0.85)]"
+                   text-[var(--color-warning)] transition-colors hover:text-[var(--text-primary)]"
       >
         <svg
           className={`h-2.5 w-2.5 transition-transform ${

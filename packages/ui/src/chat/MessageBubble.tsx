@@ -6,7 +6,7 @@ import {
   useAuthStore,
   useUIStore,
 } from "@magic/matrix-client";
-import { RoomAvatar } from "../rooms/RoomAvatar.js";
+import { RoomAvatar, pickGradient } from "../rooms/RoomAvatar.js";
 import { MessageContent } from "./MessageContent.js";
 import { AgentTag } from "../agents/AgentTag.js";
 import { getAgentInfo } from "../lib/agentDetection.js";
@@ -39,6 +39,12 @@ export const MessageBubble = memo(function MessageBubble({
   const time = formatTime(event.timestamp);
   const senderName = extractDisplayName(event.sender);
   const agentInfo = getAgentInfo(event.sender);
+  // The brand stripe and the avatar share the same gradient so each
+  // sender gets a consistent personal color across the message row.
+  // Agents get their role-specific gradient; humans fall through to
+  // the hash-based palette (the same one RoomAvatar would pick).
+  const senderGradient =
+    avatarGradient(agentInfo) ?? pickGradient(senderName);
 
   // Resolve display name with the SDK if available — falls back to the
   // user's local part. Used for click-to-mention so it lines up with
@@ -60,26 +66,27 @@ export const MessageBubble = memo(function MessageBubble({
   return (
     <div
       className={`group relative flex gap-3 px-4 transition-colors duration-100
-                  hover:bg-[rgba(255,255,255,0.02)]
+                  hover:bg-[var(--msg-hover)]
                   ${showSender ? "mt-2.5" : "mt-0.5"}`}
     >
-      {/* AI message marker — 2px gradient stripe per § 9.2. Only on
-          Agent senders; real humans get nothing. opacity:0.5 keeps it
-          present without screaming. */}
-      {agentInfo.isAgent && (
-        <span
-          aria-hidden="true"
-          className="absolute left-1.5 top-0 bottom-0 w-[2px] rounded-[1px] opacity-50"
-          style={{
-            background:
-              "linear-gradient(180deg, #6C5CE7, #00B4D8, #00F5A0)",
-          }}
-        />
-      )}
+      {/* 2px stripe rendered on every message — color matches the
+          sender's avatar gradient so each participant has a consistent
+          personal hue running down the row. Opacity is themed via
+          --ai-bar-opacity (0.5 dark, 0.6 light) so the stripe stays
+          legible against either background. */}
+      <span
+        aria-hidden="true"
+        className="absolute left-1.5 top-0 bottom-0 w-[2px] rounded-[1px]"
+        style={{
+          background: senderGradient,
+          opacity: "var(--ai-bar-opacity)",
+        }}
+      />
 
-      {/* Avatar gutter — 36px wide. Avatars use role-specific gradients
-          for Agents so AI senders read as "energy" vs the calm
-          purple-blue of humans. */}
+
+      {/* Avatar gutter — 36px wide. Avatars share `senderGradient`
+          with the left stripe so each sender's hue is consistent
+          across the row. */}
       <div className="w-9 shrink-0 pt-0.5">
         {showSender && (
           <RoomAvatar
@@ -87,7 +94,7 @@ export const MessageBubble = memo(function MessageBubble({
             avatarMxc={null}
             isDirect
             size={36}
-            gradient={avatarGradient(agentInfo)}
+            gradient={senderGradient}
           />
         )}
       </div>
@@ -108,12 +115,12 @@ export const MessageBubble = memo(function MessageBubble({
               {senderName}
             </button>
             <AgentTag agentInfo={agentInfo} size="sm" />
-            <span className="ml-1 text-[10px] text-[rgba(255,255,255,0.2)]">
+            <span className="ml-1 text-[10px] text-[var(--text-tertiary)]">
               {time}
             </span>
           </div>
         )}
-        <div className="text-[13px] leading-[1.5] text-[rgba(255,255,255,0.85)]">
+        <div className="text-[13px] leading-[1.5] text-[var(--text-primary)]">
           <MessageContent event={event} isOwn={isOwn} />
         </div>
       </div>
@@ -122,14 +129,14 @@ export const MessageBubble = memo(function MessageBubble({
       {onReply && (
         <div
           className="absolute -top-3 right-4 hidden items-center gap-0.5 rounded-md
-                     border border-[rgba(255,255,255,0.08)] bg-[rgba(15,15,21,0.95)]
+                     border border-[var(--border-hover)] bg-[var(--bg-primary)]
                      px-1 py-0.5 shadow-lg backdrop-blur-md group-hover:flex"
         >
           <button
             onClick={() => onReply(event.eventId)}
-            className="rounded p-0.5 text-[rgba(255,255,255,0.4)] transition-colors
-                       hover:bg-[rgba(255,255,255,0.04)]
-                       hover:text-[rgba(255,255,255,0.85)]"
+            className="rounded p-0.5 text-[var(--text-secondary)] transition-colors
+                       hover:bg-[var(--bg-surface)]
+                       hover:text-[var(--text-primary)]"
             title="回复"
           >
             <ReplyIcon />
@@ -188,8 +195,8 @@ function SystemEventLine({ event }: { event: SerializedMatrixEvent }) {
   return (
     <div className="flex justify-center px-4 py-2">
       <span
-        className="rounded-full px-3 py-1 text-[10px] text-[rgba(255,255,255,0.4)]"
-        style={{ background: "rgba(255,255,255,0.04)" }}
+        className="rounded-full px-3 py-1 text-[10px] text-[var(--text-secondary)]"
+        style={{ background: "var(--bg-surface)" }}
       >
         {text}
       </span>

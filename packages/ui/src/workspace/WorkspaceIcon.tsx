@@ -59,14 +59,14 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
   const buttonStateClasses = isActive
     ? "text-white"
     : variant === "add"
-      ? "border-[1.5px] border-dashed border-[rgba(255,255,255,0.2)] text-[rgba(255,255,255,0.4)] text-lg hover:rounded-[14px] hover:border-[rgba(0,245,160,0.4)] hover:text-[#00F5A0]"
-      : "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.7)] hover:rounded-[14px] hover:bg-[rgba(255,255,255,0.1)] hover:text-white";
-  const errorRing = isError ? "ring-2 ring-[#F43F5E]" : "";
+      ? "border-[1.5px] border-dashed border-[rgba(255,255,255,0.2)] text-[var(--text-secondary)] text-lg hover:rounded-[14px] hover:border-[rgba(0,245,160,0.4)] hover:text-[var(--color-success)]"
+      : "bg-[var(--ws-icon-bg)] text-[var(--text-primary)] hover:rounded-[14px] hover:bg-[var(--badge-muted)] hover:text-white";
+  const errorRing = isError ? "ring-2 ring-[var(--color-danger)]" : "";
 
   const buttonStyle: React.CSSProperties | undefined = isActive
     ? color
       ? { backgroundColor: color }
-      : { background: "#1A1A24" }
+      : { background: "var(--ws-icon-active-inner)" }
     : color && variant !== "add"
       ? { backgroundColor: color, color: "#fff" }
       : undefined;
@@ -128,14 +128,16 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
         </button>
       )}
 
-      {/* Notification badge — gradient pill matching UnreadBadge. */}
+      {/* Notification badge — theme-aware pink→orange gradient
+          matching UnreadBadge. The 2px ring uses the deepest layer
+          color so the badge cuts cleanly out of the workspace rail. */}
       {notificationCount && notificationCount > 0 ? (
         <span
           className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center
                      rounded-md px-1 text-[9px] font-bold text-white"
           style={{
-            background: "linear-gradient(135deg, #E040A0, #F06040)",
-            boxShadow: "0 0 0 2px rgba(12,12,18,0.95)",
+            background: "var(--gradient-badge)",
+            boxShadow: "0 0 0 2px var(--bg-deepest)",
           }}
         >
           {notificationCount > 99 ? "99+" : notificationCount}

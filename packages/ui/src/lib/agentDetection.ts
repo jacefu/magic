@@ -75,15 +75,16 @@ export function getAgentInfo(userId: string, roomId?: string): AgentInfo {
     tagLabel: null,
     tagBg: null,
     tagColor: null,
-    nameColor: "#A5B4FC",
+    nameColor: "var(--role-human)",
   };
 }
 
 // ---- internals ----
 
-// Cosmic AI § 7.4 — runtime tag pills use linear-gradients (instead of
-// flat translucent fills) so AI-related affordances "glow" with brand
-// energy. The CSS string is consumed by AgentTag via `style.background`.
+// Spec § 11.1 + § 12.2 — runtime tag pills resolve to per-theme
+// CSS variables, so the same AgentInfo renders correctly in dark and
+// light themes without any consumer logic. AgentTag passes these
+// straight into `style.background` / `style.color`.
 function getTagStyle(
   runtime: AgentRuntime,
   role: AgentRole,
@@ -95,49 +96,45 @@ function getTagStyle(
   if (role === "manager") {
     return {
       tagLabel: "MANAGER",
-      tagBg:
-        "linear-gradient(135deg, rgba(13,148,136,0.25), rgba(45,212,191,0.2))",
-      tagColor: "#2DD4BF",
+      tagBg: "var(--tag-manager-bg)",
+      tagColor: "var(--tag-manager-color)",
     };
   }
   switch (runtime) {
     case "hermes":
       return {
         tagLabel: "HERMES",
-        tagBg:
-          "linear-gradient(135deg, rgba(220,38,38,0.25), rgba(249,115,22,0.2))",
-        tagColor: "#FB923C",
+        tagBg: "var(--tag-hermes-bg)",
+        tagColor: "var(--tag-hermes-color)",
       };
     case "qwenpaw":
       return {
         tagLabel: "QWENPAW",
-        tagBg:
-          "linear-gradient(135deg, rgba(217,119,6,0.25), rgba(251,191,36,0.2))",
-        tagColor: "#FBBF24",
+        tagBg: "var(--tag-qwenpaw-bg)",
+        tagColor: "var(--tag-qwenpaw-color)",
       };
     case "openclaw":
     default:
       return {
         tagLabel: "AGENT",
-        tagBg:
-          "linear-gradient(135deg, rgba(108,92,231,0.3), rgba(52,211,153,0.2))",
-        tagColor: "#A78BFA",
+        tagBg: "var(--tag-agent-bg)",
+        tagColor: "var(--tag-agent-color)",
       };
   }
 }
 
-// Cosmic AI § 2.5 — sender / member name color follows the role palette
-// so AI senders read distinctly against the human default.
+// Spec § 2.5 — sender / member name color follows the role palette,
+// resolved via CSS variables so it adapts on theme switch.
 function getNameColor(runtime: AgentRuntime, role: AgentRole): string {
-  if (role === "manager") return "#2DD4BF";
+  if (role === "manager") return "var(--role-manager)";
   switch (runtime) {
     case "hermes":
-      return "#FB923C";
+      return "var(--role-hermes)";
     case "qwenpaw":
-      return "#FBBF24";
+      return "var(--role-qwenpaw)";
     case "openclaw":
     default:
-      return "#34D399";
+      return "var(--role-openclaw)";
   }
 }
 
@@ -157,7 +154,7 @@ function inferFromUserId(
       runtime: "hermes",
       role: "worker",
       ...getTagStyle("hermes", "worker"),
-      nameColor: "#FB923C",
+      nameColor: "var(--role-hermes)",
     };
   }
   if (n.includes("qwenpaw") || n.includes("copaw")) {
@@ -165,7 +162,7 @@ function inferFromUserId(
       runtime: "qwenpaw",
       role: "worker",
       ...getTagStyle("qwenpaw", "worker"),
-      nameColor: "#FBBF24",
+      nameColor: "var(--role-qwenpaw)",
     };
   }
   if (n.includes("manager")) {
@@ -173,7 +170,7 @@ function inferFromUserId(
       runtime: "openclaw",
       role: "manager",
       ...getTagStyle("openclaw", "manager"),
-      nameColor: "#2DD4BF",
+      nameColor: "var(--role-manager)",
     };
   }
   if (n.includes("worker") || n.includes("agent")) {
@@ -181,7 +178,7 @@ function inferFromUserId(
       runtime: "openclaw",
       role: "worker",
       ...getTagStyle("openclaw", "worker"),
-      nameColor: "#34D399",
+      nameColor: "var(--role-openclaw)",
     };
   }
   return null;

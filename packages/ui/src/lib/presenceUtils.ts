@@ -32,14 +32,32 @@ export function getUserPresence(userId: string): OnlineStatus {
   }
 }
 
+// Spec § 7.7 + § 11 — presence dot colors resolve to CSS variables so
+// they adapt to dark / light theme automatically. Pair with the
+// matching glow tokens (`var(--glow-success)` etc.) when rendering.
 export function getPresenceColor(status: OnlineStatus): string {
   switch (status) {
     case "online":
-      return "#00F5A0";
+      return "var(--color-success)";
     case "idle":
-      return "#FBBF24";
+      return "var(--color-warning)";
     case "offline":
-      return "rgba(255,255,255,0.15)";
+      return "var(--offline-dot)";
+  }
+}
+
+/** Companion to {@link getPresenceColor} — returns the matching glow
+ *  shadow so callers don't have to maintain a parallel switch. Pass
+ *  the result straight to `style.boxShadow`; "none" in light theme
+ *  silences the glow. */
+export function getPresenceGlow(status: OnlineStatus): string | undefined {
+  switch (status) {
+    case "online":
+      return "var(--glow-success)";
+    case "idle":
+      return "var(--glow-warning)";
+    case "offline":
+      return undefined;
   }
 }
 

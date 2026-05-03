@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { applyTheme, watchSystemTheme, type Theme } from "../lib/theme.js";
 
-export type Theme = "dark" | "light" | "system";
+export type { Theme };
 export type Language = "zh" | "en";
 
 interface Settings {
@@ -37,14 +38,29 @@ function save(settings: Settings): void {
 }
 
 /**
- * Lightweight settings hook. Persists to localStorage; not yet wired
- * into theme switching at the CSS level (Magic only ships a dark
- * theme today — language switching is similarly not localised yet).
- * Provides a single source of truth so the UI radio groups have
- * something to read/write.
+ * Lightweight settings hook. Persists to localStorage and drives the
+ * `data-theme` attribute on `<html>` via `applyTheme` so dark / light /
+ * system selections take effect immediately. When the user is on
+ * "system", we also subscribe to `prefers-color-scheme` so an OS-level
+ * theme switch propagates live without a reload.
+ *
+ * Language is a placeholder: settings are persisted but no
+ * localisation layer wires off it yet.
  */
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(() => load());
+
+  // Apply the persisted theme on mount so a refresh / first launch
+  // doesn't flash the wrong palette.
+  useEffect(() => {
+    applyTheme(settings.theme);
+  }, [settings.theme]);
+
+  // While the user is on "system", react to OS-level theme changes.
+  useEffect(() => {
+    if (settings.theme !== "system") return;
+    return watchSystemTheme(() => applyTheme("system"));
+  }, [settings.theme]);
 
   useEffect(() => {
     save(settings);

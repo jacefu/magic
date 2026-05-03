@@ -27,37 +27,27 @@ export const MentionPill = memo(function MentionPill({
     }
   }, [userId]);
 
-  // Cosmic AI § 2.7 — pill background is a translucent purple→cyan
-  // gradient. Self-mention bumps opacity + uses pure white text;
-  // hover brightens both. The gradient lives in `style` because
-  // Tailwind v4 arbitrary backgrounds can't accept comma-separated
-  // gradient stops without escaping pain.
-  const gradientDefault =
-    "linear-gradient(135deg, rgba(108,92,231,0.25), rgba(0,180,216,0.15))";
-  const gradientHover =
-    "linear-gradient(135deg, rgba(108,92,231,0.4), rgba(0,180,216,0.3))";
-  const gradientSelf =
-    "linear-gradient(135deg, rgba(108,92,231,0.35), rgba(0,180,216,0.25))";
-  const gradientSelfHover =
-    "linear-gradient(135deg, rgba(108,92,231,0.5), rgba(0,180,216,0.4))";
+  // Spec § 2.7 + § 11 — pill background and text color resolve via
+  // CSS variables, so the same component renders correctly in both
+  // themes. Self-mention reuses the hover variants for stronger
+  // emphasis.
+  const bg = isMe ? "var(--mention-bg-hover)" : "var(--mention-bg)";
+  const bgHover = "var(--mention-bg-hover)";
+  const color = isMe ? "var(--mention-color-hover)" : "var(--mention-color)";
 
   return (
     <span
-      className={`group inline-flex cursor-pointer items-center gap-1 rounded
-                  px-1.5 py-px align-middle font-medium leading-tight
-                  transition-colors ${
-                    isMe ? "text-white" : "text-[#A5B4FC] hover:text-white"
-                  }`}
-      style={{ background: isMe ? gradientSelf : gradientDefault }}
+      className="group inline-flex cursor-pointer items-center gap-1 rounded
+                 px-1.5 py-px align-middle font-medium leading-tight
+                 transition-colors"
+      style={{ background: bg, color }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = isMe
-          ? gradientSelfHover
-          : gradientHover;
+        e.currentTarget.style.background = bgHover;
+        e.currentTarget.style.color = "var(--mention-color-hover)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = isMe
-          ? gradientSelf
-          : gradientDefault;
+        e.currentTarget.style.background = bg;
+        e.currentTarget.style.color = color;
       }}
       title={userId}
     >

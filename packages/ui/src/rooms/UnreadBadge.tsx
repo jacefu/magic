@@ -19,14 +19,16 @@ export const UnreadBadge = memo(function UnreadBadge({
   return (
     <span
       className="inline-flex h-4 min-w-4 items-center justify-center rounded-md
-                 px-1 text-[9px] font-bold leading-none text-white"
+                 px-1 text-[9px] font-bold leading-none"
       style={
         highlight
           ? {
-              background: "linear-gradient(135deg, #E040A0, #F06040)",
+              background: "var(--gradient-badge)",
+              color: "#FFFFFF",
             }
           : {
-              background: "rgba(255,255,255,0.1)",
+              background: "var(--badge-muted)",
+              color: "var(--badge-muted-color)",
             }
       }
     >

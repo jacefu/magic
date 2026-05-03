@@ -25,10 +25,10 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
   };
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-3 border-b border-[rgba(255,255,255,0.04)] bg-[rgba(15,15,21,0.95)] px-4 shadow-sm">
+    <div className="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-4 shadow-sm">
       {/* Channel marker + name */}
       <div className="flex shrink-0 items-center gap-1.5">
-        <span className="text-[20px] leading-none text-[rgba(255,255,255,0.4)]">#</span>
+        <span className="text-[20px] leading-none text-[var(--text-secondary)]">#</span>
         <span className="text-[16px] font-semibold text-white">
           {room.name || "未命名房间"}
         </span>
@@ -60,12 +60,12 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
         )}
 
         {/* Search box (visual only — Cmd+K could later wire it up) */}
-        <div className="ml-1 flex h-6 w-36 items-center rounded bg-[rgba(12,12,18,0.95)] px-1.5">
+        <div className="ml-1 flex h-6 w-36 items-center rounded bg-[var(--bg-deepest)] px-1.5">
           <input
             type="text"
             placeholder={`搜索 ${room.name || "房间"}`}
-            className="w-full bg-transparent text-[12px] text-[rgba(255,255,255,0.85)]
-                       placeholder:text-[rgba(255,255,255,0.2)] outline-none"
+            className="w-full bg-transparent text-[12px] text-[var(--text-primary)]
+                       placeholder:text-[var(--text-tertiary)] outline-none"
           />
           <SmallSearchIcon />
         </div>
@@ -92,8 +92,8 @@ function HeaderIconButton({
       className={`flex h-7 w-7 items-center justify-center rounded transition-colors
                   ${
                     isActive
-                      ? "bg-[rgba(255,255,255,0.06)] text-[rgba(255,255,255,0.85)]"
-                      : "text-[#B5BAC1] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.85)]"
+                      ? "bg-[var(--ws-icon-bg)] text-[var(--text-primary)]"
+                      : "text-[#B5BAC1] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
                   }`}
     >
       {children}
@@ -121,7 +121,7 @@ function MembersIcon() {
 
 function SmallSearchIcon() {
   return (
-    <svg className="h-3 w-3 shrink-0 text-[rgba(255,255,255,0.2)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"

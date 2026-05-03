@@ -51,7 +51,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return (
       <div
         className="flex h-screen items-center justify-center"
-        style={{ background: "#0F0F14" }}
+        style={{ background: "var(--bg-base)" }}
       >
         <div className="flex flex-col items-center">
           <div
@@ -67,15 +67,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#6C5CE7] border-t-transparent" />
           {progress ? (
             <>
-              <p className="mt-3 text-sm text-[rgba(255,255,255,0.4)]">
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
                 正在恢复会话 ({progress.current}/{progress.total})
               </p>
-              <p className="mt-1 text-xs text-[rgba(255,255,255,0.2)]">
+              <p className="mt-1 text-xs text-[var(--text-tertiary)]">
                 {progress.serverName}
               </p>
             </>
           ) : (
-            <p className="mt-3 text-sm text-[rgba(255,255,255,0.4)]">正在恢复会话…</p>
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">正在恢复会话…</p>
           )}
         </div>
       </div>

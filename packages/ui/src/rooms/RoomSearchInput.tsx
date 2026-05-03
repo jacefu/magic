@@ -19,10 +19,10 @@ export function RoomSearchInput({ value, onChange }: RoomSearchInputProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="搜索房间…"
-        className="w-full rounded border border-[rgba(255,255,255,0.04)] bg-[rgba(12,12,18,0.95)]
-                   py-1 pl-7 pr-2 text-xs text-[rgba(255,255,255,0.85)] placeholder:text-[rgba(255,255,255,0.2)]
-                   focus:border-[rgba(108,92,231,0.4)] focus:outline-none focus:ring-1
-                   focus:ring-[rgba(108,92,231,0.4)]"
+        className="w-full rounded border border-[var(--border-default)] bg-[var(--bg-deepest)]
+                   py-1 pl-7 pr-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]
+                   focus:border-[var(--border-active)] focus:outline-none focus:ring-1
+                   focus:ring-[var(--border-active)]"
       />
       {value && (
         <button
@@ -30,8 +30,8 @@ export function RoomSearchInput({ value, onChange }: RoomSearchInputProps) {
             onChange("");
             inputRef.current?.focus();
           }}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[rgba(255,255,255,0.4)]
-                     hover:text-[rgba(255,255,255,0.85)]"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]
+                     hover:text-[var(--text-primary)]"
         >
           <ClearIcon />
         </button>
@@ -43,7 +43,7 @@ export function RoomSearchInput({ value, onChange }: RoomSearchInputProps) {
 function SearchIcon() {
   return (
     <svg
-      className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[rgba(255,255,255,0.2)]"
+      className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--text-tertiary)]"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

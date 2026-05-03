@@ -69,10 +69,10 @@ describe("getUserPresence", () => {
 });
 
 describe("getPresenceColor", () => {
-  it("returns the Cosmic AI mint/amber/dim-white tokens", () => {
-    expect(getPresenceColor("online")).toBe("#00F5A0");
-    expect(getPresenceColor("idle")).toBe("#FBBF24");
-    expect(getPresenceColor("offline")).toBe("rgba(255,255,255,0.15)");
+  it("returns CSS var() refs that resolve per current theme", () => {
+    expect(getPresenceColor("online")).toBe("var(--color-success)");
+    expect(getPresenceColor("idle")).toBe("var(--color-warning)");
+    expect(getPresenceColor("offline")).toBe("var(--offline-dot)");
   });
 });
 

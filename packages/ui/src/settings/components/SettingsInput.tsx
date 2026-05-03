@@ -14,16 +14,16 @@ export function SettingsInput({
   return (
     <div>
       {label && (
-        <p className="mb-1 text-sm font-medium text-[rgba(255,255,255,0.85)]">{label}</p>
+        <p className="mb-1 text-sm font-medium text-[var(--text-primary)]">{label}</p>
       )}
       {description && (
-        <p className="mb-2 text-xs text-[rgba(255,255,255,0.4)]">{description}</p>
+        <p className="mb-2 text-xs text-[var(--text-secondary)]">{description}</p>
       )}
       <input
         {...rest}
-        className={`w-full rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(12,12,18,0.95)] px-3 py-2
-                    text-sm text-[rgba(255,255,255,0.85)] placeholder-[rgba(255,255,255,0.2)]
-                    focus:border-[rgba(108,92,231,0.4)] focus:outline-none disabled:opacity-50 ${className}`}
+        className={`w-full rounded-md border border-[var(--border-default)] bg-[var(--bg-deepest)] px-3 py-2
+                    text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)]
+                    focus:border-[var(--border-active)] focus:outline-none disabled:opacity-50 ${className}`}
       />
     </div>
   );

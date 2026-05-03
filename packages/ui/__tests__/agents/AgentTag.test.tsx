@@ -93,14 +93,12 @@ describe("AgentTag", () => {
   it("applies tagBg + tagColor as inline styles", () => {
     render(<AgentTag agentInfo={makeInfo()} />);
     const tag = screen.getByText("AGENT");
-    // Cosmic AI: tagBg is a CSS string (rgba or gradient) applied via
-    // `background`. Browsers normalize rgba() with spaces, so strip
-    // whitespace before comparing.
+    // The fixture passes raw CSS strings into makeInfo, so the inline
+    // values come straight back out — separate from the theme-aware
+    // var() refs that real agentDetection produces.
     expect(tag.style.background.replace(/\s+/g, "")).toContain(
       "rgba(88,101,242,0.25)",
     );
-    // jsdom keeps the raw inline value (#A5B0FC), so compare against the
-    // hex literal rather than a browser-normalized rgb().
     expect(tag.style.color).toBe("#A5B0FC");
   });
 

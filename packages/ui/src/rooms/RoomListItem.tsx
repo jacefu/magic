@@ -10,6 +10,7 @@ import {
 import {
   getUserPresence,
   getPresenceColor,
+  getPresenceGlow,
 } from "../lib/presenceUtils.js";
 import { isDmRoom } from "../lib/isDmRoom.js";
 import { UnreadBadge } from "./UnreadBadge.js";
@@ -59,25 +60,20 @@ export const RoomListItem = memo(function RoomListItem({
 
   const isDm = isDmRoom(room);
   const dmPeerId = useDmPeerId(room.roomId, isDm);
+  const dmPresence = dmPeerId ? getUserPresence(dmPeerId) : "offline";
   const dmStatusColor = dmPeerId
-    ? getPresenceColor(getUserPresence(dmPeerId))
-    : "rgba(255,255,255,0.15)";
-  const dmStatusGlow =
-    dmStatusColor === "#00F5A0"
-      ? "0 0 6px rgba(0,245,160,0.4)"
-      : dmStatusColor === "#FBBF24"
-        ? "0 0 6px rgba(251,191,36,0.3)"
-        : dmStatusColor === "#F43F5E"
-          ? "0 0 6px rgba(244,63,94,0.3)"
-          : undefined;
+    ? getPresenceColor(dmPresence)
+    : "var(--offline-dot)";
+  const dmStatusGlow = dmPeerId ? getPresenceGlow(dmPresence) : undefined;
 
-  // Cosmic AI § 7.2 — selected items get a translucent purple→cyan
-  // gradient + a subtle brand-tinted border instead of a flat grey.
+  // Spec § 7.2 — selected items get a theme-aware translucent
+  // purple→cyan gradient + a subtle brand-tinted border. Both come
+  // from CSS variables so the active state reshapes to suit the
+  // current theme automatically.
   const activeStyle: React.CSSProperties | undefined = isActive
     ? {
-        background:
-          "linear-gradient(135deg, rgba(108,92,231,0.12), rgba(0,180,216,0.08))",
-        borderColor: "rgba(108,92,231,0.2)",
+        background: "var(--bg-active)",
+        borderColor: "var(--border-active)",
       }
     : undefined;
 
@@ -90,8 +86,8 @@ export const RoomListItem = memo(function RoomListItem({
                     isActive
                       ? "text-white"
                       : isUnread
-                        ? "text-[rgba(255,255,255,0.85)] hover:bg-[rgba(255,255,255,0.04)]"
-                        : "text-[rgba(255,255,255,0.4)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(255,255,255,0.7)]"
+                        ? "text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
                   }`}
       style={activeStyle}
     >

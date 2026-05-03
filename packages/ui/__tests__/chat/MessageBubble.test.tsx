@@ -65,15 +65,15 @@ describe("MessageBubble", () => {
     expect(screen.getByText("me")).toBeTruthy();
   });
 
-  it("renders sender name with the human-blue role color when not an agent", () => {
+  it("renders sender name with the human-role CSS var when not an agent", () => {
     render(
       <MessageBubble event={makeEvent()} showSender={true} isOwn={false} />,
     );
-    // Cosmic AI § 2.5 — non-agent senders use #A5B4FC (human-role color)
-    // applied via agentDetection.nameColor.
-    // jsdom returns the raw inline value (#A5B4FC), unlike a real browser
-    // which normalizes hex → rgb().
-    expect(screen.getByText("alice").style.color).toBe("#A5B4FC");
+    // Spec § 11 — non-agent senders use the --role-human CSS variable
+    // so dark/light themes resolve different concrete colors.
+    expect(screen.getByText("alice").style.color).toBe(
+      "var(--role-human)",
+    );
   });
 
   it("renders system event as centered text for m.room.member join", () => {

@@ -23,6 +23,8 @@ MAGIC Client 的视觉语言融合 **Google Gemini 的渐变能量感** + **Glas
 
 ### 2.1 背景层级（深空黑体系）
 
+> 📝 第 2-9 节中的色值均为**暗色主题**的值。浅色主题的完整对照表见**第 10 节**。实际代码中应使用**第 11 节**中定义的 CSS 变量，主题切换自动生效。
+
 | 用途 | CSS 变量 | 值 | 说明 |
 |------|---------|-----|------|
 | 最底层（工作区栏） | `--bg-deepest` | `rgba(12,12,18,0.95)` | 近乎纯黑，微偏蓝 |
@@ -571,70 +573,328 @@ padding: 12px;
 
 ---
 
-## 10. Tailwind CSS v4 实现
+## 10. 浅色主题（Light Theme）
 
-### 10.1 @theme 变量
+### 10.1 设计原则
+
+浅色主题不是暗色的简单反转。核心调整：
+
+- **品牌渐变降饱和**：翠绿 `#00F5A0` 在白底上过于刺眼，替换为 `#059669`
+- **无辉光效果**：`box-shadow` 辉光在浅色背景上不自然，浅色模式下全部去掉
+- **角色色加深**：暗色用的淡色（`#A5B4FC`、`#34D399`）在白底上对比度不够，全部换为对应深色
+- **Agent 标签更淡**：标签背景的 alpha 降到更低，文字用品牌色原值保证可读
+- **工作区栏用薰衣草灰**：`#F0EFF4`，不用纯白——微微偏紫与品牌色呼应
+
+### 10.2 浅色色板
+
+#### 背景层级
+
+| 用途 | 暗色值 | 浅色值 | 说明 |
+|------|--------|--------|------|
+| 工作区栏 | `rgba(12,12,18,0.95)` | `#F0EFF4` | 薰衣草灰，实色 |
+| 侧边栏 | `rgba(18,18,26,0.85)` | `rgba(248,247,252,0.85)` | 暖白紫 + blur |
+| 聊天区 | `rgba(15,15,21,0.95)` | `#FFFFFF` | 纯白，保证阅读体验 |
+| 成员面板 | `rgba(18,18,26,0.7)` | `rgba(248,247,252,0.7)` | 同侧边栏稍透 |
+| 输入框/卡片 | `rgba(255,255,255,0.04)` | `rgba(0,0,0,0.02)` | 极微灰 |
+| Hover | `rgba(255,255,255,0.03)` | `rgba(0,0,0,0.025)` | |
+| 选中态 | 渐变 `(108,92,231,0.12)→(0,180,216,0.08)` | 渐变 `(108,92,231,0.08)→(0,180,216,0.05)` | 更淡 |
+| 用户面板 | `rgba(12,12,18,0.6)` | `rgba(240,239,244,0.6)` | |
+
+#### 文字层级
+
+| 用途 | 暗色值 | 浅色值 |
+|------|--------|--------|
+| 主要 | `rgba(255,255,255,0.85)` | `rgba(0,0,0,0.8)` |
+| 次要 | `rgba(255,255,255,0.4)` | `rgba(0,0,0,0.4)` |
+| 辅助 | `rgba(255,255,255,0.2)` | `rgba(0,0,0,0.25)` |
+| 禁用 | `rgba(255,255,255,0.1)` | `rgba(0,0,0,0.12)` |
+
+#### 品牌渐变
+
+| 用途 | 暗色值 | 浅色值 |
+|------|--------|--------|
+| 品牌渐变 | `#6C5CE7 → #00B4D8 → #00F5A0` | `#6C5CE7 → #0891B2 → #059669` |
+| AI 消息竖条 | 同上, `opacity: 0.5` | 同上, `opacity: 0.6` |
+| 渐变文字 | `#A78BFA → #60A5FA → #34D399` | `#6C5CE7 → #0891B2 → #059669` |
+
+#### 角色色（发送者名）
+
+| 角色 | 暗色 | 浅色 | 头像渐变（两者通用） |
+|------|------|------|---------------------|
+| 真人 | `#A5B4FC` | `#4338CA` | `#6C5CE7 → #3B82F6` |
+| OpenClaw | `#34D399` | `#047857` | `#059669 → #34D399` |
+| Hermes | `#FB923C` | `#C2410C` | `#DC2626 → #F97316` |
+| QwenPaw | `#FBBF24` | `#B45309` | `#D97706 → #FBBF24` |
+| Manager | `#2DD4BF` | `#0F766E` | `#0D9488 → #2DD4BF` |
+
+#### 语义色
+
+| 状态 | 暗色 | 浅色 | 浅色辉光 |
+|------|------|------|---------|
+| 在线 | `#00F5A0` + glow | `#059669` | 无辉光 |
+| 空闲 | `#FBBF24` + glow | `#D97706` | 无辉光 |
+| 离线 | `rgba(255,255,255,0.15)` | `rgba(0,0,0,0.12)` | — |
+| 错误 | `#F43F5E` + glow | `#E11D48` | 无辉光 |
+| 未读 Badge | `#E040A0 → #F06040` | `#C026D3 → #E11D48` | 更深的渐变 |
+
+#### 边框与分隔
+
+| 用途 | 暗色 | 浅色 |
+|------|------|------|
+| 默认 | `rgba(255,255,255,0.04)` | `rgba(0,0,0,0.06)` |
+| Hover | `rgba(255,255,255,0.08)` | `rgba(0,0,0,0.1)` |
+| 选中 | `rgba(108,92,231,0.2)` | `rgba(108,92,231,0.15)` |
+| 分隔线 | `transparent → rgba(255,255,255,0.08) → transparent` | `transparent → rgba(0,0,0,0.06) → transparent` |
+
+#### Agent 标签
+
+| 运行时 | 暗色背景 | 浅色背景 | 暗色文字 | 浅色文字 |
+|--------|---------|---------|---------|---------|
+| AGENT | `rgba(108,92,231,0.3)+rgba(52,211,153,0.2)` | `rgba(108,92,231,0.1)+rgba(5,150,105,0.08)` | `#A78BFA` | `#6C5CE7` |
+| HERMES | `rgba(220,38,38,0.25)+rgba(249,115,22,0.2)` | `rgba(220,38,38,0.1)+rgba(249,115,22,0.08)` | `#FB923C` | `#DC2626` |
+| QWENPAW | `rgba(217,119,6,0.25)+rgba(251,191,36,0.2)` | `rgba(217,119,6,0.1)+rgba(251,191,36,0.08)` | `#FBBF24` | `#B45309` |
+| MANAGER | `rgba(13,148,136,0.25)+rgba(45,212,191,0.2)` | `rgba(13,148,136,0.1)+rgba(45,212,191,0.08)` | `#2DD4BF` | `#0F766E` |
+
+#### @mention 高亮
+
+| 状态 | 暗色背景 | 浅色背景 | 暗色文字 | 浅色文字 |
+|------|---------|---------|---------|---------|
+| 默认 | `rgba(108,92,231,0.25)+rgba(0,180,216,0.15)` | `rgba(108,92,231,0.12)+rgba(0,180,216,0.08)` | `#A5B4FC` | `#5B50D6` |
+| Hover | `rgba(108,92,231,0.4)+rgba(0,180,216,0.3)` | `rgba(108,92,231,0.2)+rgba(0,180,216,0.15)` | `#FFFFFF` | `#4338CA` |
+
+#### 代码片段
+
+| 属性 | 暗色 | 浅色 |
+|------|------|------|
+| 背景 | `rgba(255,255,255,0.06)` | `rgba(108,92,231,0.06)` |
+| 文字 | `#A78BFA` | `#6C5CE7` |
+
+#### 其他调整
+
+| 元素 | 暗色 | 浅色 |
+|------|------|------|
+| 消息 hover 背景 | `rgba(255,255,255,0.02)` | `rgba(0,0,0,0.015)` |
+| 编辑器聚焦边框 | `rgba(108,92,231,0.3)` | `rgba(108,92,231,0.25)` |
+| 工作区选中图标内部填充 | `#1A1A24` | `#5B50D6`（品牌紫，浅色下内部为实色） |
+| 工作区非选中图标背景 | `rgba(255,255,255,0.06)` | `rgba(0,0,0,0.05)` |
+| 状态点外围描边 | 与面板同色（暗色） | 与面板同色（浅色 `rgba(248,247,252,0.95)`） |
+| 离线头像背景 | `rgba(255,255,255,0.08)` | `rgba(0,0,0,0.06)` |
+| 离线头像文字 | 继承 | `rgba(0,0,0,0.35)` |
+
+---
+
+## 11. Tailwind CSS v4 实现
+
+### 11.1 双主题 CSS 变量
+
+通过 `data-theme` 属性切换主题。`<html data-theme="dark">` 或 `<html data-theme="light">`。
 
 ```css
 /* apps/desktop/src/renderer/src/index.css */
 /* apps/web/src/index.css */
 @import "tailwindcss";
 
-@theme {
+/* ===== 暗色主题（默认） ===== */
+:root,
+[data-theme="dark"] {
   /* 背景 */
-  --color-bg-deepest: rgba(12,12,18,0.95);
-  --color-bg-glass: rgba(18,18,26,0.85);
-  --color-bg-primary: rgba(15,15,21,0.95);
-  --color-bg-surface: rgba(255,255,255,0.04);
-  --color-bg-hover: rgba(255,255,255,0.03);
-  --color-bg-panel: rgba(12,12,18,0.6);
+  --bg-deepest: rgba(12,12,18,0.95);
+  --bg-glass: rgba(18,18,26,0.85);
+  --bg-primary: rgba(15,15,21,0.95);
+  --bg-surface: rgba(255,255,255,0.04);
+  --bg-hover: rgba(255,255,255,0.03);
+  --bg-panel: rgba(12,12,18,0.6);
+  --bg-active: linear-gradient(135deg, rgba(108,92,231,0.12), rgba(0,180,216,0.08));
+  --bg-base: #0F0F14;
 
   /* 文字 */
-  --color-text-primary: rgba(255,255,255,0.85);
-  --color-text-secondary: rgba(255,255,255,0.4);
-  --color-text-tertiary: rgba(255,255,255,0.2);
-  --color-text-disabled: rgba(255,255,255,0.1);
+  --text-primary: rgba(255,255,255,0.85);
+  --text-secondary: rgba(255,255,255,0.4);
+  --text-tertiary: rgba(255,255,255,0.2);
+  --text-disabled: rgba(255,255,255,0.1);
 
-  /* 品牌 */
-  --color-brand-purple: #6C5CE7;
-  --color-brand-cyan: #00B4D8;
-  --color-brand-mint: #00F5A0;
+  /* 品牌渐变 */
+  --gradient-brand: linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0);
+  --gradient-brand-v: linear-gradient(180deg, #6C5CE7, #00B4D8, #00F5A0);
+  --gradient-text: linear-gradient(135deg, #A78BFA, #60A5FA, #34D399);
+  --gradient-button: linear-gradient(135deg, #6C5CE7, #3B82F6);
+  --gradient-badge: linear-gradient(135deg, #E040A0, #F06040);
 
-  /* 语义 */
+  /* 品牌色 */
+  --brand-purple: #6C5CE7;
+  --brand-cyan: #00B4D8;
+  --brand-mint: #00F5A0;
+
+  /* 语义色 */
   --color-success: #00F5A0;
   --color-warning: #FBBF24;
   --color-danger: #F43F5E;
+  --glow-success: 0 0 6px rgba(0,245,160,0.4);
+  --glow-warning: 0 0 6px rgba(251,191,36,0.3);
+  --glow-danger: 0 0 6px rgba(244,63,94,0.3);
 
   /* 角色色 */
-  --color-role-human: #A5B4FC;
-  --color-role-openclaw: #34D399;
-  --color-role-hermes: #FB923C;
-  --color-role-qwenpaw: #FBBF24;
-  --color-role-manager: #2DD4BF;
-  --color-role-leader: #A78BFA;
+  --role-human: #A5B4FC;
+  --role-openclaw: #34D399;
+  --role-hermes: #FB923C;
+  --role-qwenpaw: #FBBF24;
+  --role-manager: #2DD4BF;
 
   /* 边框 */
-  --color-border-default: rgba(255,255,255,0.04);
-  --color-border-hover: rgba(255,255,255,0.08);
-  --color-border-active: rgba(108,92,231,0.2);
+  --border-default: rgba(255,255,255,0.04);
+  --border-hover: rgba(255,255,255,0.08);
+  --border-active: rgba(108,92,231,0.2);
 
-  /* 圆角 */
+  /* AI 消息 */
+  --ai-bar-opacity: 0.5;
+
+  /* 代码 */
+  --code-bg: rgba(255,255,255,0.06);
+  --code-color: #A78BFA;
+
+  /* 工作区图标 */
+  --ws-icon-bg: rgba(255,255,255,0.06);
+  --ws-icon-active-inner: #1A1A24;
+
+  /* mention */
+  --mention-bg: linear-gradient(135deg, rgba(108,92,231,0.25), rgba(0,180,216,0.15));
+  --mention-color: #A5B4FC;
+  --mention-bg-hover: linear-gradient(135deg, rgba(108,92,231,0.4), rgba(0,180,216,0.3));
+  --mention-color-hover: #FFFFFF;
+
+  /* Agent 标签 */
+  --tag-agent-bg: linear-gradient(135deg, rgba(108,92,231,0.3), rgba(52,211,153,0.2));
+  --tag-agent-color: #A78BFA;
+  --tag-hermes-bg: linear-gradient(135deg, rgba(220,38,38,0.25), rgba(249,115,22,0.2));
+  --tag-hermes-color: #FB923C;
+  --tag-qwenpaw-bg: linear-gradient(135deg, rgba(217,119,6,0.25), rgba(251,191,36,0.2));
+  --tag-qwenpaw-color: #FBBF24;
+  --tag-manager-bg: linear-gradient(135deg, rgba(13,148,136,0.25), rgba(45,212,191,0.2));
+  --tag-manager-color: #2DD4BF;
+
+  /* 离线元素 */
+  --offline-dot: rgba(255,255,255,0.15);
+  --offline-avatar-bg: rgba(255,255,255,0.08);
+
+  /* 消息 hover */
+  --msg-hover: rgba(255,255,255,0.02);
+
+  /* 未读 badge（非提及） */
+  --badge-muted: rgba(255,255,255,0.1);
+  --badge-muted-color: rgba(255,255,255,0.4);
+}
+
+/* ===== 浅色主题 ===== */
+[data-theme="light"] {
+  /* 背景 */
+  --bg-deepest: #F0EFF4;
+  --bg-glass: rgba(248,247,252,0.85);
+  --bg-primary: #FFFFFF;
+  --bg-surface: rgba(0,0,0,0.02);
+  --bg-hover: rgba(0,0,0,0.025);
+  --bg-panel: rgba(240,239,244,0.6);
+  --bg-active: linear-gradient(135deg, rgba(108,92,231,0.08), rgba(0,180,216,0.05));
+  --bg-base: #FFFFFF;
+
+  /* 文字 */
+  --text-primary: rgba(0,0,0,0.8);
+  --text-secondary: rgba(0,0,0,0.4);
+  --text-tertiary: rgba(0,0,0,0.25);
+  --text-disabled: rgba(0,0,0,0.12);
+
+  /* 品牌渐变（降饱和） */
+  --gradient-brand: linear-gradient(135deg, #6C5CE7, #0891B2, #059669);
+  --gradient-brand-v: linear-gradient(180deg, #6C5CE7, #0891B2, #059669);
+  --gradient-text: linear-gradient(135deg, #6C5CE7, #0891B2, #059669);
+  --gradient-button: linear-gradient(135deg, #6C5CE7, #3B82F6);
+  --gradient-badge: linear-gradient(135deg, #C026D3, #E11D48);
+
+  /* 品牌色 */
+  --brand-purple: #6C5CE7;
+  --brand-cyan: #0891B2;
+  --brand-mint: #059669;
+
+  /* 语义色（无辉光） */
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-danger: #E11D48;
+  --glow-success: none;
+  --glow-warning: none;
+  --glow-danger: none;
+
+  /* 角色色（加深） */
+  --role-human: #4338CA;
+  --role-openclaw: #047857;
+  --role-hermes: #C2410C;
+  --role-qwenpaw: #B45309;
+  --role-manager: #0F766E;
+
+  /* 边框 */
+  --border-default: rgba(0,0,0,0.06);
+  --border-hover: rgba(0,0,0,0.1);
+  --border-active: rgba(108,92,231,0.15);
+
+  /* AI 消息 */
+  --ai-bar-opacity: 0.6;
+
+  /* 代码 */
+  --code-bg: rgba(108,92,231,0.06);
+  --code-color: #6C5CE7;
+
+  /* 工作区图标 */
+  --ws-icon-bg: rgba(0,0,0,0.05);
+  --ws-icon-active-inner: #5B50D6;
+
+  /* mention */
+  --mention-bg: linear-gradient(135deg, rgba(108,92,231,0.12), rgba(0,180,216,0.08));
+  --mention-color: #5B50D6;
+  --mention-bg-hover: linear-gradient(135deg, rgba(108,92,231,0.2), rgba(0,180,216,0.15));
+  --mention-color-hover: #4338CA;
+
+  /* Agent 标签（更淡） */
+  --tag-agent-bg: linear-gradient(135deg, rgba(108,92,231,0.1), rgba(5,150,105,0.08));
+  --tag-agent-color: #6C5CE7;
+  --tag-hermes-bg: linear-gradient(135deg, rgba(220,38,38,0.1), rgba(249,115,22,0.08));
+  --tag-hermes-color: #DC2626;
+  --tag-qwenpaw-bg: linear-gradient(135deg, rgba(217,119,6,0.1), rgba(251,191,36,0.08));
+  --tag-qwenpaw-color: #B45309;
+  --tag-manager-bg: linear-gradient(135deg, rgba(13,148,136,0.1), rgba(45,212,191,0.08));
+  --tag-manager-color: #0F766E;
+
+  /* 离线元素 */
+  --offline-dot: rgba(0,0,0,0.12);
+  --offline-avatar-bg: rgba(0,0,0,0.06);
+
+  /* 消息 hover */
+  --msg-hover: rgba(0,0,0,0.015);
+
+  /* 未读 badge（非提及） */
+  --badge-muted: rgba(0,0,0,0.08);
+  --badge-muted-color: rgba(0,0,0,0.4);
+}
+
+@theme {
+  /* 圆角（主题无关） */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 14px;
   --radius-full: 9999px;
 
-  /* 字体 */
+  /* 字体（主题无关） */
   --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "JetBrains Mono", "Consolas", "Monaco", "Noto Sans Mono", monospace;
 }
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
 ```
 
-### 10.2 全局动画定义
+### 11.2 全局动画定义
 
 ```css
-/* 追加到 index.css */
 @keyframes gradient-shift {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -654,42 +914,128 @@ padding: 12px;
 }
 ```
 
-### 10.3 暗色模式说明
+### 11.3 主题切换实现
 
-MAGIC Client **只有暗色模式**。所有颜色直接为暗色，不需要 `dark:` 前缀。`background: #0F0F14` 作为 `<body>` 或 `<html>` 的基底色，确保毛玻璃面板的 blur 有底色可透。
+```typescript
+// packages/ui/src/lib/theme.ts
+
+export type Theme = "dark" | "light" | "system";
+
+export function applyTheme(theme: Theme): void {
+  const root = document.documentElement;
+
+  if (theme === "system") {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    root.setAttribute("data-theme", prefersDark ? "dark" : "light");
+  } else {
+    root.setAttribute("data-theme", theme);
+  }
+}
+
+export function watchSystemTheme(onChange: (isDark: boolean) => void): () => void {
+  const mql = window.matchMedia("(prefers-color-scheme: dark)");
+  const handler = (e: MediaQueryListEvent) => onChange(e.matches);
+  mql.addEventListener("change", handler);
+  return () => mql.removeEventListener("change", handler);
+}
+```
+
+### 11.4 组件中使用 CSS 变量（示例）
+
+组件代码使用 CSS 变量而非硬编码色值，主题切换自动生效：
+
+```tsx
+// 之前（硬编码暗色）：
+<div className="bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.85)]">
+
+// 之后（CSS 变量）：
+<div style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}>
+
+// 或使用 Tailwind arbitrary values：
+<div className="bg-[var(--bg-surface)] text-[var(--text-primary)]">
+```
+
+关键组件变量映射：
+
+```tsx
+// WorkspaceIcon 选中态内部填充
+style={{ background: 'var(--ws-icon-active-inner)' }}
+
+// AgentTag 背景
+style={{ background: 'var(--tag-agent-bg)', color: 'var(--tag-agent-color)' }}
+
+// MentionPill
+style={{ background: 'var(--mention-bg)', color: 'var(--mention-color)' }}
+
+// 在线状态点
+style={{ background: 'var(--color-success)', boxShadow: 'var(--glow-success)' }}
+
+// AI 消息竖条
+style={{ opacity: 'var(--ai-bar-opacity)' }}
+
+// 代码片段
+style={{ background: 'var(--code-bg)', color: 'var(--code-color)' }}
+
+// 发送者名
+style={{ color: 'var(--role-openclaw)' }}  // Agent 角色色自动适配主题
+```
+
+### 11.5 暗色模式说明
+
+MAGIC Client **默认暗色**。`<html data-theme="dark">` 作为初始值。用户在设置中选择"浅色"或"跟随系统"后切换。
 
 ---
 
-## 11. 实施清单
+## 12. 实施清单
 
-### 11.1 立即修改
+### 12.1 立即修改
 
 | 文件 | 变更 |
 |------|------|
-| `apps/desktop/src/renderer/src/index.css` | 替换 `@theme` 为 10.1 + 追加 10.2 动画 |
+| `apps/desktop/src/renderer/src/index.css` | 替换为 11.1 双主题 CSS 变量 + 追加 11.2 动画 |
 | `apps/web/src/index.css` | 同上 |
+| `packages/ui/src/lib/theme.ts` | 新建，11.3 主题切换实现 |
 | `CLAUDE.md` | 确认 `@specs/shared/design-system.md` 引用存在 |
 
-### 11.2 组件对齐
+### 12.2 组件对齐——替换硬编码色值为 CSS 变量
 
 | 组件 | 变更要点 |
 |------|---------|
-| `WorkspaceBar` / `WorkspaceIcon` | 选中态加渐变光晕边框 + 指示条渐变 |
-| `RoomListItem` | 选中态改为渐变背景 + 渐变边框 |
-| `MessageBubble` | Agent 消息加左侧 2px 渐变竖条（`ai-shimmer` class） |
-| `RoomAvatar` | 默认色改为角色渐变背景 |
-| `AgentTag` | 背景改为渐变 |
-| `UnreadBadge` | 背景改为粉→橘渐变 |
-| `MentionPill` | 背景改为渐变半透明 |
-| `LoginPage` / `WelcomePage` | 背景改为 `#0F0F14`，按钮渐变 |
-| `MainLayout` | 侧边栏追加 `backdrop-filter: blur(20px)` |
-| 所有边框 | 从 `border-[#1E1F22]` / `border-[#3F4147]` 改为 `border-[rgba(255,255,255,0.04)]` |
-| 所有文字 | 从 `text-[#DBDEE1]` 改为 `text-[rgba(255,255,255,0.85)]`，次要从 `text-[#949BA4]` 改为 `text-[rgba(255,255,255,0.4)]` |
-| 所有 hover | 从 `hover:bg-[#35373C]` 改为 `hover:bg-[rgba(255,255,255,0.03)]` |
+| `WorkspaceBar` / `WorkspaceIcon` | 选中态用 `var(--ws-icon-active-inner)`，非选中用 `var(--ws-icon-bg)` |
+| `RoomListItem` | 选中态用 `var(--bg-active)` + `var(--border-active)` |
+| `MessageBubble` | Agent 消息竖条 opacity 用 `var(--ai-bar-opacity)` |
+| `AgentTag` | 背景/文字用 `var(--tag-agent-bg)` / `var(--tag-agent-color)` |
+| `MentionPill` | 用 `var(--mention-bg)` / `var(--mention-color)` |
+| `UnreadBadge` | 用 `var(--gradient-badge)` |
+| `RoomAvatar` | 头像渐变保持不变（两个主题通用） |
+| `MemberPanel` | 状态点用 `var(--color-success)` + `var(--glow-success)`；离线用 `var(--offline-dot)` |
+| `WelcomePage` | 背景用 `var(--bg-base)` |
+| `MainLayout` | 侧边栏 `var(--bg-glass)` + `backdrop-filter: blur(20px)` |
+| 所有文字 | `var(--text-primary)` / `var(--text-secondary)` / `var(--text-tertiary)` |
+| 所有边框 | `var(--border-default)` / `var(--border-hover)` |
+| 所有 hover | `var(--bg-hover)` |
+| 代码片段 | `var(--code-bg)` + `var(--code-color)` |
+| 发送者名 | `var(--role-human)` / `var(--role-openclaw)` / `var(--role-hermes)` 等 |
+
+### 12.3 设置页面对接
+
+016 spec 的 `AppearanceSection` 中，主题选项需要调用 `applyTheme()`：
+
+```tsx
+onChange={(v) => {
+  setSetting("theme", v);
+  applyTheme(v as Theme);
+}}
+```
+
+选项列表更新为三个：
+- **暗色** — 深空宇宙感（默认）
+- **浅色** — 明亮清新
+- **跟随系统** — 自动跟随操作系统
 
 ---
 
-## 12. 参考
+## 13. 参考
 
 - Google Gemini 视觉设计系统：渐变 = 能量传递 + 方向性
 - Google 2025-2026 图标渐变化趋势：从扁平纯色走向柔和渐变

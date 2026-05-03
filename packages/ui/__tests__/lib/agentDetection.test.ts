@@ -39,7 +39,7 @@ describe("getAgentInfo — layer 1 (CRD registry)", () => {
     const info = getAgentInfo("@manager-bob:magic.com");
     expect(info.role).toBe("manager");
     expect(info.tagLabel).toBe("MANAGER");
-    expect(info.nameColor).toBe("#2DD4BF");
+    expect(info.nameColor).toBe("var(--role-manager)");
   });
 
   it("uses HERMES tag style for hermes runtime", () => {
@@ -53,7 +53,7 @@ describe("getAgentInfo — layer 1 (CRD registry)", () => {
     ]);
     const info = getAgentInfo("@worker-h:magic.com");
     expect(info.tagLabel).toBe("HERMES");
-    expect(info.tagColor).toBe("#FB923C");
+    expect(info.tagColor).toBe("var(--tag-hermes-color)");
   });
 
   it("uses QWENPAW tag style for qwenpaw runtime", () => {
@@ -67,7 +67,7 @@ describe("getAgentInfo — layer 1 (CRD registry)", () => {
     ]);
     const info = getAgentInfo("@worker-q:magic.com");
     expect(info.tagLabel).toBe("QWENPAW");
-    expect(info.tagColor).toBe("#FBBF24");
+    expect(info.tagColor).toBe("var(--tag-qwenpaw-color)");
   });
 });
 
@@ -172,6 +172,6 @@ describe("getAgentInfo — layer 3 (name pattern, CRD-unavailable fallback)", ()
     useAgentRegistryStore.getState().setError("network");
     const info = getAgentInfo("@plainuser:magic.com");
     expect(info.isAgent).toBe(false);
-    expect(info.nameColor).toBe("#A5B4FC");
+    expect(info.nameColor).toBe("var(--role-human)");
   });
 });

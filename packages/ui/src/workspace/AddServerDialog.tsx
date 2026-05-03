@@ -38,33 +38,33 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
 
   // Cosmic AI § 7.10 + § 7.11 — glass dialog + brand-button gradient.
   const inputClasses =
-    "w-full rounded-lg border-[0.5px] border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] " +
-    "px-3 py-2 text-sm text-[rgba(255,255,255,0.85)] placeholder-[rgba(255,255,255,0.2)] " +
-    "transition-colors focus:border-[rgba(108,92,231,0.4)] focus:outline-none disabled:opacity-50";
+    "w-full rounded-lg border-[0.5px] border-[var(--border-default)] bg-[var(--bg-surface)] " +
+    "px-3 py-2 text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] " +
+    "transition-colors focus:border-[var(--border-active)] focus:outline-none disabled:opacity-50";
 
   return (
     <DialogOverlay onClose={isLoading ? () => {} : onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-[14px] border-[0.5px] border-[rgba(255,255,255,0.06)] p-6"
+        className="w-full max-w-sm rounded-[14px] border-[0.5px] border-[var(--border-default)] p-6"
         style={{
-          background: "rgba(15,15,21,0.95)",
+          background: "var(--bg-primary)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
           boxShadow: "0 24px 48px rgba(0,0,0,0.4)",
           animation: "fade-in-up 0.2s ease-out",
         }}
       >
-        <h2 className="text-lg font-semibold text-[rgba(255,255,255,0.85)]">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
           添加 Matrix 服务器
         </h2>
-        <p className="mt-1 text-xs text-[rgba(255,255,255,0.4)]">
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">
           登录一个新的 Matrix homeserver，它会作为独立的工作区出现在左侧栏
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <div>
-            <label className="mb-1 block text-sm text-[rgba(255,255,255,0.4)]">
+            <label className="mb-1 block text-sm text-[var(--text-secondary)]">
               服务器地址
             </label>
             <input
@@ -79,7 +79,7 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-[rgba(255,255,255,0.4)]">用户名</label>
+            <label className="mb-1 block text-sm text-[var(--text-secondary)]">用户名</label>
             <input
               type="text"
               value={username}
@@ -92,7 +92,7 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-[rgba(255,255,255,0.4)]">密码</label>
+            <label className="mb-1 block text-sm text-[var(--text-secondary)]">密码</label>
             <input
               type="password"
               value={password}
@@ -105,7 +105,7 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
           </div>
 
           {error && (
-            <div className="rounded-lg border-[0.5px] border-[rgba(244,63,94,0.3)] bg-[rgba(244,63,94,0.08)] px-3 py-2 text-sm text-[#F43F5E]">
+            <div className="rounded-lg border-[0.5px] border-[rgba(244,63,94,0.3)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--color-danger)]">
               {error}
             </div>
           )}
@@ -115,8 +115,8 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="rounded-lg px-3 py-1.5 text-sm text-[rgba(255,255,255,0.4)]
-                         transition-colors hover:text-[rgba(255,255,255,0.85)] disabled:opacity-50"
+              className="rounded-lg px-3 py-1.5 text-sm text-[var(--text-secondary)]
+                         transition-colors hover:text-[var(--text-primary)] disabled:opacity-50"
             >
               取消
             </button>
@@ -125,9 +125,7 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
               disabled={!canSubmit}
               className="rounded-lg px-4 py-1.5 text-sm font-medium text-white
                          transition-opacity hover:opacity-90 disabled:opacity-40"
-              style={{
-                background: "linear-gradient(135deg, #6C5CE7, #3B82F6)",
-              }}
+              style={{ background: "var(--gradient-button)" }}
             >
               {isLoading ? "连接中…" : "添加服务器"}
             </button>

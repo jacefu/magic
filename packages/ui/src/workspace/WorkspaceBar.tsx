@@ -38,7 +38,7 @@ export function WorkspaceBar() {
   return (
     <div
       className="flex w-[72px] shrink-0 flex-col items-center gap-2 overflow-y-auto pb-3 pt-0"
-      style={{ background: "rgba(12,12,18,0.95)" }}
+      style={{ background: "var(--bg-deepest)" }}
     >
       {/* Magic brand mark — opens the settings overlay. Always at the
           top of the rail. Highlighted with the same selection
@@ -50,7 +50,7 @@ export function WorkspaceBar() {
         className="mx-auto h-px w-7"
         style={{
           background:
-            "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+            "linear-gradient(90deg, transparent, var(--border-hover), transparent)",
         }}
       />
 
