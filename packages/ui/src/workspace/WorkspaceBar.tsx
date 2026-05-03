@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { switchSession, useSessionStore } from "@magic/matrix-client";
 import { WorkspaceIcon } from "./WorkspaceIcon.js";
 import { AddServerDialog } from "./AddServerDialog.js";
@@ -10,7 +10,16 @@ import { AddServerDialog } from "./AddServerDialog.js";
  * Order: stable by `addedAt` (set in session-manager.addServer).
  */
 export function WorkspaceBar() {
-  const sessions = useSessionStore((s) => s.getSessionList());
+  // Subscribe to the raw record and sort in a useMemo so the array
+  // reference stays stable when the underlying sessions don't change —
+  // returning a new sorted array directly from a Zustand selector
+  // triggers an infinite render loop.
+  const sessionsRecord = useSessionStore((s) => s.sessions);
+  const sessions = useMemo(
+    () =>
+      Object.values(sessionsRecord).sort((a, b) => a.addedAt - b.addedAt),
+    [sessionsRecord],
+  );
   const activeId = useSessionStore((s) => s.activeSessionId);
   const [showAdd, setShowAdd] = useState(false);
 

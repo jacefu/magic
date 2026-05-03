@@ -3,11 +3,19 @@ import {
   switchSession,
   useSessionStore,
 } from "@magic/matrix-client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AddServerDialog } from "../../workspace/AddServerDialog.js";
 
 export function ServersSection() {
-  const sessions = useSessionStore((s) => s.getSessionList());
+  // Sort in useMemo (not via a Zustand getter) — returning a fresh
+  // sorted array from a Zustand selector each call triggers an
+  // infinite render loop because the reference is never stable.
+  const sessionsRecord = useSessionStore((s) => s.sessions);
+  const sessions = useMemo(
+    () =>
+      Object.values(sessionsRecord).sort((a, b) => a.addedAt - b.addedAt),
+    [sessionsRecord],
+  );
   const activeId = useSessionStore((s) => s.activeSessionId);
   const [showAdd, setShowAdd] = useState(false);
 
