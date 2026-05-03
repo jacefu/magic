@@ -129,7 +129,21 @@ export async function addServer(
     syncAuthStoreFromActive();
   }
 
-  await client.startClient({ initialSyncLimit: 20, lazyLoadMembers: true });
+  // Kick off the sync loop without awaiting it. `startClient` only
+  // resolves once the initial /sync round-trip completes — on a busy
+  // account that's many seconds, and a transient hang would block the
+  // login button forever ("连接中…"). Login itself already succeeded
+  // (`loginWithPassword` returned), so we persist + return and let
+  // the workspace icon's spinner reflect the in-flight sync.
+  void client
+    .startClient({ initialSyncLimit: 20, lazyLoadMembers: true })
+    .catch((err) => {
+      console.warn(
+        `startClient failed for ${session.serverName}:`,
+        (err as Error).message,
+      );
+    });
+
   persistSessions();
   return sessionId;
 }
@@ -247,10 +261,18 @@ export async function restoreAllSessions(): Promise<void> {
         activateBridge(session.id);
         syncAuthStoreFromActive();
       }
-      await client.startClient({
-        initialSyncLimit: 20,
-        lazyLoadMembers: true,
-      });
+      // Fire-and-forget — same reasoning as addServer: blocking the
+      // app boot on N initial syncs (one per persisted session) would
+      // leave the user staring at the "正在恢复会话…" splash for a
+      // minute on first launch.
+      void client
+        .startClient({ initialSyncLimit: 20, lazyLoadMembers: true })
+        .catch((err) => {
+          console.warn(
+            `startClient failed for restored session ${session.serverName}:`,
+            (err as Error).message,
+          );
+        });
     } catch (err) {
       console.warn(
         `Failed to restore session ${session.serverName}:`,
