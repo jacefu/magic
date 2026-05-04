@@ -37,6 +37,8 @@ export { UnreadBadge } from "./rooms/UnreadBadge.js";
 export { RoomSearchInput } from "./rooms/RoomSearchInput.js";
 export { CreateRoomDialog } from "./rooms/CreateRoomDialog.js";
 export { JoinRoomDialog } from "./rooms/JoinRoomDialog.js";
+export { StartDMDialog } from "./rooms/StartDMDialog.js";
+export { MemberSearch } from "./rooms/MemberSearch.js";
 
 // Common
 export { DialogOverlay } from "./common/DialogOverlay.js";

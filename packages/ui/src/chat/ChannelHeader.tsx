@@ -59,13 +59,16 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
           </HeaderIconButton>
         )}
 
-        {/* Search box (visual only — Cmd+K could later wire it up) */}
-        <div className="ml-1 flex h-6 w-36 items-center rounded bg-[var(--bg-deepest)] px-1.5">
+        {/* Search box (visual only — Cmd+K could later wire it up).
+            Spec 020 FIX-6: visible border + brighter placeholder so
+            the input stops disappearing into the header. */}
+        <div className="ml-1 flex h-6 w-36 items-center rounded border-[0.5px] border-[var(--border-hover)] bg-[var(--bg-surface)] px-1.5">
           <input
             type="text"
             placeholder={`搜索 ${room.name || "房间"}`}
-            className="w-full bg-transparent text-[12px] text-[var(--text-primary)]
-                       placeholder:text-[var(--text-tertiary)] outline-none"
+            className="w-full bg-transparent text-[12px] text-[var(--text-secondary)]
+                       placeholder:text-[var(--text-tertiary)] outline-none
+                       focus:text-[var(--text-primary)]"
           />
           <SmallSearchIcon />
         </div>

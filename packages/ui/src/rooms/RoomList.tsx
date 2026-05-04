@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useInviteStore,
   useRoomStore,
@@ -10,6 +10,7 @@ import { RoomSection } from "./RoomSection.js";
 import { RoomSearchInput } from "./RoomSearchInput.js";
 import { CreateRoomDialog } from "./CreateRoomDialog.js";
 import { JoinRoomDialog } from "./JoinRoomDialog.js";
+import { StartDMDialog } from "./StartDMDialog.js";
 import { InviteSection } from "./InviteSection.js";
 import { InviteDialog } from "../invites/InviteDialog.js";
 
@@ -33,7 +34,22 @@ export function RoomList() {
   const [selectedInvite, setSelectedInvite] = useState<RoomInvite | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showDMDialog, setShowDMDialog] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
+
+  // Close the +-button dropdown when the user clicks outside it.
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showPlusMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (!plusMenuRef.current?.contains(e.target as Node)) {
+        setShowPlusMenu(false);
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [showPlusMenu]);
 
   return (
     <div className="flex h-full flex-col">
@@ -47,18 +63,55 @@ export function RoomList() {
         >
           <SearchIcon />
           <span>搜索房间</span>
-          <span className="ml-auto shrink-0">
+          <span className="relative ml-auto shrink-0" ref={plusMenuRef}>
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setShowCreateDialog(true);
+                setShowPlusMenu((v) => !v);
               }}
               className="rounded p-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              title="创建房间"
-              aria-label="创建房间"
+              title="新建"
+              aria-label="新建"
             >
               <PlusIcon />
             </button>
+
+            {showPlusMenu && (
+              <div
+                className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded-lg shadow-xl"
+                style={{
+                  background: "var(--bg-primary)",
+                  border: "0.5px solid var(--border-default)",
+                  animation: "fade-in-up 0.15s ease-out",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPlusMenu(false);
+                    setShowCreateDialog(true);
+                  }}
+                  className="block w-full px-3 py-2 text-left text-xs transition-colors
+                             hover:bg-[var(--bg-hover)]"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  创建房间
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPlusMenu(false);
+                    setShowDMDialog(true);
+                  }}
+                  className="block w-full px-3 py-2 text-left text-xs transition-colors
+                             hover:bg-[var(--bg-hover)]"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  发起私聊
+                </button>
+              </div>
+            )}
           </span>
         </button>
 
@@ -105,6 +158,9 @@ export function RoomList() {
       )}
       {showJoinDialog && (
         <JoinRoomDialog onClose={() => setShowJoinDialog(false)} />
+      )}
+      {showDMDialog && (
+        <StartDMDialog onClose={() => setShowDMDialog(false)} />
       )}
     </div>
   );

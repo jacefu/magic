@@ -55,12 +55,12 @@ export const RoomListItem = memo(function RoomListItem({
                       ? "text-[var(--text-primary)]"
                       : isUnread
                         ? "text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
+                        : "text-[var(--text-room-default)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
                   }`}
       style={activeStyle}
     >
       <span
-        className="w-4 shrink-0 text-center leading-none opacity-40"
+        className="w-4 shrink-0 text-center leading-none text-[var(--text-room-prefix)]"
         style={{ fontSize: isDm ? 13 : 14 }}
         aria-hidden
       >

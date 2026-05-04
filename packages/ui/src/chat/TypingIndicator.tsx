@@ -4,7 +4,13 @@ interface TypingIndicatorProps {
   users: string[];
 }
 
-export const TypingIndicator = memo(function TypingIndicator({ users }: TypingIndicatorProps) {
+// Spec 020 FIX-4 — three bouncing dots. The `.typing-dot` class is
+// defined in index.css with a staggered animation; `animationDelay`
+// inline gives each dot its own phase so the bounce travels left to
+// right.
+export const TypingIndicator = memo(function TypingIndicator({
+  users,
+}: TypingIndicatorProps) {
   if (users.length === 0) return null;
 
   const names = users.map((u) => {
@@ -22,23 +28,13 @@ export const TypingIndicator = memo(function TypingIndicator({ users }: TypingIn
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2">
-      <BouncingDots />
+    <div className="flex items-center gap-2 px-4 py-1.5">
+      <span className="inline-flex items-center gap-[3px]">
+        <span className="typing-dot" style={{ animationDelay: "0ms" }} />
+        <span className="typing-dot" style={{ animationDelay: "150ms" }} />
+        <span className="typing-dot" style={{ animationDelay: "300ms" }} />
+      </span>
       <span className="text-xs text-[var(--text-secondary)]">{text}</span>
     </div>
   );
 });
-
-function BouncingDots() {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="h-1.5 w-1.5 rounded-full bg-text-faint"
-          style={{ animation: `bounce 1.4s ease-in-out ${i * 0.2}s infinite` }}
-        />
-      ))}
-    </div>
-  );
-}

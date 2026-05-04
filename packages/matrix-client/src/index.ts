@@ -12,6 +12,7 @@ export type { SyncOptions } from "./sync.js";
 // Rooms
 export { createRoom, joinRoom, leaveRoom, inviteUser, getRooms, getRoom } from "./rooms.js";
 export type { CreateRoomOptions } from "./rooms.js";
+export { createDM } from "./dm.js";
 
 // Messages
 export { sendTextMessage, sendReply, sendReadReceipt, sendTyping, paginateBackwards } from "./messages.js";
