@@ -17,6 +17,10 @@ export function StartDMDialog({ onClose, initialUserId }: StartDMDialogProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(
     initialUserId ?? null,
   );
+  // Default off — encryption setup on fresh DMs has been flaky
+  // enough on some Tuwunel/Synapse builds that users have asked
+  // for it to be opt-in.
+  const [isEncrypted, setIsEncrypted] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +29,9 @@ export function StartDMDialog({ onClose, initialUserId }: StartDMDialogProps) {
     setIsCreating(true);
     setError(null);
     try {
-      const roomId = await createDM(selectedUserId);
+      const roomId = await createDM(selectedUserId, {
+        encrypted: isEncrypted,
+      });
       useRoomStore.getState().setActiveRoom(roomId);
       onClose();
     } catch (err) {
@@ -33,7 +39,7 @@ export function StartDMDialog({ onClose, initialUserId }: StartDMDialogProps) {
     } finally {
       setIsCreating(false);
     }
-  }, [selectedUserId, isCreating, onClose]);
+  }, [selectedUserId, isEncrypted, isCreating, onClose]);
 
   return (
     <DialogOverlay onClose={isCreating ? () => {} : onClose}>
@@ -63,6 +69,19 @@ export function StartDMDialog({ onClose, initialUserId }: StartDMDialogProps) {
             placeholder="搜索用户…"
           />
         </div>
+
+        <label className="mt-3 flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={isEncrypted}
+            onChange={(e) => setIsEncrypted(e.target.checked)}
+            disabled={isCreating}
+            className="h-4 w-4 rounded accent-[var(--brand-purple)]"
+          />
+          <span className="text-xs text-[var(--text-secondary)]">
+            启用端到端加密
+          </span>
+        </label>
 
         {error && (
           <p className="mt-2 text-xs text-[var(--color-danger)]">{error}</p>

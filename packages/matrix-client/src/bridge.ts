@@ -1,5 +1,6 @@
 import {
   ClientEvent,
+  EventType,
   NotificationCountType,
   RoomEvent,
   RoomMemberEvent,
@@ -20,6 +21,7 @@ import { useRoomStore } from "./stores/roomStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
 import { useAgentStore } from "./stores/agentStore.js";
 import { useInviteStore, type RoomInvite } from "./stores/inviteStore.js";
+import { useDmStore } from "./stores/dmStore.js";
 import { serializeEvent } from "./serializers.js";
 import { fetchAgentRegistry } from "./agent-registry.js";
 
@@ -82,6 +84,7 @@ export function bridgeToStores(
       syncStore.setInitialSyncComplete();
       syncRoomList(client, sessionId);
       syncInviteList(client, sessionId);
+      seedDmRoomIds(client);
 
       // Best-effort: pull the Worker / Manager registry from the HiClaw
       // Controller. Failure is silent — agentDetection falls back to
@@ -173,6 +176,16 @@ export function bridgeToStores(
   client.on(RoomEvent.Timeline, onTimelineMagic);
   client.on(RoomStateEvent.Events, onStateEventMagic);
 
+  // m.direct echoes from /sync — keep useDmStore in sync with what
+  // the homeserver knows. createDM tags the new DM optimistically;
+  // this listener catches DMs created from another client and DMs
+  // that the homeserver echoes after our own setAccountData.
+  const onAccountData = (event: MatrixEvent) => {
+    if (event.getType() !== EventType.Direct) return;
+    seedDmRoomIds(client);
+  };
+  client.on(ClientEvent.AccountData, onAccountData);
+
   return () => {
     client.off(ClientEvent.Sync, onSync);
     client.off(RoomEvent.Timeline, onTimeline);
@@ -185,7 +198,34 @@ export function bridgeToStores(
     client.off(RoomEvent.MyMembership, onMembership);
     client.off(RoomEvent.Timeline, onTimelineMagic);
     client.off(RoomStateEvent.Events, onStateEventMagic);
+    client.off(ClientEvent.AccountData, onAccountData);
   };
+}
+
+/**
+ * Read every room id flagged in `m.direct` account-data and merge
+ * it into `useDmStore`. Called on PREPARED (initial population) and
+ * whenever `m.direct` changes via /sync.
+ *
+ * We merge rather than replace so optimistic ids set by `createDM`
+ * before the homeserver echo arrives don't disappear.
+ */
+function seedDmRoomIds(client: MatrixClient): void {
+  try {
+    const ev = client.getAccountData(EventType.Direct);
+    const map = ev?.getContent() as
+      | Record<string, string[]>
+      | undefined;
+    if (!map) return;
+    const ids = new Set<string>(useDmStore.getState().dmRoomIds);
+    for (const list of Object.values(map)) {
+      if (!Array.isArray(list)) continue;
+      for (const rid of list) ids.add(rid);
+    }
+    useDmStore.getState().setDmRoomIds(ids);
+  } catch (err) {
+    console.warn("seedDmRoomIds failed:", (err as Error).message);
+  }
 }
 
 /**

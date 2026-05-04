@@ -1,12 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ClientEvent,
-  EventType,
-  type MatrixEvent,
-} from "matrix-js-sdk";
+import { useMemo, useState } from "react";
 import {
   getClient,
   hasClient,
+  useDmStore,
   useRoomStore,
   type RoomData,
 } from "@magic/matrix-client";
@@ -35,60 +31,22 @@ function roomMatchesQuery(room: RoomData, term: string): boolean {
   return false;
 }
 
-/**
- * Pull the set of room ids the current user has marked as DMs in
- * `m.direct` account-data. This is the canonical Matrix DM marker —
- * `Room.getDMInviter()` only fires when *someone else* invited you
- * with `is_direct: true`, so self-created DMs need this lookup to
- * end up in the right section.
- */
-function readDmRoomIds(): Set<string> {
-  if (!hasClient()) return new Set();
-  try {
-    const ev = getClient().getAccountData(EventType.Direct);
-    const map = ev?.getContent() as
-      | Record<string, string[]>
-      | undefined;
-    if (!map) return new Set();
-    const ids = new Set<string>();
-    for (const list of Object.values(map)) {
-      if (!Array.isArray(list)) continue;
-      for (const rid of list) ids.add(rid);
-    }
-    return ids;
-  } catch {
-    return new Set();
-  }
-}
-
-function useDmRoomIds(): Set<string> {
-  const [ids, setIds] = useState<Set<string>>(() => readDmRoomIds());
-
-  useEffect(() => {
-    if (!hasClient()) return;
-    const client = getClient();
-    // Re-read when sync completes (covers initial population on app
-    // boot where account-data may not have been ready when the hook
-    // first mounted) or whenever m.direct itself updates.
-    const refresh = (event?: MatrixEvent) => {
-      if (event && event.getType() !== EventType.Direct) return;
-      setIds(readDmRoomIds());
-    };
-    client.on(ClientEvent.AccountData, refresh);
-    refresh();
-    return () => {
-      client.off(ClientEvent.AccountData, refresh);
-    };
-  }, []);
-
-  return ids;
-}
-
 export function useFilteredRooms() {
   const rooms = useRoomStore((s) => s.rooms);
   const [searchQuery, setSearchQuery] = useState("");
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const dmRoomIds = useDmRoomIds();
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<string, boolean>
+  >({});
+
+  // DM room ids come from `useDmStore`, which is fed by:
+  //   - bridge.ts seeding from `m.direct` on PREPARED + on every
+  //     m.direct AccountData echo,
+  //   - `createDM` synchronously tagging newly-created rooms before
+  //     the m.direct PUT round-trips.
+  // The store is the single source of truth for "this room is a DM",
+  // so we don't have to chase the matrix-js-sdk account-data cache
+  // ourselves here.
+  const dmRoomIds = useDmStore((s) => s.dmRoomIds);
 
   const groups = useMemo(() => {
     const allRooms = Object.values(rooms);
@@ -105,10 +63,10 @@ export function useFilteredRooms() {
     const dms: RoomData[] = [];
     const groupRooms: RoomData[] = [];
     for (const room of filtered) {
-      // Either signal counts as DM: explicit m.direct membership
-      // (covers self-created DMs) or the legacy 2-member heuristic
-      // (covers DMs created by other clients that didn't bother to
-      // update m.direct).
+      // Either signal counts as DM: explicit dmStore membership
+      // (covers self-created DMs and m.direct from any source) or
+      // the legacy 2-member heuristic (covers DMs created by other
+      // clients that didn't bother to update m.direct).
       if (dmRoomIds.has(room.roomId) || isDmRoom(room)) {
         dms.push(room);
       } else {

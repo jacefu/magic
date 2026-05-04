@@ -10,6 +10,7 @@ import {
   savePersistedSessions as saveEncryptedSessions,
 } from "./session-persistence.js";
 import { useAuthStore } from "./stores/authStore.js";
+import { useDmStore } from "./stores/dmStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
 import { useSessionStore, type ServerSession } from "./stores/sessionStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
@@ -586,4 +587,5 @@ export function __resetSessionsForTests(): void {
   useSessionStore.getState().reset();
   useRoomStore.getState().reset();
   useTypingStore.getState().reset();
+  useDmStore.getState().reset();
 }

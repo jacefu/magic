@@ -15,7 +15,10 @@ interface CreateRoomDialogProps {
 export function CreateRoomDialog({ onClose }: CreateRoomDialogProps) {
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
-  const [encrypted, setEncrypted] = useState(true);
+  // Default off — same reasoning as StartDMDialog: e2ee bootstrap
+  // can be flaky on fresh rooms, and users have asked for it to be
+  // opt-in.
+  const [encrypted, setEncrypted] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);

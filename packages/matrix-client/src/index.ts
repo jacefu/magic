@@ -60,6 +60,7 @@ export { useSessionStore } from "./stores/sessionStore.js";
 export type { ServerSession } from "./stores/sessionStore.js";
 export { useInviteStore } from "./stores/inviteStore.js";
 export type { RoomInvite } from "./stores/inviteStore.js";
+export { useDmStore } from "./stores/dmStore.js";
 
 // Multi-server session manager (specs 016 + 017)
 export {
