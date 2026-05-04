@@ -34,7 +34,6 @@ export { RoomSection } from "./rooms/RoomSection.js";
 export { RoomListItem } from "./rooms/RoomListItem.js";
 export { RoomAvatar } from "./rooms/RoomAvatar.js";
 export { UnreadBadge } from "./rooms/UnreadBadge.js";
-export { RoomSearchInput } from "./rooms/RoomSearchInput.js";
 export { CreateRoomDialog } from "./rooms/CreateRoomDialog.js";
 export { JoinRoomDialog } from "./rooms/JoinRoomDialog.js";
 export { StartDMDialog } from "./rooms/StartDMDialog.js";

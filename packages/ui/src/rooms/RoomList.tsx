@@ -7,7 +7,6 @@ import {
 } from "@magic/matrix-client";
 import { useFilteredRooms } from "../hooks/useFilteredRooms.js";
 import { RoomSection } from "./RoomSection.js";
-import { RoomSearchInput } from "./RoomSearchInput.js";
 import { CreateRoomDialog } from "./CreateRoomDialog.js";
 import { JoinRoomDialog } from "./JoinRoomDialog.js";
 import { StartDMDialog } from "./StartDMDialog.js";
@@ -18,7 +17,8 @@ export function RoomList() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const { groups, searchQuery, setSearchQuery, toggleSection } = useFilteredRooms();
+  const { groups, searchQuery, setSearchQuery, toggleSection } =
+    useFilteredRooms();
 
   // Subscribe to the raw invites map and filter in a memo so the
   // selector doesn't return a fresh array on every store write
@@ -35,7 +35,6 @@ export function RoomList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showDMDialog, setShowDMDialog] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
 
   // Close the +-button dropdown when the user clicks outside it.
@@ -53,76 +52,85 @@ export function RoomList() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-2 pt-2">
-        <button
-          onClick={() => setShowSearch((v) => !v)}
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left
-                     text-[13px] font-medium text-[var(--text-secondary)]
-                     transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
-          title="搜索房间"
-        >
-          <SearchIcon />
-          <span>搜索房间</span>
-          <span className="relative ml-auto shrink-0" ref={plusMenuRef}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowPlusMenu((v) => !v);
+      {/* Search input + standalone "+" button. The previous design
+          required a click to reveal the search input; the inline
+          input is more discoverable and matches Discord/Slack
+          conventions. */}
+      <div className="flex items-center gap-2 px-3 pb-2 pt-3">
+        <div className="relative flex-1">
+          <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="搜索房间/Agent/用户"
+            className="w-full rounded-md py-1.5 pl-7 pr-2 text-xs outline-none
+                       transition-colors focus:border-[var(--border-active)]"
+            style={{
+              background: "var(--bg-surface)",
+              border: "0.5px solid var(--border-default)",
+              color: "var(--text-primary)",
+            }}
+          />
+        </div>
+
+        <div className="relative" ref={plusMenuRef}>
+          <button
+            type="button"
+            onClick={() => setShowPlusMenu((v) => !v)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md
+                       transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
+            style={{
+              color: "var(--text-secondary)",
+              background: showPlusMenu ? "var(--bg-surface)" : "transparent",
+            }}
+            title="创建房间 / 发起私聊"
+            aria-label="新建"
+          >
+            <PlusIcon />
+          </button>
+
+          {showPlusMenu && (
+            <div
+              className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-lg py-1 shadow-xl"
+              style={{
+                background: "var(--bg-primary)",
+                border: "0.5px solid var(--border-default)",
+                animation: "fade-in-up 0.15s ease-out",
               }}
-              className="rounded p-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              title="新建"
-              aria-label="新建"
             >
-              <PlusIcon />
-            </button>
-
-            {showPlusMenu && (
-              <div
-                className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded-lg shadow-xl"
-                style={{
-                  background: "var(--bg-primary)",
-                  border: "0.5px solid var(--border-default)",
-                  animation: "fade-in-up 0.15s ease-out",
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPlusMenu(false);
+                  setShowCreateDialog(true);
                 }}
-                onClick={(e) => e.stopPropagation()}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors
+                           hover:bg-[var(--bg-hover)]"
+                style={{ color: "var(--text-primary)" }}
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPlusMenu(false);
-                    setShowCreateDialog(true);
-                  }}
-                  className="block w-full px-3 py-2 text-left text-xs transition-colors
-                             hover:bg-[var(--bg-hover)]"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  创建房间
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPlusMenu(false);
-                    setShowDMDialog(true);
-                  }}
-                  className="block w-full px-3 py-2 text-left text-xs transition-colors
-                             hover:bg-[var(--bg-hover)]"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  发起私聊
-                </button>
-              </div>
-            )}
-          </span>
-        </button>
-
-        {showSearch && (
-          <div className="mt-1">
-            <RoomSearchInput value={searchQuery} onChange={setSearchQuery} />
-          </div>
-        )}
+                <span style={{ color: "var(--text-tertiary)" }}>#</span>
+                创建房间
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPlusMenu(false);
+                  setShowDMDialog(true);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors
+                           hover:bg-[var(--bg-hover)]"
+                style={{ color: "var(--text-primary)" }}
+              >
+                <span style={{ color: "var(--text-tertiary)" }}>@</span>
+                发起私聊
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="mt-1 flex-1 overflow-y-auto pb-2">
+      <div className="flex-1 overflow-y-auto pb-2">
         <InviteSection
           invites={invites}
           onSelectInvite={(inv) => setSelectedInvite(inv)}
@@ -166,14 +174,14 @@ export function RoomList() {
   );
 }
 
-function SearchIcon() {
+function SearchIcon({ className }: { className?: string }) {
   return (
     <svg
-      className="h-4 w-4"
+      className={className}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
-      strokeWidth={1.8}
+      strokeWidth={2}
     >
       <path
         strokeLinecap="round"

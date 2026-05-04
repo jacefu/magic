@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { isDmRoom } from "../lib/isDmRoom.js";
 
@@ -14,6 +15,11 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
   const rightPanelMode = useUIStore((s) => s.rightPanelMode);
   const setRightPanel = useUIStore((s) => s.setRightPanel);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
+
+  // Header-search input is wired UI-only for now: backend message
+  // search isn't built yet. Surface a "即将上线" hint as soon as
+  // the user starts typing so there's no silent dead end.
+  const [searchValue, setSearchValue] = useState("");
 
   if (!room) return null;
 
@@ -59,18 +65,40 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
           </HeaderIconButton>
         )}
 
-        {/* Search box (visual only — Cmd+K could later wire it up).
-            Spec 020 FIX-6: visible border + brighter placeholder so
-            the input stops disappearing into the header. */}
-        <div className="ml-1 flex h-6 w-36 items-center rounded border-[0.5px] border-[var(--border-hover)] bg-[var(--bg-surface)] px-1.5">
+        {/* Header search — UI-only placeholder for in-room message
+            search. Visible border + leading icon so it reads as an
+            input field instead of dead space. */}
+        <div
+          className="relative ml-1 flex h-7 w-44 items-center rounded-md px-1.5"
+          style={{
+            background: "var(--bg-surface)",
+            border: "0.5px solid var(--border-hover)",
+          }}
+          title="消息搜索功能即将上线"
+        >
+          <SmallSearchIcon />
           <input
             type="text"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
             placeholder={`搜索 ${room.name || "房间"}`}
-            className="w-full bg-transparent text-[12px] text-[var(--text-secondary)]
+            className="ml-1.5 w-full bg-transparent text-[12px] text-[var(--text-secondary)]
                        placeholder:text-[var(--text-tertiary)] outline-none
                        focus:text-[var(--text-primary)]"
           />
-          <SmallSearchIcon />
+
+          {searchValue && (
+            <div
+              className="absolute right-0 top-full z-10 mt-1 w-44 rounded-md px-2.5 py-1.5 text-[11px] shadow-lg"
+              style={{
+                background: "var(--bg-primary)",
+                border: "0.5px solid var(--border-default)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              消息搜索功能即将上线
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -124,7 +152,7 @@ function MembersIcon() {
 
 function SmallSearchIcon() {
   return (
-    <svg className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="h-3.5 w-3.5 shrink-0 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
