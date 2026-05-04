@@ -75,9 +75,36 @@ export const RoomListItem = memo(function RoomListItem({
         {name}
       </span>
 
+      {room.isFavourite && (
+        <span
+          aria-label="已置顶"
+          title="已置顶"
+          className="shrink-0 text-[10px] leading-none"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          <PinIcon />
+        </span>
+      )}
+
       <div className="ml-auto shrink-0">
         <UnreadBadge count={room.unreadCount} highlight={room.highlightCount > 0} />
       </div>
     </button>
   );
 });
+
+function PinIcon() {
+  // Discord/Slack-style angled pushpin. 11px reads as the right
+  // weight next to the 12.5px room name — small enough not to
+  // dominate, large enough to register at a glance.
+  return (
+    <svg
+      className="h-[11px] w-[11px]"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M14.5 1.5l8 8-3.18 3.18a3.5 3.5 0 01-3.32.92l-2.06-.6-4.94 4.94 1.7 1.7-1.06 1.06L8 18.06l-3.06 3.06-1.06-1.06L6.94 17l-2.64-2.64L5.36 13.3l1.7 1.7 4.94-4.94-.6-2.06a3.5 3.5 0 01.92-3.32L14.5 1.5z" />
+    </svg>
+  );
+}

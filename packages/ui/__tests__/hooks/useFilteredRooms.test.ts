@@ -16,6 +16,7 @@ const dmAlice: RoomData = {
   lastMessage: null,
   isEncrypted: false,
   isDirect: true,
+  isFavourite: false,
   lastActivityTs: 3000,
 };
 
@@ -31,6 +32,7 @@ const dmBob: RoomData = {
   lastMessage: null,
   isEncrypted: false,
   isDirect: true,
+  isFavourite: false,
   lastActivityTs: 1000,
 };
 
@@ -46,6 +48,7 @@ const groupEngineering: RoomData = {
   lastMessage: null,
   isEncrypted: false,
   isDirect: false,
+  isFavourite: false,
   lastActivityTs: 5000,
 };
 
@@ -61,6 +64,7 @@ const groupDesign: RoomData = {
   lastMessage: null,
   isEncrypted: false,
   isDirect: false,
+  isFavourite: false,
   lastActivityTs: 2000,
 };
 

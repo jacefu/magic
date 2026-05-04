@@ -186,6 +186,17 @@ export function bridgeToStores(
   };
   client.on(ClientEvent.AccountData, onAccountData);
 
+  // Spec 021 — `m.favourite` tag toggles fire RoomEvent.Tags. Mirror
+  // the live tag set into roomStore so the room-list pin icon and
+  // favourite-first sort react immediately rather than after the
+  // next initial-sync refresh.
+  const onRoomTags = (_event: MatrixEvent, room: Room) => {
+    useRoomStore.getState().upsertRoom(sessionId, room.roomId, {
+      isFavourite: !!room.tags?.["m.favourite"],
+    });
+  };
+  client.on(RoomEvent.Tags, onRoomTags);
+
   return () => {
     client.off(ClientEvent.Sync, onSync);
     client.off(RoomEvent.Timeline, onTimeline);
@@ -199,6 +210,7 @@ export function bridgeToStores(
     client.off(RoomEvent.Timeline, onTimelineMagic);
     client.off(RoomStateEvent.Events, onStateEventMagic);
     client.off(ClientEvent.AccountData, onAccountData);
+    client.off(RoomEvent.Tags, onRoomTags);
   };
 }
 
@@ -291,6 +303,7 @@ function syncRoomList(client: MatrixClient, sessionId: string): void {
       highlightCount: room.getUnreadNotificationCount(NotificationCountType.Highlight) ?? 0,
       isEncrypted: room.hasEncryptionStateEvent(),
       isDirect: !!room.getDMInviter(),
+      isFavourite: !!room.tags?.["m.favourite"],
       lastActivityTs: room.getLastActiveTimestamp(),
     });
 

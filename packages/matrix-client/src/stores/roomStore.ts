@@ -14,6 +14,12 @@ export interface RoomData {
   lastMessage: SerializedMatrixEvent | null;
   isEncrypted: boolean;
   isDirect: boolean;
+  /**
+   * Spec 021 — true when the user has tagged this room with
+   * `m.favourite`. Drives the room-list pin icon and "favourites
+   * sort first" ordering inside each group.
+   */
+  isFavourite: boolean;
   lastActivityTs: number;
 }
 
@@ -91,6 +97,7 @@ function createDefaultRoom(roomId: string): RoomData {
     lastMessage: null,
     isEncrypted: false,
     isDirect: false,
+    isFavourite: false,
     lastActivityTs: 0,
   };
 }

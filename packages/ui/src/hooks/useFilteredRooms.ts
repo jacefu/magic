@@ -75,6 +75,8 @@ export function useFilteredRooms() {
     }
 
     const sortFn = (a: RoomData, b: RoomData) => {
+      // Favourites (置顶) win over everything else inside their group.
+      if (a.isFavourite !== b.isFavourite) return a.isFavourite ? -1 : 1;
       const aUnread = a.unreadCount > 0 ? 1 : 0;
       const bUnread = b.unreadCount > 0 ? 1 : 0;
       if (aUnread !== bUnread) return bUnread - aUnread;

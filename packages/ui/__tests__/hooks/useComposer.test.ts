@@ -152,6 +152,7 @@ describe("useComposer", () => {
           lastMessage: null,
           isEncrypted: false,
           isDirect: false,
+          isFavourite: false,
           lastActivityTs: 0,
         },
       },
