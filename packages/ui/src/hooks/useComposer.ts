@@ -133,11 +133,13 @@ export function useComposer({ roomId, onSent }: UseComposerOptions) {
       inputRef.current?.focus();
       // Defer the scroll-to-bottom callback so the just-sent event has
       // a chance to round-trip through the bridge → roomStore →
-      // useTimeline → Virtuoso pipeline. ~50ms covers the local-echo
-      // path; if the homeserver is slow, the existing grow-driven
-      // useEffect in ChatTimeline catches the late append on its own.
+      // useTimeline → Virtuoso pipeline. 100ms is enough lag for the
+      // local echo to land; Virtuoso's followOutput="smooth" handles
+      // the same case automatically when we're already at the bottom,
+      // so this is a defence-in-depth call rather than the primary
+      // path.
       if (onSent) {
-        setTimeout(onSent, 50);
+        setTimeout(onSent, 100);
       }
     } catch (err) {
       console.error("发送消息失败:", err);

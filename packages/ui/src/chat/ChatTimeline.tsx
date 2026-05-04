@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
   getClient,
   hasClient,
@@ -21,15 +20,37 @@ interface ChatTimelineProps {
   roomId: string;
   onReply?: (eventId: string) => void;
   /**
-   * Spec 019 FIX-3 — parents (e.g. ChatView) hold a ref and call
-   * `current()` after a message is sent so the view jumps to the
-   * latest message regardless of where the timeline-driven
-   * `useEffect` happened to land. Belt-and-suspenders next to the
-   * automatic scroll-on-grow logic below.
+   * Set by ChatView so that `MessageComposer.onSent` can call
+   * `current()` after a successful send and pin the view to the
+   * just-shipped message.
    */
   scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
 }
 
+// Pagination is triggered when the user scrolls within this many pixels
+// of the top. Generous enough that the prefetch happens before the user
+// hits the absolute top.
+const PAGINATE_THRESHOLD_PX = 120;
+
+// "Near the bottom" window. While the user is within this many pixels
+// of the scroll-end, new messages auto-follow; further away, they get
+// the "↓ 新消息" button instead.
+const AT_BOTTOM_THRESHOLD_PX = 200;
+
+/**
+ * Native chat timeline.
+ *
+ * The earlier react-virtuoso implementation kept clipping the last
+ * message because Virtuoso's `initialTopMostItemIndex` re-evaluated on
+ * every timeline change and "rebounded" to a stale measurement. Native
+ * scroll has no measurement model — `scrollHeight` is the DOM truth —
+ * so the bottom anchor always lands where it should.
+ *
+ * Layout depends on the flex chain (MainLayout chat column,
+ * ChatView root, this component) ALL having `min-h-0 overflow-hidden`.
+ * Without that the chat box grows tall enough to fit every message
+ * and the last one ends up clipped by the composer.
+ */
 export function ChatTimeline({
   roomId,
   onReply,
@@ -43,17 +64,135 @@ export function ChatTimeline({
     unreadMarkerEventId: unreadMarker,
   });
   const unreadCount = useRoomStore((s) => s.rooms[roomId]?.unreadCount ?? 0);
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Track the user's reading position so new messages don't hijack
+  // their scroll while they're browsing history.
   const [isAtBottom, setIsAtBottom] = useState(true);
+
+  // History-pagination state. We can't naively trigger paginate-on-
+  // scroll-zero because the act of pagination prepends content and
+  // resets scrollTop, which would re-trigger pagination forever. We
+  // gate behind an in-flight flag and restore the visual scroll
+  // position post-pagination so the user's eye stays put.
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Advance the server-side read marker once the user is parked at the
-  // bottom of the timeline. The local snapshot above stays put for this
-  // session — only the next room visit will re-snapshot at this point.
-  // We *also* optimistically clear the local unread/highlight counts so
-  // the room-list badge disappears immediately rather than waiting for
-  // the server to echo the receipt back via RoomEvent.UnreadNotifications
-  // (which can lag by seconds, especially for our own actions).
+  // Refs for change-detection across renders.
+  const prevRoomIdRef = useRef(roomId);
+  const prevItemsLenRef = useRef(0);
+
+  // ---- scroll-to-bottom primitive (used everywhere else) ----
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+    },
+    [],
+  );
+
+  // Expose to ChatView so post-send can pin to the just-sent message.
+  useEffect(() => {
+    if (!scrollToBottomRef) return;
+    scrollToBottomRef.current = () => scrollToBottom("smooth");
+    return () => {
+      scrollToBottomRef.current = null;
+    };
+  }, [scrollToBottom, scrollToBottomRef]);
+
+  // ---- room switch + initial populate + auto-follow ----
+  //
+  // One unified effect handles three cases:
+  //   1. Room change       → instant scroll to bottom (no animation,
+  //                          would otherwise look like a flicker).
+  //   2. First populate    → instant scroll. The `prevItemsLenRef`
+  //                          starts at 0; first message arrival
+  //                          counts as initial.
+  //   3. Live grow         → smooth scroll, but only when the user is
+  //                          within the at-bottom window. Otherwise
+  //                          the "↓ 新消息" button surfaces instead.
+  useEffect(() => {
+    const prevLen = prevItemsLenRef.current;
+    const prevRoom = prevRoomIdRef.current;
+    prevRoomIdRef.current = roomId;
+    prevItemsLenRef.current = items.length;
+
+    if (items.length === 0) return;
+
+    const roomChanged = prevRoom !== roomId;
+    const initialPopulate = !roomChanged && prevLen === 0;
+    const grew = !roomChanged && items.length > prevLen;
+
+    if (roomChanged || initialPopulate) {
+      // Settle in two rAFs so any tall last-item content (markdown
+      // tables, code blocks, mention pills) has measured before we
+      // anchor to it. One frame for the React commit, the next for
+      // the post-paint measurement settle.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          bottomRef.current?.scrollIntoView({ behavior: "instant" });
+        });
+      });
+      setIsAtBottom(true);
+      return;
+    }
+
+    if (grew && isAtBottom) {
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
+  }, [items.length, roomId, isAtBottom]);
+
+  // ---- pagination on scroll-near-top ----
+  const handleStartReached = useCallback(async () => {
+    if (isLoadingHistory) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const prevScrollHeight = container.scrollHeight;
+    setIsLoadingHistory(true);
+    try {
+      await paginateBackwards(roomId, 50);
+    } catch (err) {
+      console.error("加载历史失败:", err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+    // After history prepends, the new content shifts the visible
+    // window upward. Restore scrollTop to the equivalent visual
+    // offset so the user's eye doesn't jump.
+    requestAnimationFrame(() => {
+      const c = containerRef.current;
+      if (!c) return;
+      c.scrollTop = c.scrollHeight - prevScrollHeight;
+    });
+  }, [isLoadingHistory, roomId]);
+
+  // ---- scroll handler ----
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    setIsAtBottom(distanceFromBottom <= AT_BOTTOM_THRESHOLD_PX);
+
+    // Trigger history pagination when the user nears the top, but
+    // don't fight an in-flight load.
+    if (
+      scrollTop <= PAGINATE_THRESHOLD_PX &&
+      !isLoadingHistory &&
+      messageCount > 0
+    ) {
+      void handleStartReached();
+    }
+  }, [handleStartReached, isLoadingHistory, messageCount]);
+
+  // ---- read marker advance ----
+  //
+  // Once the user is parked at the bottom, advance the server-side
+  // read receipt to the latest message and clear the local unread
+  // count optimistically (so the room-list badge disappears
+  // immediately rather than after the homeserver echoes the receipt).
   const latestMessageEventId = useLatestMessageEventId(roomId);
   useEffect(() => {
     if (!isAtBottom || !latestMessageEventId) return;
@@ -66,151 +205,50 @@ export function ChatTimeline({
     }
   }, [isAtBottom, latestMessageEventId, roomId]);
 
-  const handleStartReached = useCallback(async () => {
-    if (isLoadingHistory) return;
-    setIsLoadingHistory(true);
-    try {
-      await paginateBackwards(roomId, 50);
-    } catch (err) {
-      console.error("加载历史失败:", err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  }, [roomId, isLoadingHistory]);
-
-  // ---- explicit scroll-to-end management ----
-  //
-  // We deliberately don't rely on Virtuoso's `followOutput` smooth-scroll:
-  // it races with item-height measurement when a freshly-appended message
-  // contains tall content (mention pill avatars, multi-paragraph body),
-  // animates to the *old* bottom, and ends up looking like the view
-  // scrolled *upward* after sending. Manual `scrollToIndex` with
-  // `index: 'LAST'`, `align: 'end'`, `behavior: 'auto'` lands precisely
-  // at the bottom every time and runs after rAF so the new item's
-  // height is already measured.
-  const isAtBottomRef = useRef(true);
-  useEffect(() => {
-    isAtBottomRef.current = isAtBottom;
-  }, [isAtBottom]);
-
-  const prevRoomIdRef = useRef<string | null>(null);
-  const prevItemsLengthRef = useRef(-1); // -1 = "haven't seen items yet"
-
-  // Detect room change during render so the next effect run treats the
-  // first item-tick of the new room as an initial-populate, not an
-  // append.
-  if (prevRoomIdRef.current !== roomId) {
-    prevRoomIdRef.current = roomId;
-    prevItemsLengthRef.current = -1;
-  }
-
-  useEffect(() => {
-    const prev = prevItemsLengthRef.current;
-    prevItemsLengthRef.current = items.length;
-
-    if (items.length === 0) return;
-
-    const isInitialPopulate = prev === -1;
-    const grew = !isInitialPopulate && items.length > prev;
-
-    if (!isInitialPopulate && !grew) return;
-
-    // For mid-session appends (not the initial populate), only scroll
-    // when (a) the user was already at the bottom, OR (b) the new last
-    // message is from the current user. This keeps "scroll up to read
-    // history" intact for incoming messages but always pins your own
-    // sends to the bottom.
-    if (grew && !isAtBottomRef.current) {
-      let lastIsOwn = false;
-      for (let i = items.length - 1; i >= 0; i--) {
-        const item = items[i];
-        if (item.type === "message") {
-          lastIsOwn = item.isOwn;
-          break;
-        }
-      }
-      if (!lastIsOwn) return;
-    }
-
-    requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: "LAST",
-        align: "end",
-        behavior: "auto",
-      });
-    });
-  }, [items.length]);
-
-  const scrollToBottom = useCallback(() => {
-    virtuosoRef.current?.scrollToIndex({
-      index: "LAST",
-      align: "end",
-      behavior: "smooth",
-    });
-  }, []);
-
-  // Expose scrollToBottom to parents that wire it to send completion.
-  // The grow-driven useEffect above handles most cases automatically,
-  // but Virtuoso races with rapid data updates can occasionally swallow
-  // the auto-scroll; the explicit post-send call guarantees the view
-  // lands on the freshly-sent message.
-  useEffect(() => {
-    if (!scrollToBottomRef) return;
-    scrollToBottomRef.current = scrollToBottom;
-    return () => {
-      scrollToBottomRef.current = null;
-    };
-  }, [scrollToBottom, scrollToBottomRef]);
-
   if (messageCount === 0 && items.length === 0) {
     return <EmptyRoom />;
   }
 
   return (
-    <div className="relative flex-1">
-      <Virtuoso
-        key={roomId}
-        ref={virtuosoRef}
-        style={{ height: "100%" }}
-        data={items}
-        computeItemKey={computeTimelineItemKey}
-        // Start mounted with the LAST item aligned to the END of the
-        // viewport (i.e. fully visible at the bottom). Without
-        // `align: 'end'` Virtuoso would put the last item at the *top*
-        // of the viewport with empty space below.
-        initialTopMostItemIndex={{ index: "LAST", align: "end" }}
-        startReached={handleStartReached}
-        atBottomStateChange={setIsAtBottom}
-        atBottomThreshold={60}
-        skipAnimationFrameInResizeObserver={true}
-        increaseViewportBy={{ top: 400, bottom: 200 }}
-        itemContent={(_index, item) => (
-          <TimelineItemRenderer item={item} onReply={onReply} />
+    <div className="relative flex min-h-0 flex-1 overflow-hidden">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="h-full w-full overflow-y-auto"
+      >
+        {/* Top spinner — visible only while a back-pagination is
+            in flight. */}
+        {isLoadingHistory && (
+          <div className="flex justify-center py-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--brand-purple)] border-t-transparent" />
+          </div>
         )}
-        components={{
-          Header: () =>
-            isLoadingHistory ? (
-              <div className="flex justify-center py-4">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--brand-purple)] border-t-transparent" />
-              </div>
-            ) : null,
-        }}
-      />
 
-      {/* Only surface "↓ 新消息" when (a) the user has scrolled away from the
-          bottom AND (b) the room actually has unread notifications.
-          Otherwise scrolling up to read history shouldn't pretend there
-          are pending messages. */}
+        <div className="pt-2" />
+
+        {items.map((item) => (
+          <TimelineItemRow
+            key={timelineItemKey(item)}
+            item={item}
+            onReply={onReply}
+          />
+        ))}
+
+        {/* Bottom anchor — scrollIntoView target. */}
+        <div ref={bottomRef} className="h-px w-full" />
+      </div>
+
+      {/* Surface "↓ 新消息" only when the user is reading history
+          AND the room actually has unread notifications. Otherwise
+          a quiet scroll-up shouldn't pretend there's pending content. */}
       {!isAtBottom && unreadCount > 0 && (
-        <NewMessageButton onClick={scrollToBottom} />
+        <NewMessageButton onClick={() => scrollToBottom("smooth")} />
       )}
     </div>
   );
 }
 
-/** Stable identity per timeline row so Virtuoso doesn't re-mount items
- *  when the array reference is rebuilt by `useTimeline`'s useMemo. */
-function computeTimelineItemKey(_index: number, item: TimelineItem): string {
+function timelineItemKey(item: TimelineItem): string {
   switch (item.type) {
     case "message":
       return item.event.eventId;
@@ -222,7 +260,7 @@ function computeTimelineItemKey(_index: number, item: TimelineItem): string {
   }
 }
 
-function TimelineItemRenderer({
+function TimelineItemRow({
   item,
   onReply,
 }: {

@@ -105,9 +105,14 @@ export function MainLayout() {
           <UserPanel />
         </div>
 
-        {/* Column 3: chat */}
+        {/* Column 3: chat — `min-h-0` + `overflow-hidden` are
+            non-negotiable here. Without `min-h-0` on this flex
+            child, the chat column can grow beyond its parent's
+            height when content inside (Virtuoso's measured list)
+            reports a tall scrollHeight, which pushes the last
+            message past the visible viewport. */}
         <div
-          className="flex min-w-0 flex-1 flex-col"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           style={{ background: "var(--bg-primary)" }}
         >
           <ChatView />
