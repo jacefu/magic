@@ -39,6 +39,15 @@ export { JoinRoomDialog } from "./rooms/JoinRoomDialog.js";
 export { StartDMDialog } from "./rooms/StartDMDialog.js";
 export { MemberSearch } from "./rooms/MemberSearch.js";
 
+// Spec 021 — room/DM settings panel
+export { RoomSettingsPanel } from "./settings/RoomSettingsPanel.js";
+export { DMSettingsPanel } from "./settings/DMSettingsPanel.js";
+export { useRoomSettings } from "./hooks/useRoomSettings.js";
+export type {
+  RoomSettings,
+  NotificationMode,
+} from "./hooks/useRoomSettings.js";
+
 // Common
 export { DialogOverlay } from "./common/DialogOverlay.js";
 

@@ -8,6 +8,7 @@ import { ChatView } from "../chat/ChatView.js";
 import { MemberPanel } from "../panels/MemberPanel.js";
 import { AgentDashboard } from "../agents/AgentDashboard.js";
 import { SettingsPage } from "../settings/SettingsPage.js";
+import { RoomSettingsPanel } from "../settings/RoomSettingsPanel.js";
 import { isDmRoom } from "../lib/isDmRoom.js";
 
 export function MainLayout() {
@@ -121,12 +122,16 @@ export function MainLayout() {
         {/* Column 4: contextual right panel */}
         {rightPanelOpen && activeRoomId && (
           <div
-            className="flex w-[260px] shrink-0 flex-col border-l border-[var(--border-default)]"
+            className="flex w-[280px] shrink-0 flex-col border-l border-[var(--border-default)]"
             style={rightGlassStyle}
           >
             <div className="flex h-12 items-center justify-between border-b border-[var(--border-default)] px-3">
               <span className="text-[13.5px] font-semibold text-[var(--text-primary)]">
-                {rightPanelMode === "agents" ? "Agent 面板" : "成员"}
+                {rightPanelMode === "agents"
+                  ? "Agent 面板"
+                  : rightPanelMode === "settings"
+                    ? "设置"
+                    : "成员"}
               </span>
               <button
                 onClick={closeRightPanel}
@@ -148,6 +153,9 @@ export function MainLayout() {
             <div className="min-h-0 flex-1 overflow-y-auto">
               {rightPanelMode === "members" && <MemberPanel roomId={activeRoomId} />}
               {rightPanelMode === "agents" && <AgentDashboard roomId={activeRoomId} />}
+              {rightPanelMode === "settings" && (
+                <RoomSettingsPanel roomId={activeRoomId} />
+              )}
             </div>
           </div>
         )}
