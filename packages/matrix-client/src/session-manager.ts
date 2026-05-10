@@ -68,12 +68,14 @@ const CLEAR_STORES_TIMEOUT_MS = 5_000;
 /**
  * Cap for `client.initRustCrypto()` during session restore. The call
  * is local (WASM init + IndexedDB open) so the happy path is sub-
- * second, but a corrupt IDB store has been seen to hang it forever
- * which then bricks the app on launch with the "正在恢复会话" splash.
- * Timing out lets the for-loop move on and ultimately reach
- * `progressCallback?.(null)` so the splash clears.
+ * second; on modern hardware even a cold launch is comfortably under
+ * 5 s. A corrupt IDB store has been seen to hang it forever — the
+ * timeout lets the for-loop move on and ultimately reach
+ * `progressCallback?.(null)` so the splash clears. Sessions whose
+ * crypto init exceeds this cap are dropped from the persisted list
+ * so the next launch doesn't trip on the same broken state.
  */
-const INIT_CRYPTO_TIMEOUT_MS = 15_000;
+const INIT_CRYPTO_TIMEOUT_MS = 10_000;
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -408,6 +410,12 @@ export async function restoreAllSessions(): Promise<void> {
     )
     .sort((a, b) => a.addedAt - b.addedAt);
 
+  // Track which session ids successfully made it into the in-memory
+  // store. Any persisted session that *fails* to restore (timeout /
+  // crypto error / etc.) is removed from the persisted list at the
+  // end so the next launch doesn't retry the same broken state.
+  const restoredIds = new Set<string>();
+
   for (let i = 0; i < sessionsList.length; i++) {
     const session = sessionsList[i]!;
     progressCallback?.({
@@ -416,6 +424,10 @@ export async function restoreAllSessions(): Promise<void> {
       serverName: session.serverName ?? session.homeserver,
     });
     try {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[session-manager] restoring ${session.serverName} (${i + 1}/${sessionsList.length})`,
+      );
       const client = createClient({
         baseUrl: session.homeserver,
         accessToken: session.accessToken,
@@ -432,6 +444,7 @@ export async function restoreAllSessions(): Promise<void> {
       clients.set(session.id, client);
 
       useSessionStore.getState().addSession(session);
+      restoredIds.add(session.id);
       registerSessionWatchers(session.id, client);
 
       // Bridge every restored session immediately. Per-partition writes
@@ -456,6 +469,10 @@ export async function restoreAllSessions(): Promise<void> {
             (err as Error).message,
           );
         });
+      // eslint-disable-next-line no-console
+      console.log(
+        `[session-manager] restored ${session.serverName} ok`,
+      );
     } catch (err) {
       console.warn(
         `Failed to restore session ${session.serverName}:`,
@@ -465,6 +482,19 @@ export async function restoreAllSessions(): Promise<void> {
   }
 
   throttleInactiveSessions(useSessionStore.getState().activeSessionId);
+
+  // If any session failed to restore, persist the shrunken list now
+  // so the splash never has to retry it. Without this, a single
+  // corrupt session would block the app on every launch even after
+  // the timeout saved the current launch.
+  if (restoredIds.size < sessionsList.length) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[session-manager] dropped ${sessionsList.length - restoredIds.size} unrestorable session(s) from persistence`,
+    );
+    void persistSessions();
+  }
+
   progressCallback?.(null);
 }
 
