@@ -70,8 +70,15 @@ export function useWorkspaceMatrixBridge(): void {
       const me = client.getUserId();
       if (!me) return;
       try {
-        if (files.length === 0) {
-          // Unbind: clear the state event the binder posted earlier.
+        // Source-of-truth for "is this room actually bound?" is the
+        // main-process binding map, not the file count. An empty file
+        // list can mean *either* unbinding *or* a bound folder where
+        // every entry got filtered by .magicignore — these need to
+        // produce different state events. Conflating them caused
+        // empty-folder bindings to advertise themselves as "bound:
+        // false" so Agents never saw the binding.
+        const binding = await api.getBinding(roomId);
+        if (!binding) {
           await client.sendStateEvent(
             roomId,
             MAGIC_EVENTS.WORKSPACE_BINDING,
@@ -81,7 +88,6 @@ export function useWorkspaceMatrixBridge(): void {
           return;
         }
 
-        const binding = await api.getBinding(roomId);
         const totalSize = files.reduce(
           (acc: number, f: WorkspaceFileEntry) => acc + f.size,
           0,
@@ -93,9 +99,9 @@ export function useWorkspaceMatrixBridge(): void {
             MAGIC_EVENTS.WORKSPACE_BINDING,
             {
               bound: true,
-              displayName: binding?.displayName ?? "",
+              displayName: binding.displayName,
               boundBy: me,
-              boundAt: binding?.boundAt ?? Date.now(),
+              boundAt: binding.boundAt,
               fileCount: files.length,
               totalSize,
               tree: files,
@@ -127,9 +133,9 @@ export function useWorkspaceMatrixBridge(): void {
             MAGIC_EVENTS.WORKSPACE_BINDING,
             {
               bound: true,
-              displayName: binding?.displayName ?? "",
+              displayName: binding.displayName,
               boundBy: me,
-              boundAt: binding?.boundAt ?? Date.now(),
+              boundAt: binding.boundAt,
               fileCount: files.length,
               totalSize,
               tree: null,
@@ -140,6 +146,15 @@ export function useWorkspaceMatrixBridge(): void {
             me,
           );
         }
+        // Lightweight visibility for debugging — once an Agent
+        // integrates the protocol per spec §5.3 they should see this
+        // event arrive in the room. If the renderer console shows
+        // this line but the Agent does nothing, the gap is on the
+        // Agent side, not here.
+        // eslint-disable-next-line no-console
+        console.log(
+          `[workspace] published binding to ${roomId}: ${files.length} files, ${binding.displayName}`,
+        );
       } catch (err) {
         console.error("[workspace] publish binding failed:", err);
       }
