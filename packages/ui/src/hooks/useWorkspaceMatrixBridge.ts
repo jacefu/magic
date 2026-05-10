@@ -66,99 +66,157 @@ export function useWorkspaceMatrixBridge(): void {
     const client = getClient() as unknown as AnyClient;
 
     // ---- Outbound: file tree changes → state event ----------------
-    const unsubFileTree = api.onFileTreeChanged(async ({ roomId, files }) => {
-      const me = client.getUserId();
-      if (!me) return;
-      try {
-        // Source-of-truth for "is this room actually bound?" is the
-        // main-process binding map, not the file count. An empty file
-        // list can mean *either* unbinding *or* a bound folder where
-        // every entry got filtered by .magicignore — these need to
-        // produce different state events. Conflating them caused
-        // empty-folder bindings to advertise themselves as "bound:
-        // false" so Agents never saw the binding.
-        const binding = await api.getBinding(roomId);
-        if (!binding) {
-          await client.sendStateEvent(
-            roomId,
-            MAGIC_EVENTS.WORKSPACE_BINDING,
-            { bound: false },
-            me,
-          );
-          return;
-        }
-
-        const totalSize = files.reduce(
-          (acc: number, f: WorkspaceFileEntry) => acc + f.size,
-          0,
-        );
-
-        if (files.length <= INLINE_TREE_LIMIT) {
-          await client.sendStateEvent(
-            roomId,
-            MAGIC_EVENTS.WORKSPACE_BINDING,
-            {
-              bound: true,
-              displayName: binding.displayName,
-              boundBy: me,
-              boundAt: binding.boundAt,
-              fileCount: files.length,
-              totalSize,
-              tree: files,
-              treeChunked: false,
-            },
-            me,
-          );
-        } else {
-          // Spec § 3.1 — large repos: chunk the manifest into message
-          // events, then point the state event at the chunk eventIds.
-          const chunkEventIds: string[] = [];
-          const totalChunks = Math.ceil(files.length / TREE_CHUNK_SIZE);
-          for (let i = 0; i < files.length; i += TREE_CHUNK_SIZE) {
-            const chunk = files.slice(i, i + TREE_CHUNK_SIZE);
-            const result = await client.sendEvent(
+    const unsubFileTree = api.onFileTreeChanged(
+      async ({ roomId, files, isFirstBind, isUnbind }) => {
+        const me = client.getUserId();
+        if (!me) return;
+        try {
+          // Source-of-truth for "is this room actually bound?" is the
+          // main-process binding map, not the file count. An empty file
+          // list can mean *either* unbinding *or* a bound folder where
+          // every entry got filtered by .magicignore — these need to
+          // produce different state events.
+          const binding = await api.getBinding(roomId);
+          if (!binding || isUnbind) {
+            await client.sendStateEvent(
               roomId,
-              MAGIC_EVENTS.WORKSPACE_TREE_CHUNK,
-              {
-                chunkIndex: Math.floor(i / TREE_CHUNK_SIZE),
-                totalChunks,
-                files: chunk,
-              },
+              MAGIC_EVENTS.WORKSPACE_BINDING,
+              { bound: false },
+              me,
             );
-            const eventId = (result as { event_id?: string }).event_id;
-            if (eventId) chunkEventIds.push(eventId);
+            // Spec §3.5.3 — surface the unbind to the Agent's LLM so
+            // it stops trying to read this workspace. lastBinding is
+            // populated by WorkspaceManager.unbind() exactly for this
+            // round-trip, so the displayName survives the deletion.
+            const last = await api.getLastBinding(roomId);
+            if (last) {
+              await sendNoticeEvent(client, roomId, {
+                msgtype: "m.notice",
+                body: `📁 工作区已解绑：${last.displayName}\n\n用户已解除本地文件夹绑定。后续提问中，请不要再尝试通过 com.magic.workspace.read_request 读取此工作区的文件。`,
+                "com.magic.workspace.notification": {
+                  kind: "unbound",
+                  binding_owner: me,
+                  displayName: last.displayName,
+                },
+              });
+            }
+            return;
           }
-          await client.sendStateEvent(
-            roomId,
-            MAGIC_EVENTS.WORKSPACE_BINDING,
-            {
-              bound: true,
-              displayName: binding.displayName,
-              boundBy: me,
-              boundAt: binding.boundAt,
-              fileCount: files.length,
-              totalSize,
-              tree: null,
-              treeChunked: true,
-              treeChunks: chunkEventIds.length,
-              treeManifestEventIds: chunkEventIds,
-            },
-            me,
+
+          const totalSize = files.reduce(
+            (acc: number, f: WorkspaceFileEntry) => acc + f.size,
+            0,
           );
+
+          if (files.length <= INLINE_TREE_LIMIT) {
+            await client.sendStateEvent(
+              roomId,
+              MAGIC_EVENTS.WORKSPACE_BINDING,
+              {
+                bound: true,
+                displayName: binding.displayName,
+                boundBy: me,
+                boundAt: binding.boundAt,
+                fileCount: files.length,
+                totalSize,
+                tree: files,
+                treeChunked: false,
+              },
+              me,
+            );
+          } else {
+            // Spec § 3.1 — large repos: chunk the manifest into message
+            // events, then point the state event at the chunk eventIds.
+            const chunkEventIds: string[] = [];
+            const totalChunks = Math.ceil(files.length / TREE_CHUNK_SIZE);
+            for (let i = 0; i < files.length; i += TREE_CHUNK_SIZE) {
+              const chunk = files.slice(i, i + TREE_CHUNK_SIZE);
+              const result = await client.sendEvent(
+                roomId,
+                MAGIC_EVENTS.WORKSPACE_TREE_CHUNK,
+                {
+                  chunkIndex: Math.floor(i / TREE_CHUNK_SIZE),
+                  totalChunks,
+                  files: chunk,
+                },
+              );
+              const eventId = (result as { event_id?: string }).event_id;
+              if (eventId) chunkEventIds.push(eventId);
+            }
+            await client.sendStateEvent(
+              roomId,
+              MAGIC_EVENTS.WORKSPACE_BINDING,
+              {
+                bound: true,
+                displayName: binding.displayName,
+                boundBy: me,
+                boundAt: binding.boundAt,
+                fileCount: files.length,
+                totalSize,
+                tree: null,
+                treeChunked: true,
+                treeChunks: chunkEventIds.length,
+                treeManifestEventIds: chunkEventIds,
+              },
+              me,
+            );
+          }
+          // Lightweight visibility for debugging — once an Agent
+          // integrates the protocol per spec §5.3 they should see this
+          // event arrive in the room. If the renderer console shows
+          // this line but the Agent does nothing, the gap is on the
+          // Agent side, not here.
+          // eslint-disable-next-line no-console
+          console.log(
+            `[workspace] published binding to ${roomId}: ${files.length} files, ${binding.displayName}`,
+          );
+
+          // ---- Spec §3.5 Agent-awareness notices ----
+          if (isFirstBind) {
+            // First bind: long-form notice with the full prompt body
+            // so the Agent's LLM picks the workspace up on the very
+            // next turn.
+            await sendNoticeEvent(
+              client,
+              roomId,
+              buildBindNotice(me, binding.displayName, files, totalSize),
+            );
+            await api.recordNotify(roomId, files.length);
+          } else {
+            // Watcher republish: only announce significant change
+            // (≥10% file-count delta) AND throttle to once per 5 min
+            // so a noisy editor save doesn't spam the room history.
+            const lastNotifyAt = await api.getLastNotifyAt(roomId);
+            const lastFileCount = await api.getLastNotifiedFileCount(roomId);
+            const now = Date.now();
+            const sinceLastNotify = now - lastNotifyAt;
+            const baseline = lastFileCount || files.length;
+            const delta = files.length - baseline;
+            const significant =
+              baseline > 0 &&
+              Math.abs(delta) / baseline >= 0.1 &&
+              sinceLastNotify > 5 * 60 * 1000;
+            if (significant) {
+              const direction =
+                delta > 0 ? `新增 ${delta}` : `减少 ${-delta}`;
+              await sendNoticeEvent(client, roomId, {
+                msgtype: "m.notice",
+                body: `📁 ${binding.displayName} 文件已更新（现 ${files.length} 个文件，${direction} 个）`,
+                "com.magic.workspace.notification": {
+                  kind: "updated",
+                  binding_owner: me,
+                  displayName: binding.displayName,
+                  fileCount: files.length,
+                },
+              });
+              await api.recordNotify(roomId, files.length);
+            }
+          }
+        } catch (err) {
+          console.error("[workspace] publish binding failed:", err);
         }
-        // Lightweight visibility for debugging — once an Agent
-        // integrates the protocol per spec §5.3 they should see this
-        // event arrive in the room. If the renderer console shows
-        // this line but the Agent does nothing, the gap is on the
-        // Agent side, not here.
-        // eslint-disable-next-line no-console
-        console.log(
-          `[workspace] published binding to ${roomId}: ${files.length} files, ${binding.displayName}`,
-        );
-      } catch (err) {
-        console.error("[workspace] publish binding failed:", err);
-      }
-    });
+      },
+    );
 
     // ---- Inbound: read/list requests → main process → response ----
     const handleTimeline = async (
@@ -397,4 +455,98 @@ function guessMimeType(
     default:
       return encoding === "utf-8" ? "text/plain" : "application/octet-stream";
   }
+}
+
+/**
+ * Spec §3.5 — m.room.message dispatch helper. Notices ride on the
+ * standard Matrix message channel (so the Agent's LLM sees them in
+ * its sync history without needing to subscribe to anything custom),
+ * but tagged via the `com.magic.workspace.notification` field so the
+ * client UI can swap in a clean card.
+ */
+async function sendNoticeEvent(
+  client: AnyClient,
+  roomId: string,
+  content: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await client.sendEvent(roomId, "m.room.message", content);
+  } catch (err) {
+    console.error("[workspace] send notice failed:", err);
+  }
+}
+
+/**
+ * Spec §3.5.2 — body that doubles as a status card *and* a system
+ * prompt for the Agent. The dashed separators are deliberate: they
+ * give an LLM an unambiguous signal that the section between them is
+ * an instruction block, not user-authored content.
+ *
+ * Includes only the first 30 paths to stay well under Matrix's ~64KB
+ * message ceiling on big repos; the full tree is always available
+ * via the `com.magic.workspace.binding` state event.
+ */
+const PREVIEW_FILES_LIMIT = 30;
+
+function buildBindNotice(
+  ownerUserId: string,
+  displayName: string,
+  files: WorkspaceFileEntry[],
+  totalSize: number,
+): Record<string, unknown> {
+  const sizeStr = formatSize(totalSize);
+  const previewLines = files
+    .slice(0, PREVIEW_FILES_LIMIT)
+    .map((f) => `  • ${f.path}`)
+    .join("\n");
+  const remaining =
+    files.length > PREVIEW_FILES_LIMIT
+      ? `\n  ... 还有 ${files.length - PREVIEW_FILES_LIMIT} 个文件`
+      : "";
+
+  const body = `📁 工作区已绑定：${displayName}（${files.length} 个文件，${sizeStr}）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【对话上下文 · 给 AI 助手的说明】
+
+用户已将本地文件夹 "${displayName}" 绑定到此对话。
+当用户提及"文件"、"代码"、"项目"、"看看"、"读取"等可能涉及文件的内容时，
+你应当**优先访问此工作区中的文件**，而不是引用你自己的内部工作目录。
+
+📋 文件清单（前 ${PREVIEW_FILES_LIMIT} 个，完整清单见房间状态事件 com.magic.workspace.binding）：
+${previewLines}${remaining}
+
+🔧 如何读取文件：
+发送 Matrix 事件 com.magic.workspace.read_request，包含字段：
+  - request_id: 唯一标识（UUID）
+  - path: 相对路径（如 "src/main.py"）
+  - binding_owner: "${ownerUserId}"
+
+客户端会通过 com.magic.workspace.read_response 事件返回内容。
+
+⚠️ 注意：
+  • 路径必须是相对路径（不是 /Users/... 这种绝对路径）
+  • 单次最多读取 10 MB
+  • 客户端可能离线，请处理 owner_offline 错误
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+  return {
+    msgtype: "m.notice",
+    body,
+    "com.magic.workspace.notification": {
+      kind: "bound",
+      binding_owner: ownerUserId,
+      displayName,
+      fileCount: files.length,
+      totalSize,
+    },
+  };
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }

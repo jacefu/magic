@@ -31,6 +31,7 @@ export { BindFolderConfirmDialog } from "./workspace/BindFolderConfirmDialog.js"
 export { WorkspaceSection } from "./workspace/WorkspaceSection.js";
 export { AccessLogSection } from "./workspace/AccessLogSection.js";
 export { WorkspaceIndicator } from "./workspace/WorkspaceIndicator.js";
+export { WorkspaceNotificationCard } from "./workspace/WorkspaceNotificationCard.js";
 export { useWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
 export type { UseWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
 export { useWorkspaceMatrixBridge } from "./hooks/useWorkspaceMatrixBridge.js";

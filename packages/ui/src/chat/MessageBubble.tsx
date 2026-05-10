@@ -10,6 +10,7 @@ import { RoomAvatar, pickGradient } from "../rooms/RoomAvatar.js";
 import { MessageContent } from "./MessageContent.js";
 import { AgentTag } from "../agents/AgentTag.js";
 import { getAgentInfo } from "../lib/agentDetection.js";
+import { WorkspaceNotificationCard } from "../workspace/WorkspaceNotificationCard.js";
 
 interface MessageBubbleProps {
   event: SerializedMatrixEvent;
@@ -48,6 +49,20 @@ export const MessageBubble = memo(function MessageBubble({
   const isMessage =
     event.type === "m.room.message" || event.type === "m.room.encrypted";
   if (!isMessage) return <SystemEventLine event={event} />;
+
+  // Spec 022 §3.5.5 — workspace agent-awareness notices ride on the
+  // standard message channel but get rendered as a compact status
+  // card here so the human view doesn't see the raw prompt body
+  // (which is intentionally verbose for the Agent's LLM). The
+  // original event is unmodified, so the Agent still sees the full
+  // body in its sync history.
+  if (event.content?.["com.magic.workspace.notification"]) {
+    return (
+      <div className="px-4">
+        <WorkspaceNotificationCard event={event} />
+      </div>
+    );
+  }
 
   const time = formatTime(event.timestamp);
   const senderName = extractDisplayName(event.sender);

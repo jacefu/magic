@@ -138,9 +138,24 @@ export interface WorkspaceAPI {
     roomId: string,
     limit: number,
   ) => Promise<WorkspaceAccessLogEntry[]>;
-  /** main → renderer push: file watcher republish. */
+  // ---- Spec §3.5 Agent-awareness throttle helpers ----
+  /** Snapshot of the most recent (possibly already-unbound) binding;
+   *  the bridge needs the displayName to compose the unbind notice
+   *  even after the live binding map has been cleared. */
+  getLastBinding: (roomId: string) => Promise<WorkspaceBinding | null>;
+  getLastNotifyAt: (roomId: string) => Promise<number>;
+  getLastNotifiedFileCount: (roomId: string) => Promise<number>;
+  recordNotify: (roomId: string, fileCount: number) => Promise<void>;
+  /** main → renderer push: file watcher republish. The two optional
+   *  flags carry the bind/unbind state so the renderer bridge knows
+   *  whether to ship the agent-awareness m.notice. */
   onFileTreeChanged: (
-    cb: (payload: { roomId: string; files: WorkspaceFileEntry[] }) => void,
+    cb: (payload: {
+      roomId: string;
+      files: WorkspaceFileEntry[];
+      isFirstBind?: boolean;
+      isUnbind?: boolean;
+    }) => void,
   ) => () => void;
   /** main → renderer push: bind / unbind / metadata change. */
   onBindingChanged: (

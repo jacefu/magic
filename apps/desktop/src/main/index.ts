@@ -17,7 +17,22 @@ import { WorkspaceManager } from "./workspace/WorkspaceManager.js";
 import { settingsStore } from "./store.js";
 
 let mainWindow: BrowserWindow | null = null;
-const workspace = new WorkspaceManager();
+
+// Spec 022 §5.1.2 — file-tree changes are pushed to every renderer
+// over the workspace:file-tree-changed channel. The bridge in the
+// renderer turns those into Matrix state events + (per spec §3.5)
+// `m.notice` agent-awareness messages.
+const workspace = new WorkspaceManager((roomId, files, meta) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send("workspace:file-tree-changed", {
+        roomId,
+        files,
+        ...meta,
+      });
+    }
+  }
+});
 
 function createWindow(): BrowserWindow {
   const bounds = restoreWindowBounds();
@@ -80,7 +95,6 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(async () => {
   mainWindow = createWindow();
-  workspace.setMainWindow(mainWindow);
 
   registerIPCHandlers(mainWindow, [
     createWindowHandlers(),

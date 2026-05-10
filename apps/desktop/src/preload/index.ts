@@ -98,6 +98,14 @@ const electronAPI: IElectronAPI = {
       ),
     getAccessLog: (roomId, limit) =>
       ipcRenderer.invoke("workspace:getAccessLog", roomId, limit),
+    getLastBinding: (roomId) =>
+      ipcRenderer.invoke("workspace:getLastBinding", roomId),
+    getLastNotifyAt: (roomId) =>
+      ipcRenderer.invoke("workspace:getLastNotifyAt", roomId),
+    getLastNotifiedFileCount: (roomId) =>
+      ipcRenderer.invoke("workspace:getLastNotifiedFileCount", roomId),
+    recordNotify: (roomId, fileCount) =>
+      ipcRenderer.invoke("workspace:recordNotify", roomId, fileCount),
     onFileTreeChanged: (cb) => {
       const handler = (_event: Electron.IpcRendererEvent, data: any) => cb(data);
       ipcRenderer.on("workspace:file-tree-changed", handler);

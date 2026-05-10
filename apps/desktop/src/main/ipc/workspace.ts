@@ -61,6 +61,21 @@ export function createWorkspaceHandlers(
 
       "workspace:getAccessLog": (roomId: string, limit: number) =>
         workspace.getAccessLog(roomId, limit),
+
+      // Spec §3.5 — bridge consults these when deciding whether to
+      // ship the m.notice agent-awareness messages.
+      "workspace:getLastBinding": (roomId: string) =>
+        workspace.getLastBinding(roomId),
+
+      "workspace:getLastNotifyAt": (roomId: string) =>
+        workspace.getLastNotifyAt(roomId),
+
+      "workspace:getLastNotifiedFileCount": (roomId: string) =>
+        workspace.getLastNotifiedFileCount(roomId),
+
+      "workspace:recordNotify": (roomId: string, fileCount: number) => {
+        workspace.recordNotify(roomId, fileCount);
+      },
     },
   };
 }

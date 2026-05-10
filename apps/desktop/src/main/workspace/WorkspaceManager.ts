@@ -77,13 +77,44 @@ export interface ListResult {
   errorMessage?: string;
 }
 
+/**
+ * Spec 022 § 5.1.2 — the file-tree change callback. main/index.ts
+ * supplies a forwarder that pipes (roomId, files, meta) onto the
+ * `workspace:file-tree-changed` IPC channel; the renderer bridge
+ * consumes it and decides whether to publish a state event and / or
+ * an `m.notice` Agent-awareness message.
+ *
+ * `meta.isFirstBind` is true exactly once, on the initial bind.
+ * `meta.isUnbind` is true on the unbind emission (always paired with
+ * `files = []`). Watcher republishes pass an empty meta — the bridge
+ * uses notifyTracker to decide whether the change is significant
+ * enough to send a follow-up notice.
+ */
+export type FileTreeChangedHandler = (
+  roomId: string,
+  files: FileEntry[],
+  meta: { isFirstBind?: boolean; isUnbind?: boolean },
+) => void;
+
 export class WorkspaceManager {
   private bindings = new Map<string, Binding>();
+  /** Last-known binding for a room, retained after unbind so the
+   *  Agent-awareness "已解绑" notice can still reference the folder
+   *  name without round-tripping the renderer. */
+  private lastBindings = new Map<string, Binding>();
   private watchers = new Map<string, FSWatcher>();
   private accessLogs = new Map<string, AccessLogEntry[]>();
+  /** Per-room throttle for "files updated" notices. The bridge writes
+   *  here via recordNotify after publishing one; subsequent watcher
+   *  republishes consult getLastNotifyAt / getLastNotifiedFileCount
+   *  to decide whether the change warrants a fresh announcement. */
+  private notifyTracker = new Map<
+    string,
+    { lastNotifyAt: number; lastFileCount: number }
+  >();
   private storageFile: string;
   private accessLogFile: string;
-  private mainWindow: BrowserWindow | null = null;
+  private onFileTreeChanged: FileTreeChangedHandler;
 
   // Sane default ignore list — keeps Agents away from secrets, build
   // artifacts, and noise. Users can layer their own `.magicignore` on
@@ -146,7 +177,7 @@ export class WorkspaceManager {
   // save).
   private readonly REPUBLISH_DEBOUNCE_MS = 2000;
 
-  constructor() {
+  constructor(onFileTreeChanged: FileTreeChangedHandler) {
     this.storageFile = path.join(
       app.getPath("userData"),
       "magic-workspaces.json",
@@ -155,10 +186,7 @@ export class WorkspaceManager {
       app.getPath("userData"),
       "magic-workspace-access-log.json",
     );
-  }
-
-  setMainWindow(win: BrowserWindow): void {
-    this.mainWindow = win;
+    this.onFileTreeChanged = onFileTreeChanged;
   }
 
   /**
@@ -213,7 +241,7 @@ export class WorkspaceManager {
 
   private async saveBindings(): Promise<void> {
     const data = {
-      version: 1,
+      version: 2,
       bindings: Object.fromEntries(this.bindings.entries()),
     };
     await fs.writeFile(this.storageFile, JSON.stringify(data, null, 2));
@@ -325,9 +353,14 @@ export class WorkspaceManager {
     };
 
     this.bindings.set(roomId, binding);
+    // Mirror into lastBindings so getLastBinding always works without
+    // needing to special-case "currently bound vs recently unbound".
+    this.lastBindings.set(roomId, binding);
     await this.saveBindings();
 
-    this.emitFileTreeChanged(roomId, scan.files);
+    // Spec §3.5 — first emit carries isFirstBind so the bridge knows
+    // to ship the initial Agent-awareness notice.
+    this.onFileTreeChanged(roomId, scan.files, { isFirstBind: true });
     this.emitBindingChanged(roomId, binding);
 
     await this.startWatching(roomId, binding);
@@ -336,6 +369,11 @@ export class WorkspaceManager {
   }
 
   async unbind(roomId: string): Promise<void> {
+    // Snapshot the binding *before* deletion so the unbind notice can
+    // still reference the displayName.
+    const binding = this.bindings.get(roomId);
+    if (binding) this.lastBindings.set(roomId, binding);
+
     const watcher = this.watchers.get(roomId);
     if (watcher) {
       try {
@@ -346,15 +384,23 @@ export class WorkspaceManager {
       this.watchers.delete(roomId);
     }
     this.bindings.delete(roomId);
+    // Drop the throttle entry too — re-binding the same room in this
+    // session shouldn't carry over stale "lastNotifiedFileCount".
+    this.notifyTracker.delete(roomId);
     await this.saveBindings();
 
-    // Empty file list signals the bridge to publish `{ bound: false }`.
-    this.emitFileTreeChanged(roomId, []);
+    // Empty file list + isUnbind tells the bridge to publish
+    // `{ bound: false }` *and* an unbind notice.
+    this.onFileTreeChanged(roomId, [], { isUnbind: true });
     this.emitBindingChanged(roomId, null);
   }
 
   getBinding(roomId: string): Binding | null {
     return this.bindings.get(roomId) ?? null;
+  }
+
+  getLastBinding(roomId: string): Binding | null {
+    return this.lastBindings.get(roomId) ?? null;
   }
 
   getAllBindings(): Binding[] {
@@ -364,6 +410,23 @@ export class WorkspaceManager {
   revealInFinder(roomId: string): void {
     const binding = this.bindings.get(roomId);
     if (binding) shell.openPath(binding.localPath);
+  }
+
+  // ---------- Spec §3.5 notification throttle ----------
+
+  getLastNotifyAt(roomId: string): number {
+    return this.notifyTracker.get(roomId)?.lastNotifyAt ?? 0;
+  }
+
+  getLastNotifiedFileCount(roomId: string): number {
+    return this.notifyTracker.get(roomId)?.lastFileCount ?? 0;
+  }
+
+  recordNotify(roomId: string, fileCount: number): void {
+    this.notifyTracker.set(roomId, {
+      lastNotifyAt: Date.now(),
+      lastFileCount: fileCount,
+    });
   }
 
   /**
@@ -583,8 +646,13 @@ export class WorkspaceManager {
           const scan = await this.scanFolder(binding.localPath);
           binding.fileCount = scan.fileCount;
           binding.totalSize = scan.totalSize;
+          // Keep lastBindings in step with the live binding so any
+          // unbind notice that follows shows the latest fileCount.
+          this.lastBindings.set(roomId, { ...binding });
           await this.saveBindings();
-          this.emitFileTreeChanged(roomId, scan.files);
+          // Empty meta — bridge consults notifyTracker to decide
+          // whether this republish is significant enough to announce.
+          this.onFileTreeChanged(roomId, scan.files, {});
           this.emitBindingChanged(roomId, binding);
         } catch (err) {
           console.error("[workspace] republish failed:", err);
@@ -629,10 +697,6 @@ export class WorkspaceManager {
     this.emitAccessLogged(roomId, entry);
   }
 
-  private emitFileTreeChanged(roomId: string, files: FileEntry[]): void {
-    this.broadcast("workspace:file-tree-changed", { roomId, files });
-  }
-
   private emitBindingChanged(
     roomId: string,
     binding: Binding | null,
@@ -644,10 +708,16 @@ export class WorkspaceManager {
     this.broadcast("workspace:access-logged", { roomId, entry });
   }
 
+  /**
+   * Broadcast a payload to every renderer window. We don't need to
+   * track a "primary" window because the renderers each subscribe
+   * with their own onBindingChanged / onAccessLogged listeners.
+   */
   private broadcast(channel: string, payload: unknown): void {
-    const target = this.mainWindow ?? BrowserWindow.getAllWindows()[0] ?? null;
-    if (target && !target.isDestroyed()) {
-      target.webContents.send(channel, payload);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(channel, payload);
+      }
     }
   }
 }
