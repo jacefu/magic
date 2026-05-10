@@ -25,6 +25,16 @@ export type { Theme, Language } from "./hooks/useSettings.js";
 // Workspace (spec 016)
 export { AddServerDialog } from "./workspace/AddServerDialog.js";
 
+// Workspace folder binding (spec 022)
+export { BindFolderButton } from "./workspace/BindFolderButton.js";
+export { BindFolderConfirmDialog } from "./workspace/BindFolderConfirmDialog.js";
+export { WorkspaceSection } from "./workspace/WorkspaceSection.js";
+export { AccessLogSection } from "./workspace/AccessLogSection.js";
+export { WorkspaceIndicator } from "./workspace/WorkspaceIndicator.js";
+export { useWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
+export type { UseWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
+export { useWorkspaceMatrixBridge } from "./hooks/useWorkspaceMatrixBridge.js";
+
 // Layouts
 export { MainLayout } from "./layouts/MainLayout.js";
 

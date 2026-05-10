@@ -14,11 +14,14 @@
     "@magic/matrix-client": "workspace:*",
     "@magic/shared-types": "workspace:*",
     "@magic/ui": "workspace:*",
+    "chokidar": "^5.0.0",
     "electron": "^36.0.0",
-    "electron-store": "^10.1.0"
+    "electron-store": "^10.1.0",
+    "minimatch": "^10.2.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.0",
+    "@types/minimatch": "^6.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.4.0",

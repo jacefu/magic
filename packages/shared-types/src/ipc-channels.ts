@@ -43,6 +43,116 @@ export interface IElectronAPI {
   // ---- App info ----
   getAppVersion: () => Promise<string>;
   getPlatform: () => Promise<string>;
+
+  // ---- Workspace folder binding (Spec 022) ----
+  /**
+   * Per-channel sub-namespace so the binding lifecycle, file IO, and
+   * push notifications stay grouped. Renderer code consumes via
+   * `window.electronAPI.workspace.*`.
+   */
+  workspace: WorkspaceAPI;
+}
+
+export interface WorkspaceFileEntry {
+  path: string;
+  size: number;
+  mtime: number;
+}
+
+export interface WorkspaceScanResult {
+  fileCount: number;
+  totalSize: number;
+  ignoredCount: number;
+  files: WorkspaceFileEntry[];
+  truncated: boolean;
+}
+
+export interface WorkspaceBinding {
+  roomId: string;
+  localPath: string;
+  displayName: string;
+  boundBy: string;
+  boundAt: number;
+  fileCount: number;
+  totalSize: number;
+  ignorePatterns: string[];
+}
+
+export interface WorkspaceAccessLogEntry {
+  timestamp: number;
+  type: "read" | "list";
+  path: string;
+  agentUserId: string;
+  bytes: number;
+  success: boolean;
+}
+
+export interface WorkspaceReadResult {
+  ok: boolean;
+  /** base64-encoded raw file bytes — IPC can't ship a Buffer directly. */
+  contentBase64?: string;
+  encoding?: "utf-8" | "base64";
+  size?: number;
+  mtime?: number;
+  error?: string;
+  errorMessage?: string;
+}
+
+export interface WorkspaceListResult {
+  ok: boolean;
+  entries?: Array<{
+    path: string;
+    size: number;
+    mtime: number;
+    isDirectory: boolean;
+  }>;
+  error?: string;
+  errorMessage?: string;
+}
+
+export interface WorkspaceAPI {
+  pickFolder: () => Promise<string | null>;
+  scanFolder: (folderPath: string) => Promise<WorkspaceScanResult>;
+  bind: (
+    roomId: string,
+    folderPath: string,
+    boundBy: string,
+  ) => Promise<WorkspaceBinding>;
+  unbind: (roomId: string) => Promise<void>;
+  getBinding: (roomId: string) => Promise<WorkspaceBinding | null>;
+  getAllBindings: () => Promise<WorkspaceBinding[]>;
+  revealInFinder: (roomId: string) => Promise<void>;
+  readFile: (
+    roomId: string,
+    relPath: string,
+    maxSize: number,
+    requesterId: string,
+  ) => Promise<WorkspaceReadResult>;
+  listDir: (
+    roomId: string,
+    relPath: string,
+    depth: number,
+    requesterId: string,
+  ) => Promise<WorkspaceListResult>;
+  getAccessLog: (
+    roomId: string,
+    limit: number,
+  ) => Promise<WorkspaceAccessLogEntry[]>;
+  /** main → renderer push: file watcher republish. */
+  onFileTreeChanged: (
+    cb: (payload: { roomId: string; files: WorkspaceFileEntry[] }) => void,
+  ) => () => void;
+  /** main → renderer push: bind / unbind / metadata change. */
+  onBindingChanged: (
+    cb: (payload: {
+      roomId: string;
+      binding: WorkspaceBinding | null;
+    }) => void,
+  ) => () => void;
+  /** main → renderer push: a read or list just completed. */
+  onAccessLogged: (
+    cb: (payload: { roomId: string; entry: WorkspaceAccessLogEntry }) => void,
+  ) => () => void;
 }
 
 export interface LoginResponse {

@@ -1,6 +1,7 @@
 import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { isDmRoom } from "../lib/isDmRoom.js";
 import type { MessageSearch } from "../hooks/useMessageSearch.js";
+import { WorkspaceIndicator } from "../workspace/WorkspaceIndicator.js";
 
 interface ChannelHeaderProps {
   roomId: string;
@@ -70,6 +71,11 @@ export function ChannelHeader({ roomId, search }: ChannelHeaderProps) {
       ) : (
         <div className="flex-1" />
       )}
+
+      {/* Spec 022 — workspace folder pill, only present when this room
+          actually has a binding. Lives just before the right-cluster
+          buttons so it sits inside the same visual block. */}
+      <WorkspaceIndicator roomId={roomId} />
 
       {/* Right cluster — DMs hide the member toggle since there's just
           two of you and the panel adds nothing. */}

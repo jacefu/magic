@@ -67,6 +67,53 @@ const electronAPI: IElectronAPI = {
   // ---- App info ----
   getAppVersion: () => ipcRenderer.invoke("app:get-version"),
   getPlatform: () => ipcRenderer.invoke("app:get-platform"),
+
+  // ---- Workspace (Spec 022) ----
+  workspace: {
+    pickFolder: () => ipcRenderer.invoke("workspace:pickFolder"),
+    scanFolder: (folderPath) =>
+      ipcRenderer.invoke("workspace:scanFolder", folderPath),
+    bind: (roomId, folderPath, boundBy) =>
+      ipcRenderer.invoke("workspace:bind", roomId, folderPath, boundBy),
+    unbind: (roomId) => ipcRenderer.invoke("workspace:unbind", roomId),
+    getBinding: (roomId) => ipcRenderer.invoke("workspace:getBinding", roomId),
+    getAllBindings: () => ipcRenderer.invoke("workspace:getAllBindings"),
+    revealInFinder: (roomId) =>
+      ipcRenderer.invoke("workspace:revealInFinder", roomId),
+    readFile: (roomId, relPath, maxSize, requesterId) =>
+      ipcRenderer.invoke(
+        "workspace:readFile",
+        roomId,
+        relPath,
+        maxSize,
+        requesterId,
+      ),
+    listDir: (roomId, relPath, depth, requesterId) =>
+      ipcRenderer.invoke(
+        "workspace:listDir",
+        roomId,
+        relPath,
+        depth,
+        requesterId,
+      ),
+    getAccessLog: (roomId, limit) =>
+      ipcRenderer.invoke("workspace:getAccessLog", roomId, limit),
+    onFileTreeChanged: (cb) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => cb(data);
+      ipcRenderer.on("workspace:file-tree-changed", handler);
+      return () => ipcRenderer.off("workspace:file-tree-changed", handler);
+    },
+    onBindingChanged: (cb) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => cb(data);
+      ipcRenderer.on("workspace:binding-changed", handler);
+      return () => ipcRenderer.off("workspace:binding-changed", handler);
+    },
+    onAccessLogged: (cb) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => cb(data);
+      ipcRenderer.on("workspace:access-logged", handler);
+      return () => ipcRenderer.off("workspace:access-logged", handler);
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);

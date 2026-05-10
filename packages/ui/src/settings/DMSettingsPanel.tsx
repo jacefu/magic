@@ -11,6 +11,7 @@ import { NotificationSection } from "./NotificationSection.js";
 import { SecuritySection } from "./SecuritySection.js";
 import { AdvancedSection } from "./AdvancedSection.js";
 import { SettingsDivider } from "./roomSettingsPrimitives.js";
+import { WorkspaceSection } from "../workspace/WorkspaceSection.js";
 
 interface DMSettingsPanelProps {
   roomId: string;
@@ -100,6 +101,13 @@ export function DMSettingsPanel({
         readPersistedPrefs={readPersistedPrefs}
         onSetMode={onSetNotification}
         onToggleFavourite={onToggleFavourite}
+      />
+
+      <SettingsDivider />
+
+      <WorkspaceSection
+        roomId={roomId}
+        peerLabel={peer?.displayName ?? "对方"}
       />
 
       <SettingsDivider />

@@ -8,13 +8,16 @@ import { createSessionsHandlers } from "./ipc/sessions.js";
 import { createShellHandlers } from "./ipc/shell.js";
 import { createAppHandlers } from "./ipc/app.js";
 import { createNotifyHandlers } from "./ipc/notify.js";
+import { createWorkspaceHandlers } from "./ipc/workspace.js";
 
 import { createTray, destroyTray } from "./services/tray.js";
 import { restoreWindowBounds, trackWindowState } from "./services/window-state.js";
+import { WorkspaceManager } from "./workspace/WorkspaceManager.js";
 
 import { settingsStore } from "./store.js";
 
 let mainWindow: BrowserWindow | null = null;
+const workspace = new WorkspaceManager();
 
 function createWindow(): BrowserWindow {
   const bounds = restoreWindowBounds();
@@ -75,8 +78,9 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   mainWindow = createWindow();
+  workspace.setMainWindow(mainWindow);
 
   registerIPCHandlers(mainWindow, [
     createWindowHandlers(),
@@ -85,7 +89,13 @@ app.whenReady().then(() => {
     createShellHandlers(),
     createAppHandlers(),
     createNotifyHandlers(),
+    createWorkspaceHandlers(workspace),
   ]);
+
+  // Restore persisted bindings + re-attach watchers. Awaited so the
+  // first renderer frame can already read accurate binding state via
+  // workspace:getBinding instead of racing the file IO.
+  await workspace.load();
 
   createTray(mainWindow);
 
@@ -105,6 +115,10 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   destroyTray();
+  // Fire-and-forget — we don't block quit on watcher cleanup. chokidar
+  // closes its FS handles synchronously enough that orphaned watchers
+  // are cleaned up by the OS anyway.
+  void workspace.shutdown();
 });
 
 app.on("web-contents-created", (_, contents) => {
