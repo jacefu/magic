@@ -57,25 +57,47 @@ export const MessageBubble = memo(function MessageBubble({
   );
 
   const time = formatTime(event.timestamp);
-  const senderName = extractDisplayName(event.sender);
+  const localpart = extractDisplayName(event.sender);
   const agentInfo = getAgentInfo(event.sender);
-  // The brand stripe and the avatar share the same gradient so each
-  // sender gets a consistent personal color across the message row.
-  // Agents get their role-specific gradient; humans fall through to
-  // the hash-based palette (the same one RoomAvatar would pick).
+
+  // Resolve the live display name + avatar.
+  //
+  // For OWN messages we read from `useAuthStore` so a profile change
+  // made via the settings panel reflects on the user's own bubbles
+  // immediately (the homeserver's m.room.member echo back through
+  // sync can take many seconds).
+  //
+  // For OTHER members we ask the SDK via room.getMember(); that's
+  // the room-scoped name + avatar that the SDK keeps in sync as
+  // events arrive. Falls back to the user-id localpart when no
+  // SDK / member info is available.
+  const ownUserId = useAuthStore((s) => s.userId);
+  const ownDisplayName = useAuthStore((s) => s.displayName);
+  const ownAvatarMxc = useAuthStore((s) => s.avatarMxc);
+  const isOwnSender = ownUserId === event.sender;
+  const sdkProfile = useSdkSenderProfile(
+    event.sender,
+    event.roomId,
+    isOwnSender,
+  );
+
+  const senderName = isOwnSender
+    ? (ownDisplayName ?? localpart)
+    : (sdkProfile.displayName ?? localpart);
+  const senderAvatarMxc = isOwnSender
+    ? ownAvatarMxc
+    : sdkProfile.avatarMxc;
+
+  // The brand stripe and the letter-fallback avatar share the same
+  // gradient so each sender gets a consistent personal color across
+  // the message row. Agents get their role-specific gradient; humans
+  // fall through to the hash-based palette.
   const senderGradient =
     avatarGradient(agentInfo) ?? pickGradient(senderName);
 
-  // Resolve display name with the SDK if available — falls back to the
-  // user's local part. Used for click-to-mention so it lines up with
+  // Used for click-to-mention so it lines up with
   // resolveMentionsToPlaceholders' member lookup at send time.
-  const mentionableName = useMentionableDisplayName(
-    event.sender,
-    senderName,
-    event.roomId,
-  );
-
-  const isOwnSender = useAuthStore((s) => s.userId) === event.sender;
+  const mentionableName = senderName;
   const requestComposerInsert = useUIStore((s) => s.requestComposerInsert);
 
   const handleNameClick = () => {
@@ -119,7 +141,7 @@ export const MessageBubble = memo(function MessageBubble({
         {showSender && (
           <RoomAvatar
             name={senderName}
-            avatarMxc={null}
+            avatarMxc={senderAvatarMxc}
             isDirect
             size={36}
             isAgent={agentInfo.isAgent}
@@ -306,22 +328,38 @@ function extractDisplayName(userId: string): string {
   return match ? match[1] : userId;
 }
 
-/** Match the SDK's joined-member display name (e.g. "manager 💕") so the
- *  click-to-mention text resolves cleanly via resolveMentionsToPlaceholders.
- *  Falls back to the user's local part when no member record is found. */
-function useMentionableDisplayName(
+/**
+ * Pull the room-scoped member profile (display name + avatar) out of
+ * the SDK so MessageBubble can render the latest values for everyone
+ * except the local user. We skip the lookup for own messages — the
+ * caller reads from useAuthStore directly there to avoid a sync
+ * round-trip.
+ *
+ * Hooks rule: this is a plain function (no hook prefix in old code
+ * was misleading) — it doesn't subscribe to anything, so it just
+ * reads once per render. That's fine: room.getMember already returns
+ * the latest snapshot the SDK has, and a re-render is triggered by
+ * the upstream timeline event flow whenever a member event lands.
+ */
+function useSdkSenderProfile(
   senderUserId: string,
-  fallback: string,
   roomId: string,
-): string {
-  if (!hasClient()) return fallback;
+  isOwnSender: boolean,
+): { displayName: string | null; avatarMxc: string | null } {
+  if (isOwnSender || !hasClient()) {
+    return { displayName: null, avatarMxc: null };
+  }
   try {
     const room = getClient().getRoom(roomId);
-    if (!room) return fallback;
+    if (!room) return { displayName: null, avatarMxc: null };
     const member = room.getMember(senderUserId);
-    return member?.name || fallback;
+    if (!member) return { displayName: null, avatarMxc: null };
+    return {
+      displayName: member.name || null,
+      avatarMxc: member.getMxcAvatarUrl() || null,
+    };
   } catch {
-    return fallback;
+    return { displayName: null, avatarMxc: null };
   }
 }
 

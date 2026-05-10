@@ -5,7 +5,7 @@ import {
   useSessionStore,
   useUIStore,
 } from "@magic/matrix-client";
-import { LetterAvatar } from "../avatar/LetterAvatar.js";
+import { RoomAvatar } from "../rooms/RoomAvatar.js";
 
 /**
  * Bottom-of-sidebar user panel: avatar + display name + settings gear
@@ -23,6 +23,11 @@ import { LetterAvatar } from "../avatar/LetterAvatar.js";
  */
 export function UserPanel() {
   const userId = useAuthStore((s) => s.userId);
+  // Read the live profile from authStore so a Settings → 修改 displayName
+  // reflects here without waiting for the homeserver to echo the
+  // m.presence event back through sync.
+  const profileDisplayName = useAuthStore((s) => s.displayName);
+  const profileAvatarMxc = useAuthStore((s) => s.avatarMxc);
   const openSettings = useUIStore((s) => s.openSettings);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const activeSession = useSessionStore((s) =>
@@ -30,8 +35,8 @@ export function UserPanel() {
   );
   const [signingOut, setSigningOut] = useState(false);
 
-  const displayName =
-    userId?.match(/^@([^:]+)/)?.[1] ?? userId ?? "用户";
+  const localpart = userId?.match(/^@([^:]+)/)?.[1] ?? userId ?? "用户";
+  const displayName = profileDisplayName ?? localpart;
 
   const handleSignOut = useCallback(async () => {
     if (!activeSessionId || signingOut) return;
@@ -53,11 +58,13 @@ export function UserPanel() {
   return (
     <div className="relative flex items-center gap-1.5 bg-[var(--bg-panel)] px-1.5 py-1.5">
       <div className="relative shrink-0">
-        <LetterAvatar
+        <RoomAvatar
           name={displayName}
-          userId={userId ?? undefined}
-          isAgent={false}
+          avatarMxc={profileAvatarMxc}
+          isDirect
           size={32}
+          isAgent={false}
+          userId={userId ?? undefined}
         />
         <div className="absolute -bottom-px -right-px flex h-3 w-3 items-center justify-center rounded-full bg-[var(--bg-panel)]">
           <div

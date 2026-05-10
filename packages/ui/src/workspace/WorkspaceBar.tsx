@@ -61,6 +61,7 @@ export function WorkspaceBar() {
           initial={session.serverInitial}
           name={session.serverName}
           color={session.serverColor ?? undefined}
+          iconDataUrl={session.iconDataUrl ?? null}
           isActive={!settingsOpen && session.id === activeId}
           hasNotification={session.unreadCount > 0}
           notificationCount={

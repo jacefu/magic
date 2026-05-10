@@ -16,6 +16,10 @@ export interface ServerSession {
   serverInitial: string;
   /** Hex colour for the workspace icon. */
   serverColor: string | null;
+  /** Optional user-uploaded image for the workspace icon, as a data
+   *  URL. When set, supersedes `serverInitial` + `serverColor` in
+   *  the rail render. */
+  iconDataUrl?: string | null;
   syncState: SyncState;
   /**
    * Latches `true` the first time the session reaches PREPARED. Used by

@@ -4,6 +4,14 @@ interface WorkspaceIconProps {
   initial: string;
   name: string;
   color?: string;
+  /**
+   * Optional user-uploaded image (data URL). When set, replaces the
+   * letter+colour render so the rail shows the binding's actual logo.
+   * The colour fallback is still passed through as the button
+   * background — visible during the briefest moment before the image
+   * paints, and as a backstop if the data URL is somehow invalid.
+   */
+  iconDataUrl?: string | null;
   isActive?: boolean;
   hasNotification?: boolean;
   notificationCount?: number;
@@ -35,6 +43,7 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
   initial,
   name,
   color,
+  iconDataUrl,
   isActive = false,
   hasNotification = false,
   notificationCount,
@@ -53,8 +62,14 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
     (syncState === "SYNCING" && !initialSyncComplete) ||
     (syncState === "STOPPED" && !initialSyncComplete);
 
+  // When the user has uploaded a custom icon, render that instead of
+  // the letter glyph. `overflow-hidden` on the button keeps the
+  // image clipped to the rounded shape during hover (which morphs
+  // the radius from full-circle to 14px).
+  const showImage = !!iconDataUrl && !isSyncing && variant !== "add";
+
   const buttonClasses =
-    "flex h-11 w-11 items-center justify-center text-[15px] font-semibold transition-all duration-250";
+    "flex h-11 w-11 items-center justify-center overflow-hidden text-[15px] font-semibold transition-all duration-250";
   const buttonRadius = isActive ? "rounded-[14px]" : "rounded-full";
   const buttonStateClasses = isActive
     ? "text-white"
@@ -108,6 +123,13 @@ export const WorkspaceIcon = memo(function WorkspaceIcon({
           >
             {isSyncing ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : showImage ? (
+              <img
+                src={iconDataUrl ?? undefined}
+                alt={name}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
             ) : (
               initial
             )}

@@ -174,6 +174,14 @@ export interface PersistedSession {
   serverName: string;
   serverInitial: string;
   serverColor: string | null;
+  /**
+   * Optional user-uploaded server icon, encoded as a `data:image/...;base64,…`
+   * URL. Resized to ≤128 px² before storage so a megabyte hi-res photo
+   * doesn't bloat the persisted sessions file. When present the
+   * workspace rail renders this image instead of the letter+colour
+   * fallback.
+   */
+  iconDataUrl?: string | null;
   addedAt: number;
 }
 

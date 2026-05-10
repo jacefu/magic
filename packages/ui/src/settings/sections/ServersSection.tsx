@@ -6,7 +6,7 @@ import {
   useUIStore,
   type ServerSession,
 } from "@magic/matrix-client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AddServerDialog } from "../../workspace/AddServerDialog.js";
 import { DialogOverlay } from "../../common/DialogOverlay.js";
 
@@ -156,8 +156,13 @@ function ServerAppearanceDialog({
   const [name, setName] = useState(session.serverName);
   const [initial, setInitial] = useState(session.serverInitial);
   const [color, setColor] = useState(session.serverColor ?? "#5865F2");
+  const [iconDataUrl, setIconDataUrl] = useState<string | null>(
+    session.iconDataUrl ?? null,
+  );
   const [saving, setSaving] = useState(false);
+  const [resizing, setResizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trimmedName = name.trim();
   const trimmedInitial = initial.trim().slice(0, 2);
@@ -165,9 +170,29 @@ function ServerAppearanceDialog({
     !!trimmedName &&
     !!trimmedInitial &&
     !saving &&
+    !resizing &&
     (trimmedName !== session.serverName ||
       trimmedInitial !== session.serverInitial ||
-      color !== (session.serverColor ?? "#5865F2"));
+      color !== (session.serverColor ?? "#5865F2") ||
+      iconDataUrl !== (session.iconDataUrl ?? null));
+
+  const handleFilePick = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setResizing(true);
+    setError(null);
+    try {
+      const resized = await resizeImageToDataUrl(file, 128);
+      setIconDataUrl(resized);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "图片处理失败");
+    } finally {
+      setResizing(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -178,6 +203,7 @@ function ServerAppearanceDialog({
         serverName: trimmedName,
         serverInitial: trimmedInitial,
         serverColor: color,
+        iconDataUrl,
       });
       onClose();
     } catch (err) {
@@ -213,10 +239,19 @@ function ServerAppearanceDialog({
         <div className="mt-4 flex items-center gap-3 rounded-lg p-3"
              style={{ background: "var(--bg-surface)" }}>
           <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-base font-semibold text-white"
+            className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl text-base font-semibold text-white"
             style={{ backgroundColor: color }}
           >
-            {trimmedInitial || "?"}
+            {iconDataUrl ? (
+              <img
+                src={iconDataUrl}
+                alt={trimmedName || trimmedInitial}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            ) : (
+              <span>{trimmedInitial || "?"}</span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
@@ -229,6 +264,41 @@ function ServerAppearanceDialog({
               {session.homeserver}
             </p>
           </div>
+        </div>
+
+        {/* Upload / clear icon image */}
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => void handleFilePick(e)}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={resizing || saving}
+            className="rounded-md border-[0.5px] border-[var(--border-default)] px-3 py-1 text-[11px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] disabled:opacity-50"
+          >
+            {resizing ? "处理中…" : iconDataUrl ? "更换图片" : "上传图片"}
+          </button>
+          {iconDataUrl && (
+            <button
+              type="button"
+              onClick={() => setIconDataUrl(null)}
+              disabled={resizing || saving}
+              className="rounded-md px-2 py-1 text-[11px] text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--color-danger)] disabled:opacity-50"
+            >
+              清除图片
+            </button>
+          )}
+          <span
+            className="ml-auto text-[10px]"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            自动缩放至 128×128
+          </span>
         </div>
 
         <div className="mt-4 space-y-3">
@@ -321,6 +391,64 @@ function ServerAppearanceDialog({
       </div>
     </DialogOverlay>
   );
+}
+
+/**
+ * Read the picked image file and downscale it to fit inside a square
+ * of side `maxSide`, returning the result as a `data:image/png;base64,…`
+ * URL. Resizing keeps the persisted sessions file from ballooning when
+ * users pick a multi-MB photo as their server icon — 128 px PNG is
+ * usually well under 50 KB and good enough for a 44 px workspace
+ * rail render.
+ */
+async function resizeImageToDataUrl(
+  file: File,
+  maxSide: number,
+): Promise<string> {
+  // Use createImageBitmap when available (faster, no DOM needed). Fall
+  // back to a hidden Image element for older runtimes.
+  let bitmap: ImageBitmap | HTMLImageElement;
+  if (typeof createImageBitmap === "function") {
+    bitmap = await createImageBitmap(file);
+  } else {
+    const url = URL.createObjectURL(file);
+    try {
+      bitmap = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("无法读取图片"));
+        img.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  const w = (bitmap as { width: number }).width;
+  const h = (bitmap as { height: number }).height;
+  const scale = Math.min(maxSide / Math.max(w, h), 1);
+  const targetW = Math.max(1, Math.round(w * scale));
+  const targetH = Math.max(1, Math.round(h * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 不可用");
+  ctx.drawImage(
+    bitmap as CanvasImageSource,
+    0,
+    0,
+    targetW,
+    targetH,
+  );
+  if (
+    typeof ImageBitmap !== "undefined" &&
+    bitmap instanceof ImageBitmap
+  ) {
+    bitmap.close();
+  }
+  return canvas.toDataURL("image/png");
 }
 
 function SyncBadge({ state }: { state: string }) {

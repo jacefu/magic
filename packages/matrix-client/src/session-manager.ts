@@ -266,6 +266,7 @@ export async function updateServerAppearance(
     serverName?: string;
     serverInitial?: string;
     serverColor?: string | null;
+    iconDataUrl?: string | null;
   },
 ): Promise<void> {
   const session = useSessionStore.getState().sessions[sessionId];
@@ -422,6 +423,7 @@ export async function restoreAllSessions(): Promise<void> {
         serverName: s.serverName,
         serverInitial: s.serverInitial,
         serverColor: s.serverColor,
+        iconDataUrl: s.iconDataUrl ?? null,
         syncState: "STOPPED",
         initialSyncComplete: false,
         unreadCount: 0,
@@ -587,6 +589,37 @@ function registerSessionWatchers(
       const current = useSessionStore.getState().sessions[sessionId];
       if (current && !current.initialSyncComplete) {
         updates.initialSyncComplete = true;
+        // Fetch the homeserver-side profile (display name + avatar)
+        // and mirror into the session + authStore. Without this the
+        // session.displayName stays null on cold restore even though
+        // the user has a display name set on the server, and any
+        // bubble / panel reading from authStore falls back to the
+        // bare user-id localpart.
+        const ownId = client.getUserId();
+        if (ownId) {
+          void client
+            .getProfileInfo(ownId)
+            .then((profile) => {
+              const profileUpdates = {
+                displayName:
+                  (profile as { displayname?: string }).displayname ?? null,
+                avatarMxc:
+                  (profile as { avatar_url?: string }).avatar_url ?? null,
+              };
+              useSessionStore
+                .getState()
+                .updateSession(sessionId, profileUpdates);
+              // Mirror to authStore if this is the active session.
+              if (
+                useSessionStore.getState().activeSessionId === sessionId
+              ) {
+                syncAuthStoreFromActive();
+              }
+            })
+            .catch(() => {
+              /* best-effort — no displayname is fine */
+            });
+        }
       }
     }
     useSessionStore.getState().updateSession(sessionId, updates);
@@ -687,6 +720,7 @@ async function persistSessions(): Promise<void> {
   const sessions: PersistedSession[] = Object.values(
     useSessionStore.getState().sessions,
   ).map((s) => ({
+    iconDataUrl: s.iconDataUrl ?? null,
     id: s.id,
     homeserver: s.homeserver,
     userId: s.userId,
