@@ -23,6 +23,15 @@ let mainWindow: BrowserWindow | null = null;
 // renderer turns those into Matrix state events + (per spec §3.5)
 // `m.notice` agent-awareness messages.
 const workspace = new WorkspaceManager((roomId, files, meta) => {
+  // Diagnostic — pairs with the renderer-side log so you can confirm
+  // main is sending isFirstBind / isUnbind correctly. If main says
+  // isFirstBind=true but the renderer log doesn't, the IPC dropped it.
+  // eslint-disable-next-line no-console
+  console.log("[workspace/main] file-tree-changed broadcast", {
+    roomId,
+    fileCount: files.length,
+    meta,
+  });
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send("workspace:file-tree-changed", {

@@ -68,6 +68,18 @@ export function useWorkspaceMatrixBridge(): void {
     // ---- Outbound: file tree changes → state event ----------------
     const unsubFileTree = api.onFileTreeChanged(
       async ({ roomId, files, isFirstBind, isUnbind }) => {
+        // Diagnostic — confirms the IPC payload landed with the
+        // expected flags. If you see fileCount > 0 but isFirstBind
+        // is undefined, the main → renderer hand-off is dropping the
+        // meta. If you don't see this line at all, the bridge isn't
+        // mounted.
+        // eslint-disable-next-line no-console
+        console.log("[workspace] file-tree-changed received", {
+          roomId,
+          fileCount: files.length,
+          isFirstBind,
+          isUnbind,
+        });
         const me = client.getUserId();
         if (!me) return;
         try {
@@ -176,11 +188,19 @@ export function useWorkspaceMatrixBridge(): void {
             // First bind: long-form notice with the full prompt body
             // so the Agent's LLM picks the workspace up on the very
             // next turn.
+            // eslint-disable-next-line no-console
+            console.log("[workspace] sending bind notice", {
+              roomId,
+              displayName: binding.displayName,
+              fileCount: files.length,
+            });
             await sendNoticeEvent(
               client,
               roomId,
               buildBindNotice(me, binding.displayName, files, totalSize),
             );
+            // eslint-disable-next-line no-console
+            console.log("[workspace] bind notice dispatched");
             await api.recordNotify(roomId, files.length);
           } else {
             // Watcher republish: only announce significant change
