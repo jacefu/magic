@@ -2,10 +2,19 @@
   "name": "@magic/desktop",
   "version": "0.0.1",
   "private": true,
+  "description": "Magic — Multi-Agent Collaboration Platform",
+  "author": {
+    "name": "Magic"
+  },
+  "homepage": "https://github.com/jacefu/magic",
   "main": "./dist/main/index.mjs",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:unpack": "pnpm build && electron-builder --dir",
+    "build:mac": "pnpm build && electron-builder --mac --universal",
+    "release:mac": "pnpm build && electron-builder --mac --universal --publish always",
+    "release:dryrun": "pnpm build && electron-builder --mac --universal --publish never",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint src/",
     "clean": "rm -rf dist release"
@@ -15,7 +24,6 @@
     "@magic/shared-types": "workspace:*",
     "@magic/ui": "workspace:*",
     "chokidar": "^5.0.0",
-    "electron": "^36.0.0",
     "electron-store": "^10.1.0",
     "minimatch": "^10.2.5"
   },
@@ -25,6 +33,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.4.0",
+    "electron": "36.0.0",
     "electron-builder": "^26.9.0",
     "electron-vite": "^5.0.0",
     "react": "^19.0.0",

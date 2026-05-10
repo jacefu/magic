@@ -1,31 +1,82 @@
 appId: com.magic.client
-productName: MAGIC Client
+productName: Magic
+copyright: Copyright © 2026 Magic Team
+
 directories:
-  output: release
+  # Spec 024 §3.3 — version-scoped output so each release has its
+  # own folder under release/<version>/.
+  output: release/${version}
   buildResources: build
+
+# Spec 024 §3.5 — electron-vite builds the main / preload / renderer
+# into dist/ in this project (see "main": "./dist/main/index.mjs" in
+# package.json). The spec example used out/**/*; the path below
+# tracks the actual output directory.
+#
+# `electron-store` / `chokidar` / `minimatch` are bundled inline into
+# the main output (see electron.vite.config.ts), so the packaged
+# main has zero runtime node_modules dependency. We exclude
+# node_modules from the asar to keep the dmg small (without this the
+# asar bloated to 304 MB; with it ~120 MB).
 files:
   - dist/**/*
+  - resources/**/*
+  - package.json
   - "!node_modules/**/*"
+
+# === macOS ===
 mac:
   category: public.app-category.productivity
   target:
-    - dmg
-    - zip
-  notarize: false
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
   # Spec 023 §6.1 — macOS dock / Finder icon.
   icon: build/icon.icns
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Spec 024 §1 — phase 1 ships unsigned. `identity: null` is the
+  # explicit opt-out so electron-builder doesn't try to sign with the
+  # default keychain identity. Phase 3 will replace this with a real
+  # Developer ID Application identity + hardened runtime + notarize.
+  identity: null
+
+# === DMG layout ===
+dmg:
+  iconSize: 100
+  iconTextSize: 14
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 200
+      type: file
+    - x: 410
+      y: 200
+      type: link
+      path: /Applications
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+# === Windows (kept for spec 023; not built in spec 024 phase 1) ===
 win:
   target:
     - nsis
-  # Spec 023 §6.1 — Windows taskbar / installer icon.
   icon: build/icon.ico
-  nsis:
-    oneClick: false
-    allowToChangeInstallationDirectory: true
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+# === Linux (kept for spec 023; not built in spec 024 phase 1) ===
 linux:
-  # Spec 023 §6.1 — Linux launcher icon.
   icon: build/icon.png
+
+# === Publish target ===
 publish:
   provider: github
-  owner: magic-platform
-  repo: magic-client
+  owner: jacefu
+  repo: magic
+  releaseType: release
