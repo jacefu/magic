@@ -74,11 +74,23 @@ export function MessageComposer({
 
   // Click-outside dismissal — without this the menu stays latched open
   // when the user clicks back into the message field or anywhere else.
+  //
+  // ⚠ Skip when the click lands inside a portaled dialog. The bind-
+  // folder confirm dialog lives in a portal at <body> level, but its
+  // owning component (BindFolderButton) is rendered as a child of
+  // this menu — so closing the menu unmounts the dialog mid-use. The
+  // `data-magic-portal` attribute is set by every DialogOverlay host.
   useEffect(() => {
     if (!plusMenuOpen) return;
     const onPointer = (e: PointerEvent) => {
-      const target = e.target as Node | null;
+      const target = e.target as Element | null;
       if (!target) return;
+      if (
+        typeof target.closest === "function" &&
+        target.closest("[data-magic-portal]")
+      ) {
+        return;
+      }
       if (
         plusMenuRef.current?.contains(target) ||
         plusButtonRef.current?.contains(target)
