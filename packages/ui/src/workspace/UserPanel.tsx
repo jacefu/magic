@@ -1,10 +1,20 @@
-import { useAuthStore, useUIStore } from "@magic/matrix-client";
+import { useCallback, useState } from "react";
+import {
+  removeServer,
+  useAuthStore,
+  useSessionStore,
+  useUIStore,
+} from "@magic/matrix-client";
 import { LetterAvatar } from "../avatar/LetterAvatar.js";
 
 /**
- * Bottom-of-sidebar user panel: avatar + display name + settings gear.
- * Logout / disconnect lives inside the settings page (Servers section)
- * now that the app supports multi-server sessions.
+ * Bottom-of-sidebar user panel: avatar + display name + settings gear
+ * + sign-out button.
+ *
+ * "Sign out" used to live three menus deep under Settings → Servers →
+ * Disconnect, which left users hunting for a way out. The dedicated
+ * icon button at this level keeps a single click between the user and
+ * the welcome screen.
  *
  * Spec 023 — the avatar follows the same letter-PNG default as every
  * other avatar in the app. The current user is always a human, so
@@ -14,9 +24,31 @@ import { LetterAvatar } from "../avatar/LetterAvatar.js";
 export function UserPanel() {
   const userId = useAuthStore((s) => s.userId);
   const openSettings = useUIStore((s) => s.openSettings);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const activeSession = useSessionStore((s) =>
+    s.activeSessionId ? s.sessions[s.activeSessionId] : null,
+  );
+  const [signingOut, setSigningOut] = useState(false);
 
   const displayName =
     userId?.match(/^@([^:]+)/)?.[1] ?? userId ?? "用户";
+
+  const handleSignOut = useCallback(async () => {
+    if (!activeSessionId || signingOut) return;
+    const label = activeSession?.serverName ?? activeSession?.homeserver ?? "";
+    const ok = window.confirm(
+      label
+        ? `确定要退出登录 ${label} 吗？`
+        : "确定要退出登录吗？",
+    );
+    if (!ok) return;
+    setSigningOut(true);
+    try {
+      await removeServer(activeSessionId);
+    } finally {
+      setSigningOut(false);
+    }
+  }, [activeSessionId, activeSession, signingOut]);
 
   return (
     <div className="relative flex items-center gap-1.5 bg-[var(--bg-panel)] px-1.5 py-1.5">
@@ -57,8 +89,43 @@ export function UserPanel() {
         >
           <GearIcon />
         </button>
+        {activeSessionId && (
+          <button
+            type="button"
+            title={
+              activeSession
+                ? `退出登录 ${activeSession.serverName ?? activeSession.homeserver}`
+                : "退出登录"
+            }
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="flex h-8 w-8 items-center justify-center rounded text-[var(--text-secondary)]
+                       transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--color-danger)]
+                       disabled:opacity-40"
+          >
+            <SignOutIcon />
+          </button>
+        )}
       </div>
     </div>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.8}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+      />
+    </svg>
   );
 }
 

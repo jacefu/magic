@@ -66,6 +66,7 @@ export { useDmStore } from "./stores/dmStore.js";
 export {
   addServer,
   removeServer,
+  clearAllSessions,
   switchSession,
   restoreAllSessions,
   getSessionClient,

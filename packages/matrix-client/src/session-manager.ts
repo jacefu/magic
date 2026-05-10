@@ -55,6 +55,26 @@ const INACTIVE_POLL_INTERVAL_MS = 30_000;
  */
 const LOGIN_TIMEOUT_MS = 20_000;
 
+/**
+ * Caps for `removeServer`'s best-effort server-side cleanup. The
+ * local state has already been torn down by the time we reach these,
+ * so the user has long since seen the UI return to the welcome
+ * screen — these timers just stop us holding open a network call
+ * forever against a dead homeserver.
+ */
+const LOGOUT_TIMEOUT_MS = 5_000;
+const CLEAR_STORES_TIMEOUT_MS = 5_000;
+
+/**
+ * Cap for `client.initRustCrypto()` during session restore. The call
+ * is local (WASM init + IndexedDB open) so the happy path is sub-
+ * second, but a corrupt IDB store has been seen to hang it forever
+ * which then bricks the app on launch with the "正在恢复会话" splash.
+ * Timing out lets the for-loop move on and ultimately reach
+ * `progressCallback?.(null)` so the splash clears.
+ */
+const INIT_CRYPTO_TIMEOUT_MS = 15_000;
+
 function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
@@ -235,6 +255,15 @@ export function switchSession(targetSessionId: string): void {
  * Logout and remove a server. If it was the active session, the next
  * session in the list (if any) is activated; otherwise auth state
  * resets.
+ *
+ * Order of operations matters: we update local state and persist the
+ * smaller session list BEFORE attempting the server-side logout.
+ * The network logout was previously the first await and could hang
+ * indefinitely on an offline / unreachable homeserver — that left
+ * the user clicking "断开" with no visible effect because the store
+ * mutation lived behind the hung promise. Persistence-first means the
+ * UI returns to WelcomePage immediately; the server-side token
+ * invalidation becomes best-effort and is bounded by a short timeout.
  */
 export async function removeServer(sessionId: string): Promise<void> {
   const wasActive =
@@ -251,27 +280,16 @@ export async function removeServer(sessionId: string): Promise<void> {
   }
 
   const client = clients.get(sessionId);
+
+  // Step 1 — local teardown. This is what makes the UI react.
   if (client) {
-    try {
-      await client.logout(true);
-    } catch {
-      /* best-effort */
-    }
     client.stopClient();
-    await client.clearStores().catch(() => {
-      /* best-effort */
-    });
     client.removeAllListeners();
     clients.delete(sessionId);
   }
-
-  // Drop the per-session partitions so no stale rooms/typing leak
-  // back if the user re-adds the server later.
   useRoomStore.getState().removeSession(sessionId);
   useTypingStore.getState().removeSession(sessionId);
-
   useSessionStore.getState().removeSession(sessionId);
-  void persistSessions();
 
   if (wasActive) {
     const nextId = useSessionStore.getState().activeSessionId;
@@ -284,6 +302,70 @@ export async function removeServer(sessionId: string): Promise<void> {
     }
   }
   throttleInactiveSessions(useSessionStore.getState().activeSessionId);
+
+  // Step 2 — persist the (smaller / empty) session list. This is
+  // awaited so a hard quit immediately after disconnect doesn't lose
+  // the change.
+  await persistSessions();
+
+  // Step 3 — best-effort server-side cleanup. Bounded by short
+  // timeouts because we already updated the user-visible state.
+  if (client) {
+    try {
+      await withTimeout(
+        client.logout(true),
+        LOGOUT_TIMEOUT_MS,
+        "logout timed out",
+      );
+    } catch {
+      /* best-effort — server may be offline / token already invalid */
+    }
+    try {
+      await withTimeout(
+        client.clearStores(),
+        CLEAR_STORES_TIMEOUT_MS,
+        "clearStores timed out",
+      );
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+/**
+ * Wipe every session both in memory and on disk. Used by the
+ * AuthGuard watchdog so the user can recover from a corrupt
+ * persisted state ("正在恢复会话" stuck forever) without manually
+ * editing electron-store / localStorage.
+ */
+export async function clearAllSessions(): Promise<void> {
+  const ids = Array.from(clients.keys());
+  for (const id of ids) {
+    bridgeCleanups.get(id)?.();
+    bridgeCleanups.delete(id);
+    sessionWatchers.get(id)?.();
+    sessionWatchers.delete(id);
+    const poller = inactivePollers.get(id);
+    if (poller) {
+      clearInterval(poller);
+      inactivePollers.delete(id);
+    }
+    const c = clients.get(id);
+    if (c) {
+      try {
+        c.stopClient();
+        c.removeAllListeners();
+      } catch {
+        /* best-effort */
+      }
+      clients.delete(id);
+    }
+  }
+  useSessionStore.getState().reset();
+  useRoomStore.getState().reset();
+  useTypingStore.getState().reset();
+  useAuthStore.getState().reset();
+  await saveEncryptedSessions([], null);
 }
 
 /**
@@ -342,7 +424,11 @@ export async function restoreAllSessions(): Promise<void> {
         timelineSupport: true,
         useAuthorizationHeader: true,
       });
-      await client.initRustCrypto();
+      await withTimeout(
+        client.initRustCrypto(),
+        INIT_CRYPTO_TIMEOUT_MS,
+        `initRustCrypto timed out for ${session.serverName}`,
+      );
       clients.set(session.id, client);
 
       useSessionStore.getState().addSession(session);

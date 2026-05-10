@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
+  clearAllSessions,
   onRestoreProgress,
   restoreAllSessions,
   useSessionStore,
@@ -10,6 +11,16 @@ import { WelcomePage } from "./WelcomePage.js";
 interface AuthGuardProps {
   children: ReactNode;
 }
+
+/**
+ * Watchdog ceiling — if `restoreAllSessions()` hasn't resolved by
+ * this point we surface a "重置会话" escape hatch. The resolved
+ * timeouts inside session-manager (initRustCrypto 15 s, network
+ * paths their own caps) should always finish well below this; the
+ * watchdog only fires for the truly pathological case (corrupt
+ * store, missing WASM artefact, user toggling network mid-startup).
+ */
+const RESTORE_WATCHDOG_MS = 30_000;
 
 /**
  * Multi-server-aware AuthGuard.
@@ -32,6 +43,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   );
   const [restored, setRestored] = useState(false);
   const [progress, setProgress] = useState<RestoreProgress | null>(null);
+  const [stalled, setStalled] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,11 +54,27 @@ export function AuthGuard({ children }: AuthGuardProps) {
     restoreAllSessions().finally(() => {
       if (!cancelled) setRestored(true);
     });
+    const watchdog = window.setTimeout(() => {
+      if (!cancelled) setStalled(true);
+    }, RESTORE_WATCHDOG_MS);
     return () => {
       cancelled = true;
+      window.clearTimeout(watchdog);
       onRestoreProgress(null);
     };
   }, []);
+
+  const handleReset = useCallback(async () => {
+    if (resetting) return;
+    setResetting(true);
+    try {
+      await clearAllSessions();
+    } finally {
+      // A reload is the simplest way to clear all in-memory state and
+      // re-render from the WelcomePage cleanly.
+      window.location.reload();
+    }
+  }, [resetting]);
 
   if (!restored) {
     return (
@@ -76,6 +105,36 @@ export function AuthGuard({ children }: AuthGuardProps) {
             </>
           ) : (
             <p className="mt-3 text-sm text-[var(--text-secondary)]">正在恢复会话…</p>
+          )}
+
+          {/* Watchdog escape hatch — visible only after
+              RESTORE_WATCHDOG_MS so a normal slow restore on a busy
+              account doesn't surface scary "reset" copy. */}
+          {stalled && (
+            <div
+              className="mt-6 max-w-xs rounded-lg p-3 text-center"
+              style={{
+                background: "var(--bg-surface)",
+                border: "0.5px solid var(--border-default)",
+              }}
+            >
+              <p
+                className="text-[11px] leading-relaxed"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                会话恢复花了比预期更长的时间。可能是本地缓存损坏 —
+                清空后重新登录通常可以解决。
+              </p>
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={resetting}
+                className="mt-2 rounded-md px-3 py-1.5 text-[11px] font-medium text-white transition-opacity disabled:opacity-50"
+                style={{ background: "var(--color-danger)" }}
+              >
+                {resetting ? "重置中…" : "清空会话并重新登录"}
+              </button>
+            </div>
           )}
         </div>
       </div>

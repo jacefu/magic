@@ -2,6 +2,7 @@ import {
   removeServer,
   switchSession,
   useSessionStore,
+  useUIStore,
 } from "@magic/matrix-client";
 import { useMemo, useState } from "react";
 import { AddServerDialog } from "../../workspace/AddServerDialog.js";
@@ -17,6 +18,7 @@ export function ServersSection() {
     [sessionsRecord],
   );
   const activeId = useSessionStore((s) => s.activeSessionId);
+  const closeSettings = useUIStore((s) => s.closeSettings);
   const [showAdd, setShowAdd] = useState(false);
 
   const handleRemove = async (sessionId: string) => {
@@ -25,7 +27,16 @@ export function ServersSection() {
     const ok = window.confirm(
       `确定要断开 ${session.serverName}（${session.homeserver}）吗？\n断开后需要重新登录才能恢复。`,
     );
-    if (ok) await removeServer(sessionId);
+    if (!ok) return;
+    await removeServer(sessionId);
+    // Close the settings overlay so the user lands cleanly on the
+    // welcome page (when this was the last session) or on the chat
+    // view of whichever server is now active. Without this, the
+    // overlay stayed mounted and partially obscured the new state,
+    // making the disconnect feel like a no-op.
+    if (Object.keys(useSessionStore.getState().sessions).length === 0) {
+      closeSettings();
+    }
   };
 
   return (
