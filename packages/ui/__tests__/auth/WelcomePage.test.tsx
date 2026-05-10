@@ -24,7 +24,7 @@ describe("WelcomePage", () => {
   it("renders the brand mark + connect form + quick-connect presets", () => {
     render(<WelcomePage />);
     expect(screen.getByText("欢迎使用 MAGIC")).toBeTruthy();
-    expect(screen.getByText("连接 Matrix 服务器")).toBeTruthy();
+    expect(screen.getByText("连接 Magic 实例")).toBeTruthy();
     expect(screen.getByText("HiClaw 本地开发")).toBeTruthy();
     expect(screen.getByText("Matrix.org 公共服务器")).toBeTruthy();
   });

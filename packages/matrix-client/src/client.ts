@@ -20,7 +20,7 @@ export function getClient(): MatrixClient {
   if (fromSession) return fromSession;
   if (!standaloneClient) {
     throw new MagicClientError(
-      "MatrixClient 未初始化，请先添加 Matrix 服务器或调用 initClient()",
+      "MatrixClient 未初始化，请先添加 Magic 实例或调用 initClient()",
     );
   }
   return standaloneClient;

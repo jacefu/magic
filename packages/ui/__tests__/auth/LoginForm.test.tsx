@@ -57,7 +57,7 @@ describe("LoginForm", () => {
     render(<LoginForm onSubmit={vi.fn()} isLoading={false} error={null} />);
     expect(screen.queryByPlaceholderText("https://matrix.magic.com")).toBeNull();
 
-    fireEvent.click(screen.getByText(/Homeserver 设置/));
+    fireEvent.click(screen.getByText(/Magic 实例设置/));
     expect(screen.getByPlaceholderText("https://matrix.magic.com")).toBeTruthy();
 
     fireEvent.click(screen.getByText(/隐藏高级设置/));

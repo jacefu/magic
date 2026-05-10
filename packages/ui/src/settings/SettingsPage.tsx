@@ -15,7 +15,7 @@ interface SettingsPageProps {
 
 const TAB_TITLES: Record<SettingsTab, string> = {
   account: "账户",
-  servers: "服务器管理",
+  servers: "Magic 实例",
   appearance: "外观",
   notifications: "通知",
   language: "语言",

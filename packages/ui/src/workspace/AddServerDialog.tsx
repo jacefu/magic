@@ -56,16 +56,16 @@ export function AddServerDialog({ onClose }: AddServerDialogProps) {
         }}
       >
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-          添加 Matrix 服务器
+          添加 Magic 实例
         </h2>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
-          登录一个新的 Matrix homeserver，它会作为独立的工作区出现在左侧栏
+          登录一个新的 Magic 实例,它会作为独立的工作区出现在左侧栏
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <div>
             <label className="mb-1 block text-sm text-[var(--text-secondary)]">
-              服务器地址
+              Magic 实例地址
             </label>
             <input
               type="url"

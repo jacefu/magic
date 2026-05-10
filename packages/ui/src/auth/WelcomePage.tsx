@@ -133,16 +133,16 @@ export function WelcomePage() {
             }}
           >
             <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
-              连接 Matrix 服务器
+              连接 Magic 实例
             </h2>
             <p className="mb-5 mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
-              输入你的 Matrix homeserver 地址和账号信息，开始多 Agent 协同工作
+              输入你的 Magic 实例地址和账号信息，开始多 Agent 协同工作
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-[var(--text-secondary)]">
-                  服务器地址
+                  Magic 实例地址
                 </label>
                 <input
                   type="url"

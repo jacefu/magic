@@ -16,7 +16,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "用户设置",
     items: [
       { key: "account", label: "账户" },
-      { key: "servers", label: "服务器管理" },
+      { key: "servers", label: "Magic 实例" },
       { key: "appearance", label: "外观" },
       { key: "notifications", label: "通知" },
     ],

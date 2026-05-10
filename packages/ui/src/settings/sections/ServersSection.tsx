@@ -46,7 +46,7 @@ export function ServersSection() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-xs text-[var(--text-secondary)]">
-          你已登录 {sessions.length} 个 Matrix 服务器。每个服务器在左侧栏显示为独立的工作区图标。
+          你已登录 {sessions.length} 个 Magic 实例。每个实例在左侧栏显示为独立的工作区图标。
         </p>
         <button
           type="button"
@@ -57,7 +57,7 @@ export function ServersSection() {
             background: "var(--gradient-button)",
           }}
         >
-          + 添加服务器
+          + 添加实例
         </button>
       </div>
 

@@ -86,7 +86,7 @@ export function WorkspaceBar() {
 
       <WorkspaceIcon
         initial="+"
-        name="添加 Matrix 服务器"
+        name="添加 Magic 实例"
         variant="add"
         onClick={() => setShowAdd(true)}
       />

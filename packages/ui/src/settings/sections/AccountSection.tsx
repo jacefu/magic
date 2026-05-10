@@ -23,7 +23,7 @@ export function AccountSection() {
   if (!session) {
     return (
       <p className="text-sm text-[var(--text-secondary)]">
-        未登录任何 Matrix 服务器。
+        未登录任何 Magic 实例。
       </p>
     );
   }
@@ -35,7 +35,7 @@ export function AccountSection() {
     <div className="space-y-4">
       <ProfileCard session={session} localpart={localpart} />
 
-      <Field label="服务器">
+      <Field label="Magic 实例">
         <span className="break-all">{session.homeserver}</span>
       </Field>
       <Field label="设备 ID">

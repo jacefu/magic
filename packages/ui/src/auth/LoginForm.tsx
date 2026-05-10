@@ -26,7 +26,7 @@ export function LoginForm({ onSubmit, isLoading, error }: LoginFormProps) {
           onClick={() => setShowAdvanced(!showAdvanced)}
           className="mb-2 text-xs text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
         >
-          {showAdvanced ? "▾ 隐藏高级设置" : "▸ Homeserver 设置"}
+          {showAdvanced ? "▾ 隐藏高级设置" : "▸ Magic 实例设置"}
         </button>
         {showAdvanced && (
           <input
