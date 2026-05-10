@@ -3,13 +3,13 @@ import type { IPCModule } from "./registry.js";
 import type { WorkspaceManager } from "../workspace/WorkspaceManager.js";
 
 /**
- * Spec 022 § 5.1.1 — IPC surface for the workspace module. Channels
- * follow the `workspace:<verb>` convention (matches `settings:get`,
- * `matrix:login`, etc.).
+ * Spec 022 v3 § 5.1.1 — IPC surface for the workspace module.
+ * Channel namespace `workspace:<verb>` matches the existing
+ * `settings:get`, `matrix:login`, etc. convention.
  *
- * Renderer-side callers live in:
- *   - useWorkspaceBinding (the binding lifecycle UI hook)
- *   - useWorkspaceMatrixBridge (the read/list request dispatcher)
+ * Renderer-side callers:
+ *   - useWorkspaceBinding (binding lifecycle UI hook)
+ *   - useMessageInterceptor (calls workspace:readFile when sending)
  */
 export function createWorkspaceHandlers(
   workspace: WorkspaceManager,
@@ -31,51 +31,36 @@ export function createWorkspaceHandlers(
       "workspace:scanFolder": (folderPath: string) =>
         workspace.scanFolder(folderPath),
 
-      "workspace:bind": (roomId: string, folderPath: string, boundBy: string) =>
-        workspace.bind(roomId, folderPath, boundBy),
+      "workspace:bind": (
+        roomId: string,
+        folderPath: string,
+        boundBy: string,
+      ) => workspace.bind(roomId, folderPath, boundBy),
 
       "workspace:unbind": (roomId: string) => workspace.unbind(roomId),
 
       "workspace:getBinding": (roomId: string) =>
         workspace.getBinding(roomId),
 
-      "workspace:getAllBindings": () => workspace.getAllBindings(),
+      "workspace:getFileTree": (roomId: string) =>
+        workspace.getFileTree(roomId),
 
       "workspace:revealInFinder": (roomId: string) => {
         workspace.revealInFinder(roomId);
       },
 
-      "workspace:readFile": (
-        roomId: string,
-        relPath: string,
-        maxSize: number,
-        requesterId: string,
-      ) => workspace.readFile(roomId, relPath, maxSize, requesterId),
+      // Spec §5.2.1 — useMessageInterceptor calls this for every
+      // detected / explicitly-attached path right before sending.
+      "workspace:readFile": (roomId: string, relPath: string) =>
+        workspace.readFile(roomId, relPath),
 
-      "workspace:listDir": (
-        roomId: string,
-        relPath: string,
-        depth: number,
-        requesterId: string,
-      ) => workspace.listDir(roomId, relPath, depth, requesterId),
-
-      "workspace:getAccessLog": (roomId: string, limit: number) =>
-        workspace.getAccessLog(roomId, limit),
-
-      // Spec §3.5 — bridge consults these when deciding whether to
-      // ship the m.notice agent-awareness messages.
-      "workspace:getLastBinding": (roomId: string) =>
-        workspace.getLastBinding(roomId),
-
-      "workspace:getLastNotifyAt": (roomId: string) =>
-        workspace.getLastNotifyAt(roomId),
-
-      "workspace:getLastNotifiedFileCount": (roomId: string) =>
-        workspace.getLastNotifiedFileCount(roomId),
-
-      "workspace:recordNotify": (roomId: string, fileCount: number) => {
-        workspace.recordNotify(roomId, fileCount);
+      // Spec §3.6 — auto-attach toggle.
+      "workspace:setAutoAttach": (roomId: string, enabled: boolean) => {
+        workspace.setAutoAttach(roomId, enabled);
       },
+
+      "workspace:getAutoAttach": (roomId: string) =>
+        workspace.getAutoAttach(roomId),
     },
   };
 }

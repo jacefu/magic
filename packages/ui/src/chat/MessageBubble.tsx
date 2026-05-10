@@ -10,7 +10,6 @@ import { RoomAvatar, pickGradient } from "../rooms/RoomAvatar.js";
 import { MessageContent } from "./MessageContent.js";
 import { AgentTag } from "../agents/AgentTag.js";
 import { getAgentInfo } from "../lib/agentDetection.js";
-import { WorkspaceNotificationCard } from "../workspace/WorkspaceNotificationCard.js";
 
 interface MessageBubbleProps {
   event: SerializedMatrixEvent;
@@ -50,19 +49,12 @@ export const MessageBubble = memo(function MessageBubble({
     event.type === "m.room.message" || event.type === "m.room.encrypted";
   if (!isMessage) return <SystemEventLine event={event} />;
 
-  // Spec 022 §3.5.5 — workspace agent-awareness notices ride on the
-  // standard message channel but get rendered as a compact status
-  // card here so the human view doesn't see the raw prompt body
-  // (which is intentionally verbose for the Agent's LLM). The
-  // original event is unmodified, so the Agent still sees the full
-  // body in its sync history.
-  if (event.content?.["com.magic.workspace.notification"]) {
-    return (
-      <div className="px-4">
-        <WorkspaceNotificationCard event={event} />
-      </div>
-    );
-  }
+  // Spec 022 v3 §5.2.6 — extract the workspace-attachment metadata
+  // up front so the chip strip below has structured access to it
+  // without re-parsing the raw event.content payload.
+  const workspaceAttached = parseWorkspaceAttached(
+    event.content as Record<string, unknown> | undefined,
+  );
 
   const time = formatTime(event.timestamp);
   const senderName = extractDisplayName(event.sender);
@@ -157,7 +149,54 @@ export const MessageBubble = memo(function MessageBubble({
           </div>
         )}
         <div className="text-[13px] leading-[1.5] text-[var(--text-primary)]">
-          <MessageContent event={event} isOwn={isOwn} searchQuery={searchQuery} />
+          {/* Spec 022 v3 §5.2.6 — when the message carries workspace
+              attachments, render the user-typed text *only* (truncated
+              at the separator the interceptor inserts) and surface the
+              attached files as chips below. The full body — code
+              blocks included — stays in the raw event so the Agent's
+              LLM sees everything. */}
+          {workspaceAttached ? (
+            <>
+              <MessageContent
+                event={event}
+                isOwn={isOwn}
+                searchQuery={searchQuery}
+                bodyOverride={truncateBeforeSeparator(
+                  (event.content?.body as string | undefined) ?? "",
+                )}
+              />
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {workspaceAttached.files.map((f) => (
+                  <span
+                    key={f.path}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px]"
+                    style={{
+                      background: "var(--bg-surface)",
+                      border: "0.5px solid var(--border-default)",
+                      color: "var(--text-secondary)",
+                    }}
+                    title={
+                      f.inlined
+                        ? `${f.path} · 已内联到消息正文 · ${formatChipSize(f.size)}`
+                        : `${f.path} · 已作为附件上传 · ${formatChipSize(f.size)}`
+                    }
+                  >
+                    <span aria-hidden>📄</span>
+                    <span className="font-mono">{f.path}</span>
+                    <span style={{ color: "var(--text-tertiary)" }}>
+                      · {formatChipSize(f.size)}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <MessageContent
+              event={event}
+              isOwn={isOwn}
+              searchQuery={searchQuery}
+            />
+          )}
         </div>
       </div>
 
@@ -310,4 +349,65 @@ function sameCalendarDay(a: Date, b: Date): boolean {
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
+}
+
+// ---- Spec 022 v3 §5.2.6 helpers ----
+
+interface WorkspaceAttachedFile {
+  path: string;
+  size: number;
+  inlined: boolean;
+}
+
+interface WorkspaceAttachedMeta {
+  workspaceName: string;
+  files: WorkspaceAttachedFile[];
+}
+
+/** Pluck the typed shape out of the loose `event.content`. We don't
+ *  trust upstream, so each field is guarded — a malformed payload
+ *  collapses to `null` and the bubble falls back to the default
+ *  rendering instead of crashing. */
+function parseWorkspaceAttached(
+  content: Record<string, unknown> | undefined,
+): WorkspaceAttachedMeta | null {
+  if (!content) return null;
+  const raw = content["com.magic.workspace.attached"];
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const files = obj.files;
+  if (!Array.isArray(files)) return null;
+  const parsed: WorkspaceAttachedFile[] = [];
+  for (const f of files) {
+    if (!f || typeof f !== "object") continue;
+    const entry = f as Record<string, unknown>;
+    if (typeof entry.path !== "string") continue;
+    parsed.push({
+      path: entry.path,
+      size: typeof entry.size === "number" ? entry.size : 0,
+      inlined: !!entry.inlined,
+    });
+  }
+  if (parsed.length === 0) return null;
+  return {
+    workspaceName:
+      typeof obj.workspaceName === "string" ? obj.workspaceName : "",
+    files: parsed,
+  };
+}
+
+/** The interceptor delimits user-typed text from the inlined code
+ *  blocks with `\n\n────────`. Slice at the first occurrence so the
+ *  human view doesn't see the raw code dump. Falls back to the full
+ *  body when the separator is absent (paranoid). */
+function truncateBeforeSeparator(body: string): string {
+  const sep = "\n\n────────";
+  const idx = body.indexOf(sep);
+  return idx === -1 ? body : body.slice(0, idx);
+}
+
+function formatChipSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

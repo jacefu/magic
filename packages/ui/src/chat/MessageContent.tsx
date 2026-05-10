@@ -8,9 +8,19 @@ interface MessageContentProps {
   event: SerializedMatrixEvent;
   isOwn: boolean;
   searchQuery?: string;
+  /** Spec 022 v3 — when MessageBubble strips the inlined workspace
+   *  code blocks (rendered as chips instead), it passes the
+   *  truncated body in here so the human view stays clean while the
+   *  raw event body — what the Agent reads — keeps the code intact. */
+  bodyOverride?: string;
 }
 
-export function MessageContent({ event, isOwn, searchQuery }: MessageContentProps) {
+export function MessageContent({
+  event,
+  isOwn,
+  searchQuery,
+  bodyOverride,
+}: MessageContentProps) {
   if (event.type === "m.room.encrypted") {
     return <UndecryptedMessage />;
   }
@@ -23,7 +33,7 @@ export function MessageContent({ event, isOwn, searchQuery }: MessageContentProp
     case "m.notice":
       return (
         <TextMessage
-          body={content.body as string}
+          body={bodyOverride ?? (content.body as string)}
           formattedBody={content.formatted_body as string | undefined}
           format={content.format as string | undefined}
           isOwn={isOwn}

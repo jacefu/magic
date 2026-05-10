@@ -1,35 +1,47 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuthStore } from "@magic/matrix-client";
-import type { WorkspaceBinding } from "@magic/shared-types";
+import type {
+  WorkspaceBinding,
+  WorkspaceFileEntry,
+} from "@magic/shared-types";
 
 /**
- * Spec 022 — per-room view of the local-folder binding.
+ * Spec 022 v3 §5.2.2 — per-room view of the local-folder binding +
+ * cached file tree.
  *
- * Subscribes to main-process push events so the UI follows the source
- * of truth (file watcher republishes, manual unbinds from another
- * window, etc) rather than trying to keep its own copy in sync.
- *
- * Returns no-op operations (and `binding === null`) on the web build,
- * since the web app doesn't ship the WorkspaceManager.
+ * Subscribes to the main-process `workspace:tree-changed` push so the
+ * renderer always reflects the source of truth (watcher rescans,
+ * unbinds from another window, etc.). Returns no-op operations on the
+ * web build because the WorkspaceManager only ships in Electron.
  */
 export interface UseWorkspaceBinding {
   binding: WorkspaceBinding | null;
-  /** Initial fetch is in flight. Distinguish from "not bound" so the
-   *  UI can show a quiet loading state instead of "尚未绑定". */
+  fileTree: WorkspaceFileEntry[];
+  /** Initial fetch is in flight. Distinguishes "not bound" from
+   *  "loading state" so the UI can stay quiet during the first
+   *  mount. */
   loading: boolean;
-  bind: (folderPath: string) => Promise<WorkspaceBinding>;
+  bind: (folderPath: string) => Promise<{
+    binding: WorkspaceBinding;
+    files: WorkspaceFileEntry[];
+  }>;
   unbind: () => Promise<void>;
   revealInFinder: () => void;
+  setAutoAttach: (enabled: boolean) => Promise<void>;
 }
 
-export function useWorkspaceBinding(roomId: string | null): UseWorkspaceBinding {
+export function useWorkspaceBinding(
+  roomId: string | null,
+): UseWorkspaceBinding {
   const userId = useAuthStore((s) => s.userId);
   const [binding, setBinding] = useState<WorkspaceBinding | null>(null);
+  const [fileTree, setFileTree] = useState<WorkspaceFileEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!roomId) {
       setBinding(null);
+      setFileTree([]);
       setLoading(false);
       return;
     }
@@ -37,28 +49,28 @@ export function useWorkspaceBinding(roomId: string | null): UseWorkspaceBinding 
       typeof window !== "undefined" ? window.electronAPI?.workspace : null;
     if (!api) {
       setBinding(null);
+      setFileTree([]);
       setLoading(false);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
-    api
-      .getBinding(roomId)
-      .then((b) => {
-        if (!cancelled) {
-          setBinding(b);
-          setLoading(false);
-        }
+    Promise.all([api.getBinding(roomId), api.getFileTree(roomId)])
+      .then(([b, t]) => {
+        if (cancelled) return;
+        setBinding(b);
+        setFileTree(t ?? []);
+        setLoading(false);
       })
       .catch(() => {
         if (!cancelled) setLoading(false);
       });
 
-    const unsub = api.onBindingChanged((payload) => {
-      if (payload.roomId === roomId) {
-        setBinding(payload.binding);
-      }
+    const unsub = api.onTreeChanged((payload) => {
+      if (payload.roomId !== roomId) return;
+      setBinding(payload.binding);
+      setFileTree(payload.files);
     });
 
     return () => {
@@ -68,17 +80,15 @@ export function useWorkspaceBinding(roomId: string | null): UseWorkspaceBinding 
   }, [roomId]);
 
   const bind = useCallback(
-    async (folderPath: string): Promise<WorkspaceBinding> => {
+    async (folderPath: string) => {
       const api =
         typeof window !== "undefined" ? window.electronAPI?.workspace : null;
       if (!api || !roomId) {
         throw new Error("workspace API unavailable");
       }
-      // boundBy is purely informational ("who in this client did the
-      // binding") — the Matrix bridge stamps state events with the
-      // SDK's own user id at publish time.
       const result = await api.bind(roomId, folderPath, userId ?? "");
-      setBinding(result);
+      setBinding(result.binding);
+      setFileTree(result.files);
       return result;
     },
     [roomId, userId],
@@ -90,6 +100,7 @@ export function useWorkspaceBinding(roomId: string | null): UseWorkspaceBinding 
     if (!api || !roomId) return;
     await api.unbind(roomId);
     setBinding(null);
+    setFileTree([]);
   }, [roomId]);
 
   const revealInFinder = useCallback(() => {
@@ -99,5 +110,27 @@ export function useWorkspaceBinding(roomId: string | null): UseWorkspaceBinding 
     void api.revealInFinder(roomId);
   }, [roomId]);
 
-  return { binding, loading, bind, unbind, revealInFinder };
+  const setAutoAttach = useCallback(
+    async (enabled: boolean) => {
+      const api =
+        typeof window !== "undefined" ? window.electronAPI?.workspace : null;
+      if (!api || !roomId) return;
+      await api.setAutoAttach(roomId, enabled);
+      // Optimistic update — the tree-changed broadcast will refresh
+      // the canonical state, but applying immediately makes the
+      // toggle feel instant.
+      setBinding((prev) => (prev ? { ...prev, autoAttach: enabled } : prev));
+    },
+    [roomId],
+  );
+
+  return {
+    binding,
+    fileTree,
+    loading,
+    bind,
+    unbind,
+    revealInFinder,
+    setAutoAttach,
+  };
 }

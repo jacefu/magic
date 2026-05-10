@@ -44,11 +44,15 @@ export interface IElectronAPI {
   getAppVersion: () => Promise<string>;
   getPlatform: () => Promise<string>;
 
-  // ---- Workspace folder binding (Spec 022) ----
+  // ---- Workspace folder binding (Spec 022 v3) ----
   /**
-   * Per-channel sub-namespace so the binding lifecycle, file IO, and
-   * push notifications stay grouped. Renderer code consumes via
-   * `window.electronAPI.workspace.*`.
+   * Per-channel sub-namespace so the binding lifecycle and file IO
+   * stay grouped. Renderer consumes via `window.electronAPI.workspace.*`.
+   *
+   * v3 dropped the access-log / notify-tracker / list-dir surface from
+   * v2 — Agents weren't going to implement the read_request protocol,
+   * so the renderer ships file content as native Matrix attachments
+   * instead. Surface is correspondingly smaller.
    */
   workspace: WorkspaceAPI;
 }
@@ -76,15 +80,10 @@ export interface WorkspaceBinding {
   fileCount: number;
   totalSize: number;
   ignorePatterns: string[];
-}
-
-export interface WorkspaceAccessLogEntry {
-  timestamp: number;
-  type: "read" | "list";
-  path: string;
-  agentUserId: string;
-  bytes: number;
-  success: boolean;
+  /** Spec §3.6 — when off, useMessageInterceptor only attaches files
+   *  the user explicitly picked via 📁 button; auto-detection from
+   *  message text is skipped. */
+  autoAttach: boolean;
 }
 
 export interface WorkspaceReadResult {
@@ -94,20 +93,13 @@ export interface WorkspaceReadResult {
   encoding?: "utf-8" | "base64";
   size?: number;
   mtime?: number;
+  isText?: boolean;
   error?: string;
-  errorMessage?: string;
 }
 
-export interface WorkspaceListResult {
-  ok: boolean;
-  entries?: Array<{
-    path: string;
-    size: number;
-    mtime: number;
-    isDirectory: boolean;
-  }>;
-  error?: string;
-  errorMessage?: string;
+export interface WorkspaceBindResult {
+  binding: WorkspaceBinding;
+  files: WorkspaceFileEntry[];
 }
 
 export interface WorkspaceAPI {
@@ -117,56 +109,28 @@ export interface WorkspaceAPI {
     roomId: string,
     folderPath: string,
     boundBy: string,
-  ) => Promise<WorkspaceBinding>;
+  ) => Promise<WorkspaceBindResult>;
   unbind: (roomId: string) => Promise<void>;
   getBinding: (roomId: string) => Promise<WorkspaceBinding | null>;
-  getAllBindings: () => Promise<WorkspaceBinding[]>;
+  getFileTree: (roomId: string) => Promise<WorkspaceFileEntry[]>;
   revealInFinder: (roomId: string) => Promise<void>;
+  /** Spec §5.2.1 — useMessageInterceptor's read path. */
   readFile: (
     roomId: string,
     relPath: string,
-    maxSize: number,
-    requesterId: string,
   ) => Promise<WorkspaceReadResult>;
-  listDir: (
-    roomId: string,
-    relPath: string,
-    depth: number,
-    requesterId: string,
-  ) => Promise<WorkspaceListResult>;
-  getAccessLog: (
-    roomId: string,
-    limit: number,
-  ) => Promise<WorkspaceAccessLogEntry[]>;
-  // ---- Spec §3.5 Agent-awareness throttle helpers ----
-  /** Snapshot of the most recent (possibly already-unbound) binding;
-   *  the bridge needs the displayName to compose the unbind notice
-   *  even after the live binding map has been cleared. */
-  getLastBinding: (roomId: string) => Promise<WorkspaceBinding | null>;
-  getLastNotifyAt: (roomId: string) => Promise<number>;
-  getLastNotifiedFileCount: (roomId: string) => Promise<number>;
-  recordNotify: (roomId: string, fileCount: number) => Promise<void>;
-  /** main → renderer push: file watcher republish. The two optional
-   *  flags carry the bind/unbind state so the renderer bridge knows
-   *  whether to ship the agent-awareness m.notice. */
-  onFileTreeChanged: (
-    cb: (payload: {
-      roomId: string;
-      files: WorkspaceFileEntry[];
-      isFirstBind?: boolean;
-      isUnbind?: boolean;
-    }) => void,
-  ) => () => void;
-  /** main → renderer push: bind / unbind / metadata change. */
-  onBindingChanged: (
+  /** Spec §3.6 — auto-attach toggle. */
+  setAutoAttach: (roomId: string, enabled: boolean) => Promise<void>;
+  getAutoAttach: (roomId: string) => Promise<boolean>;
+  /** main → renderer push: bind / unbind / watcher republish. The
+   *  payload carries the canonical binding + current file tree so
+   *  the renderer can rehydrate without a follow-up IPC roundtrip. */
+  onTreeChanged: (
     cb: (payload: {
       roomId: string;
       binding: WorkspaceBinding | null;
+      files: WorkspaceFileEntry[];
     }) => void,
-  ) => () => void;
-  /** main → renderer push: a read or list just completed. */
-  onAccessLogged: (
-    cb: (payload: { roomId: string; entry: WorkspaceAccessLogEntry }) => void,
   ) => () => void;
 }
 

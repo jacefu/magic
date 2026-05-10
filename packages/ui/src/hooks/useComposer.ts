@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  sendTextMessage,
-  sendReply,
   getClient,
   hasClient,
   useRoomStore,
   useUIStore,
 } from "@magic/matrix-client";
 import { useTypingNotifier } from "./useTypingNotifier.js";
+import { useMessageInterceptor } from "./useMessageInterceptor.js";
 import { hasMentions, parseMentions } from "../lib/mentionParser.js";
 
 interface UseComposerOptions {
@@ -18,11 +17,24 @@ interface UseComposerOptions {
    * message you just shipped (Spec 019 FIX-3).
    */
   onSent?: () => void;
+  /**
+   * Spec 022 v3 — paths the user picked through the 📁 button.
+   * Always attached even when the user message text doesn't
+   * mention them, and not subject to the autoAttach toggle.
+   */
+  getExplicitAttachments?: () => string[];
+  /** Cleared on successful send. */
+  onAfterSend?: () => void;
 }
 
 const drafts = new Map<string, string>();
 
-export function useComposer({ roomId, onSent }: UseComposerOptions) {
+export function useComposer({
+  roomId,
+  onSent,
+  getExplicitAttachments,
+  onAfterSend,
+}: UseComposerOptions) {
   const [value, setValue] = useState(() => drafts.get(roomId) ?? "");
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -35,6 +47,7 @@ export function useComposer({ roomId, onSent }: UseComposerOptions) {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
 
   const { notifyTyping, stopTyping } = useTypingNotifier(roomId);
+  const { sendWithWorkspace } = useMessageInterceptor();
 
   // Inject text from external sources (sender-name click, emoji picker, …)
   // at the current cursor position. Auto-pads with a leading space so
@@ -98,38 +111,36 @@ export function useComposer({ roomId, onSent }: UseComposerOptions) {
     stopTyping();
 
     try {
-      // Lift any plain "@displayName" references into the placeholder
-      // format `[@displayName](userId)` so parseMentions can pick them
-      // up. The composer textarea contains clean text only — the
-      // mapping back to userIds happens here, against the live room
-      // member list.
+      // Resolve plain "@displayName" → `[@displayName](userId)` so
+      // parseMentions can extract the m.mentions structure. When the
+      // text has any mentions, sendWithWorkspace receives the
+      // pre-parsed body + formatted_body + mentions and splices them
+      // onto the outgoing event.
       const resolved = resolveMentionsToPlaceholders(text, roomId);
+      const explicitAttachments = getExplicitAttachments?.() ?? [];
       if (hasMentions(resolved)) {
         const parsed = parseMentions(resolved);
-        const content: Record<string, unknown> = {
-          msgtype: "m.text",
-          body: parsed.body,
-          format: "org.matrix.custom.html",
-          formatted_body: parsed.formattedBody,
-          "m.mentions": parsed.mentions,
-        };
-        if (replyToEventId) {
-          content["m.relates_to"] = {
-            "m.in_reply_to": { event_id: replyToEventId },
-          };
-        }
-        const client = getClient();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await client.sendMessage(roomId, content as any);
+        await sendWithWorkspace({
+          roomId,
+          text: parsed.body,
+          explicitAttachments,
+          replyToEventId: replyToEventId ?? undefined,
+          formattedBody: parsed.formattedBody,
+          mentions: parsed.mentions,
+        });
         if (replyToEventId) setReplyTo(null);
-      } else if (replyToEventId) {
-        await sendReply(roomId, text, replyToEventId);
-        setReplyTo(null);
       } else {
-        await sendTextMessage(roomId, text);
+        await sendWithWorkspace({
+          roomId,
+          text,
+          explicitAttachments,
+          replyToEventId: replyToEventId ?? undefined,
+        });
+        if (replyToEventId) setReplyTo(null);
       }
       setValue("");
       drafts.delete(roomId);
+      onAfterSend?.();
       inputRef.current?.focus();
       // Defer the scroll-to-bottom callback so the just-sent event has
       // a chance to round-trip through the bridge → roomStore →
@@ -154,6 +165,9 @@ export function useComposer({ roomId, onSent }: UseComposerOptions) {
     setReplyTo,
     stopTyping,
     onSent,
+    sendWithWorkspace,
+    getExplicitAttachments,
+    onAfterSend,
   ]);
 
   const cancelReply = useCallback(() => {

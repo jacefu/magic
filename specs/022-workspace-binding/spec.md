@@ -1,7 +1,29 @@
-# Spec 022: 对话本地文件夹绑定（按需读取版）
+# Spec 022: 对话本地文件夹绑定（v3 — Matrix 原生附件版）
 
 > 优先级: P0 | 波次: Wave 6 | 预估: 4-5 天 | 前置依赖: 003-electron-shell, 005-room-list, 020-ui-polish, 021-room-settings
 > 文件路径: `specs/022-workspace-binding/spec.md`
+
+---
+
+## 0. 设计演进史（必读）
+
+| 版本 | 思路 | 为什么不行 |
+|------|------|-----------|
+| **v1** | 上传所有文件到 Magic 后端 + MinIO，Agent 容器挂载 | 需要独立后端服务，重 |
+| **v2** | 自定义 Matrix 协议（`com.magic.workspace.read_request/response`） | **致命缺陷**：Agent 不会实现这个协议。它就是个普通 Matrix bot，没有内置代码处理这种事件，prompt 里写指令也没用——LLM 没有"发送任意 Matrix 事件"的工具 |
+| **v3（本版）** | **Magic Client 主动推送文件**：用 Matrix 原生 `m.file` 附件 / 内联代码块，把文件内容塞进对话 | ✅ 任何 Matrix Agent 都能看到附件和聊天文字，无需任何特殊协议 |
+
+### 桥接方向（v2 vs v3）
+
+```
+v2（错）：等 Agent 来请求 → Agent 根本不会请求
+                                    ↓
+                               永远不工作
+
+v3（对）：用户消息提到文件 → Magic Client 主动读本地文件 → 用 Matrix 标准消息塞进对话
+                                                            ↓
+                                                Agent 自然看到，无需任何配合
+```
 
 ---
 
@@ -9,40 +31,25 @@
 
 为 Magic 客户端的**所有对话场景**（群聊房间 + 与 Agent 私聊）增加**本地文件夹绑定**能力，类似 Claude Cowork 的 "Choose a folder" 功能。
 
-### 关键设计原则（与上一版的根本区别）
+### 关键原则
 
-| 维度 | ❌ 旧设计（已废弃） | ✅ 新设计 |
-|------|---------------------|----------|
-| **后端依赖** | 需要 Magic 后端 + MinIO 存储服务 | **零后端依赖**——纯 Matrix 协议 + 客户端本地访问 |
-| **数据流** | 全量同步：本地 → 服务端 → Agent 容器 | **按需拉取**：Agent 需要时通过 Matrix 请求，客户端实时返回 |
-| **存储位置** | 文件副本存储在 MinIO | **文件永远只在用户本地磁盘**，不复制 |
-| **网络流量** | 绑定时上传全部文件（可能数百 MB） | 仅传输 Agent 实际请求的文件（通常 < 1%） |
-| **隐私** | Agent 容器持久化访问所有文件 | Agent 仅在请求-响应窗口期看到内容，过后即"忘记" |
-| **可用性要求** | 离线也能读（已同步） | 需要 Magic 客户端在线 |
-
-### 核心工作流
-
-```
-1. 用户绑定本地文件夹 → Magic 客户端获取本地读取权限
-2. Magic 客户端扫描文件夹 → 通过 Matrix state event 把"文件清单"发布到对话
-3. 对话中的 Agent 看到清单 → 知道有哪些文件、路径、大小
-4. Agent 决定要读某个文件 → 发送 Matrix message event(read_request)
-5. Magic 客户端收到请求 → 从本地磁盘读取文件
-6. Magic 客户端回复 Matrix message event(read_response，含文件内容)
-7. Agent 把文件内容拼进 LLM 的 Prompt → 完成任务
-```
+1. **零后端依赖** —— 只用 Matrix 原生协议
+2. **零 Agent 侧改造** —— 不要求 Agent 实现任何自定义协议；Agent 只需要能读普通 Matrix 消息和附件即可
+3. **Magic Client 是主动桥接者** —— 不等待 Agent 请求，而是基于用户的输入和操作主动把文件推送到对话中
+4. **隐私可控** —— 文件只在用户明确触发时才进入对话；可在设置中关闭自动附加
 
 ### 用户故事
 
-- **私聊场景（核心）**：作为开发者，我把本地代码仓库绑定到与 Worker Agent 的私聊。Agent 看到 142 个文件的清单，需要审查 `src/auth.py` 时主动请求，我的客户端实时返回文件内容。文件**从未离开我的电脑**，只在 Agent 当时需要时被读取一次。
-- **群聊场景**：在群聊房间绑定需求文档文件夹，房间内任意 Agent 都能看到清单并按需读取。
-- **混合场景**：同一文件夹可同时绑定到多个对话，每个对话独立维护读取请求/响应通道。
+- **私聊场景（核心）**：作为开发者，我把本地代码仓库绑定到与 Worker Agent 的私聊。我说"看看 `src/main.py` 写得怎么样"——Magic Client 自动把 main.py 内容附加到我的消息里，Agent 看到代码并给出建议。
+- **显式选择**：我点击工作区按钮，从树中勾选 3 个文件，然后输入"对比这几个的设计差异"——3 个文件作为附件随消息发出。
+- **群聊场景**：在房间绑定需求文档文件夹，多个 Agent 都能看到我每次提到的文档内容。
+- **管理场景**：我可以在设置中查看绑定状态、关闭自动附加、解绑文件夹。
 
 ---
 
 ## 2. 架构设计
 
-### 2.1 整体架构（极简版，无后端）
+### 2.1 整体架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -51,440 +58,370 @@
 │  │  Main Process                                         │  │
 │  │  ├── FolderPicker (dialog.showOpenDialog)             │  │
 │  │  ├── WorkspaceRegistry (per-room binding store)       │  │
-│  │  ├── FileWatcher (chokidar)                           │  │
+│  │  ├── FileWatcher (chokidar — 仅用于刷新清单)          │  │
 │  │  ├── IgnoreEngine (.magicignore + defaults)           │  │
-│  │  ├── FileTreePublisher (向 Matrix 发布清单)           │  │
-│  │  └── FileAccessHandler (响应 Agent 的读取请求)        │  │
+│  │  └── FileReader (按需读取本地文件供 renderer 使用)    │  │
 │  └────────────────────┬──────────────────────────────────┘  │
 │                       │ IPC                                  │
 │  ┌────────────────────▼──────────────────────────────────┐  │
-│  │  Renderer Process                                     │  │
+│  │  Renderer Process（核心桥接逻辑都在这里）              │  │
 │  │  ├── BindFolderButton (in MessageComposer +)          │  │
-│  │  ├── WorkspaceSection (在右侧设置面板中)              │  │
-│  │  ├── WorkspaceIndicator (ChannelHeader 中的小图标)    │  │
+│  │  ├── WorkspaceFilePicker (📁 按钮 → 文件树选择)        │  │
+│  │  ├── MessageInterceptor ⭐                             │  │
+│  │  │     └── 拦截用户消息发送                            │  │
+│  │  │         检测文件路径引用                            │  │
+│  │  │         读取本地文件                                │  │
+│  │  │         以 Matrix 原生方式附加到对话                │  │
 │  │  └── Matrix client (matrix-js-sdk)                    │  │
-│  │      ├── 发送 state event 通告绑定                     │  │
-│  │      ├── 监听 read_request 事件                        │  │
-│  │      └── 发送 read_response 事件                       │  │
+│  │      ├── sendEvent(m.text) — 普通文字 + 内联代码块    │  │
+│  │      ├── uploadContent + sendEvent(m.file) — 大文件   │  │
+│  │      └── sendStateEvent — 仅用于同步绑定状态           │  │
 │  └────────────────────┬──────────────────────────────────┘  │
 └────────────────────────┼─────────────────────────────────────┘
-                         │ Matrix 协议（仅此一条通道）
+                         │ Matrix 协议（仅原生事件）
        ┌─────────────────▼──────────────────┐
        │      Matrix Homeserver (Tuwunel)   │
-       │  房间事件流转、消息加密、成员鉴权    │
+       │  - 房间事件流转                     │
+       │  - Media repo 存附件                │
+       │  - 加密（E2EE 房间附件加密）        │
        └─────────────────┬──────────────────┘
                          │
        ┌─────────────────▼──────────────────┐
-       │      Agent Container (Worker)      │
-       │  ├── Matrix client (matrix-js-sdk) │
-       │  ├── 看到 state event 中的文件清单  │
-       │  ├── 发送 read_request 索取文件     │
-       │  ├── 接收 read_response 拿到内容    │
-       │  └── 文件内容拼进 LLM Prompt        │
+       │      Agent (任意 Matrix bot)        │
+       │  - 收到普通 m.text / m.file 消息    │
+       │  - 像看任何聊天消息一样看           │
+       │  - 文件附件走标准 mxc:// 下载       │
+       │  - 无需实现任何自定义协议 ⭐         │
        └────────────────────────────────────┘
-
-⚠ 完全没有 MinIO、没有独立后端、没有 HTTP API
-   一切走 Matrix 协议，与现有基础设施零侵入
 ```
 
-### 2.2 路径与命名空间
+### 2.2 关键技术决策
 
-由于文件不离开本地，**没有路径映射问题**：
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| **文件传输形式** | Matrix 原生 m.file / m.text 内联 | 任何 Matrix client / bot 都能处理 |
+| **小文件（<50KB 文本）** | 内联代码块到用户消息正文 | LLM 直接看到，无需下载附件 |
+| **大文件 / 二进制** | 上传到 Matrix media repo，发 m.file 消息 | 标准方式，附件可加密 |
+| **文件检测方式** | 1. 用户显式选择 + 2. 消息中识别文件路径 | 显式优先，自动作为补充 |
+| **绑定状态广播** | state event + 一条文字通告 | UI 一致性 + Agent 知情 |
+| **自定义 Matrix 事件类型** | **不使用** | v2 教训：Agent 不会实现 |
+
+### 2.3 路径与命名空间
 
 | 层级 | 表示 |
 |------|------|
-| 用户本地 | `/Users/alice/Projects/myapp/src/main.py`（绝对路径，仅本地存储中可见） |
-| Matrix 协议中 | `src/main.py`（**只用相对路径**，不暴露用户隐私） |
-| Agent 看到的 | `src/main.py`（与 Matrix 协议层一致） |
+| 用户本地（绝对路径） | `/Users/jacefu/TestMagic/src/main.py` |
+| Magic Client 内部 | `src/main.py`（相对路径） |
+| Matrix 消息中显示给 Agent | `src/main.py`（不含用户用户名等隐私） |
 
-⚠️ Agent 永远不知道用户的真实绝对路径，只看到相对于绑定根的相对路径。
-
----
-
-## 3. Matrix 协议扩展
-
-### 3.1 State event：文件清单（绑定通告）
-
-事件类型：`com.magic.workspace.binding`
-state_key：发起绑定的用户 ID（每个用户独立，多人可分别绑定）
-
-```json
-{
-  "type": "com.magic.workspace.binding",
-  "state_key": "@alice:matrix.example.com",
-  "content": {
-    "bound": true,
-    "displayName": "myapp",
-    "boundBy": "@alice:matrix.example.com",
-    "boundAt": 1746876000000,
-    "fileCount": 142,
-    "totalSize": 2456789,
-    "tree": [
-      { "path": "README.md", "size": 1024, "mtime": 1746875000000 },
-      { "path": "src/main.py", "size": 5678, "mtime": 1746876000000 },
-      { "path": "src/utils.py", "size": 2345, "mtime": 1746875500000 },
-      { "path": "tests/test_main.py", "size": 1500, "mtime": 1746874000000 }
-    ],
-    "treeChunked": false
-  }
-}
-```
-
-⚠️ **大小限制**：Matrix 单个 state event 内容上限约 64 KB。对于文件数过多（>500）的文件夹：
-
-```json
-{
-  "bound": true,
-  "displayName": "monorepo",
-  "fileCount": 5234,
-  "totalSize": 125000000,
-  "tree": null,
-  "treeChunked": true,
-  "treeChunks": 6,
-  "treeManifestEventIds": ["$evt1", "$evt2", "..."]
-}
-```
-
-清单分片通过 message event `com.magic.workspace.tree_chunk` 发送，Agent 拼装。
-
-### 3.2 Message event：文件读取请求/响应
-
-#### 请求（Agent → 客户端）
-
-事件类型：`com.magic.workspace.read_request`
-
-```json
-{
-  "type": "com.magic.workspace.read_request",
-  "content": {
-    "request_id": "req-7f3a9b2c",
-    "path": "src/main.py",
-    "encoding": "auto",
-    "max_size": 1048576,
-    "binding_owner": "@alice:matrix.example.com"
-  }
-}
-```
-
-字段说明：
-- `request_id`：唯一标识，响应时回填
-- `path`：要读取的相对路径
-- `encoding`：`"utf-8"` / `"base64"` / `"auto"`（auto 让客户端自动判断）
-- `max_size`：最大字节数（防止意外读取超大文件，默认 1MB，硬上限 10MB）
-- `binding_owner`：要请求哪个用户的绑定（多人绑定场景下指定）
-
-#### 响应（客户端 → Agent）
-
-事件类型：`com.magic.workspace.read_response`，作为 reply 关联到 request：
-
-```json
-{
-  "type": "com.magic.workspace.read_response",
-  "content": {
-    "request_id": "req-7f3a9b2c",
-    "path": "src/main.py",
-    "ok": true,
-    "encoding": "utf-8",
-    "size": 5678,
-    "content": "from flask import Flask\napp = Flask(__name__)\n...",
-    "mtime": 1746876000000,
-    "m.relates_to": {
-      "rel_type": "m.reference",
-      "event_id": "$requestEventId"
-    }
-  }
-}
-```
-
-错误响应：
-
-```json
-{
-  "type": "com.magic.workspace.read_response",
-  "content": {
-    "request_id": "req-7f3a9b2c",
-    "path": "src/main.py",
-    "ok": false,
-    "error": "file_not_found" | "permission_denied" | "size_exceeded" | "owner_offline" | "binding_unbound",
-    "errorMessage": "可读的错误描述"
-  }
-}
-```
-
-#### 大文件传输
-
-如果文件超过 32 KB（Matrix 消息体推荐上限），改用 Matrix media API：
-
-```json
-{
-  "type": "com.magic.workspace.read_response",
-  "content": {
-    "request_id": "req-7f3a9b2c",
-    "path": "src/main.py",
-    "ok": true,
-    "size": 524288,
-    "via_media": true,
-    "mxc_url": "mxc://matrix.example.com/abc123def456",
-    "mime_type": "text/x-python",
-    "encoding": "utf-8"
-  }
-}
-```
-
-Agent 通过标准 Matrix media API（`/_matrix/media/v3/download/...`）下载实际内容。
-媒体上传走的是 Homeserver 自带的 media repo，**仍然不需要独立后端**。
-
-### 3.3 Message event：列出目录（可选）
-
-对于 chunked 清单或 Agent 想浏览特定子目录的场景：
-
-```json
-{
-  "type": "com.magic.workspace.list_request",
-  "content": {
-    "request_id": "req-list-1",
-    "path": "src/",
-    "depth": 1,
-    "binding_owner": "@alice:matrix.example.com"
-  }
-}
-```
-
-响应类似 read_response，content 包含 `entries: Array<{path, size, mtime, isDirectory}>`。
-
-### 3.4 写入请求（v2 范围，本 spec 不实现）
-
-```
-com.magic.workspace.write_request:  Agent 请求写入
-com.magic.workspace.write_response: 客户端确认（可能弹出用户审批 UI）
-```
-
-v1 阶段保持只读，确保功能稳定后再开放写入。
-
-### 3.5 ⭐ Agent 感知层（Agent Awareness Layer）
-
-> **关键问题**：State event 是协议层，但 Agent 的 LLM **不会主动去看 state event**——它只看 chat 消息历史作为上下文。如果只发布 state event，Agent 无法感知到工作区已绑定，会基于自己的内部认知（如"我的 workspace 是 /root/manager-workspace/"）回答问题，造成完全错位。
->
-> **解决方案**：Magic Client 在绑定/解绑/变化时，**主动发送一条可见的普通 Matrix 消息**到房间。这条消息：
-> - 对人类是友好的状态通知（"已绑定工作区 TestMagic"）
-> - 对 Agent LLM 是关键上下文（消息正文中包含文件清单 + 协议说明）
-> - **不需要 Agent 端做任何特殊集成**——只要 Agent 的 LLM 能读消息历史，就自动获得感知能力
-
-#### 3.5.1 绑定时发送的通告消息
-
-事件类型：`m.room.message`（标准消息，可见于聊天历史），但带特殊标记：
-
-```json
-{
-  "type": "m.room.message",
-  "content": {
-    "msgtype": "m.notice",
-    "body": "📁 工作区已绑定: TestMagic (142 个文件, 2.4 MB)\n\n...完整正文...",
-    "format": "org.matrix.custom.html",
-    "formatted_body": "<div>...富文本版本...</div>",
-    "com.magic.workspace.notification": {
-      "kind": "bound",
-      "binding_owner": "@alice:matrix.example.com",
-      "displayName": "TestMagic",
-      "fileCount": 142,
-      "totalSize": 2456789
-    }
-  }
-}
-```
-
-⚠️ 关键点：
-- 用 `msgtype: "m.notice"` 而非 `m.text`——Matrix 客户端通常对 notice 做特殊渲染（淡化、加图标），不会被误认为是用户发的话
-- `body` 字段同时是给**人类阅读的状态描述**和给 **Agent LLM 的上下文输入**
-- 自定义字段 `com.magic.workspace.notification` 用于客户端 UI 特殊渲染
-
-#### 3.5.2 通告消息的 body 内容（关键 Prompt 设计）
-
-通告消息的 `body` 字段必须同时服务两个受众：
-
-**人类视角**：看到一个清晰的状态卡片
-**Agent LLM 视角**：把它当作系统指令来理解
-
-推荐的消息正文模板：
-
-```
-📁 工作区已绑定：TestMagic（142 个文件，2.4 MB）
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【对话上下文 · 给 AI 助手的说明】
-
-用户已将本地文件夹 "TestMagic" 绑定到此对话。
-当用户提及"文件"、"代码"、"项目"、"看看"、"读取"等可能涉及文件的内容时，
-你应当**优先访问此工作区中的文件**，而不是引用你自己的内部工作目录。
-
-📋 文件清单（前 30 个，完整清单见房间状态事件 com.magic.workspace.binding）：
-  • README.md
-  • package.json
-  • src/main.py
-  • src/auth.py
-  • src/utils.py
-  • src/config.py
-  • tests/test_main.py
-  • tests/test_auth.py
-  ... 还有 134 个文件
-
-🔧 如何读取文件：
-发送 Matrix 事件 com.magic.workspace.read_request，包含字段：
-  - request_id: 唯一标识（UUID）
-  - path: 相对路径（如 "src/main.py"）
-  - binding_owner: "@alice:matrix.example.com"
-
-客户端会通过 com.magic.workspace.read_response 事件返回内容。
-关于完整的协议说明，请查看本房间的状态事件 com.magic.workspace.binding。
-
-⚠️ 注意：
-  • 路径必须是相对路径（不是 /Users/... 这种绝对路径）
-  • 单次最多读取 10 MB
-  • 客户端可能离线，请处理 owner_offline 错误
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-设计要点：
-- 用分隔线明确划分"用户可读区"和"AI 指令区"，让 Agent LLM 容易识别这是给它的指令
-- 文件清单**只包含前 30 个**（避免污染聊天 + 防止超过 Matrix 单消息大小限制），完整清单仍由 state event 提供
-- 显式指导 Agent："优先访问此工作区，而不是引用你自己的内部工作目录"——直接解决截图中 manager 答非所问的问题
-- 给出具体的协议字段示例，降低 Agent LLM 自主使用协议的难度
-
-#### 3.5.3 解绑时发送的通告消息
-
-```json
-{
-  "type": "m.room.message",
-  "content": {
-    "msgtype": "m.notice",
-    "body": "📁 工作区已解绑：TestMagic\n\n用户已解除本地文件夹绑定。后续提问中，请不要再尝试通过 com.magic.workspace.read_request 读取此工作区的文件。",
-    "com.magic.workspace.notification": {
-      "kind": "unbound",
-      "binding_owner": "@alice:matrix.example.com",
-      "displayName": "TestMagic"
-    }
-  }
-}
-```
-
-#### 3.5.4 文件变化时的通告（防抖发送）
-
-文件清单频繁变化时**不每次都发通告**（会污染聊天），仅在以下情况发：
-
-1. **绑定后首次** — 总是发
-2. **解绑** — 总是发
-3. **重大变化** — 文件数变化超过 ±10% 且距上次通告超过 5 分钟，发简短通告：
-   ```
-   📁 TestMagic 文件已更新（现 165 个文件，新增 23 个）
-   ```
-
-普通的小变化只更新 state event，不发消息。
-
-#### 3.5.5 客户端 UI 对通告消息的渲染
-
-`MessageBubble` 检测到 `m.notice` + `com.magic.workspace.notification` 自定义字段时，渲染成**特殊状态卡片**而非普通消息气泡：
-
-```
-┌─────────────────────────────────────────┐
-│ 📁 工作区已绑定                          │
-│                                         │
-│ TestMagic · 142 个文件 · 2.4 MB         │
-│                                         │
-│ Agent 现在可以按需读取此文件夹中的文件     │
-│                                         │
-│ [查看完整文件清单]  [打开本地文件夹]      │
-└─────────────────────────────────────────┘
-```
-
-这样人类看到的是清晰的卡片，而 Agent LLM 仍然能从原始消息 body 中获取完整指令。
+⚠️ 用户的绝对路径（如 `/Users/jacefu`）**永不出现在 Matrix 协议层**，仅本地存储中可见。
 
 ---
 
-## 4. UI/UX 设计
+## 3. UI/UX 设计
 
-### 4.1 入口位置
+### 3.1 入口位置
 
-**主入口：MessageComposer 的 + 按钮菜单**（不变）
+**主入口：MessageComposer 的 + 按钮菜单**
 
 ```
 [+] → 弹出菜单：
-       📎 上传文件
-       📁 绑定本地文件夹  ← 新增
+       📎 上传文件                  ← 临时上传任意文件
+       📁 绑定本地文件夹             ← 一次性绑定，长期使用
        🖼  插入图片
 ```
 
-**辅助入口：ChannelHeader 状态指示器**（不变，群聊和私聊都显示）
+**辅助入口：MessageComposer 工具栏的 📁 按钮**
+
+绑定后，MessageComposer 工具栏多一个按钮：
 
 ```
-群聊：# room-name | room-topic       📁 myapp · 142 files  [⚙]
-私聊：@ manager 💕                    📁 myapp · 142 files  [⚙]
+┌──────────────────────────────────────────────┐
+│ [+]  [📁]  [🙂]                              │
+│                                              │
+│      输入消息…                                │
+│                                              │
+└──────────────────────────────────────────────┘
 ```
 
-**管理入口：设置面板的"工作区"模块**（群聊 RoomSettingsPanel + 私聊 DMSettingsPanel 都有）
+📁 按钮点击 → 弹出**WorkspaceFilePicker**，从 workspace 文件树中勾选文件。
+勾选的文件以 chip 形式显示在输入框上方：
 
-### 4.2 绑定流程（简化，无上传步骤）
+```
+┌──────────────────────────────────────────────┐
+│ 已附加：                                      │
+│ [📄 src/main.py] [📄 src/auth.py] [✕ 清空]   │
+│                                              │
+│ [+]  [📁³]  [🙂]                             │
+│                                              │
+│      看看这两个文件的设计                       │
+└──────────────────────────────────────────────┘
+```
+
+发送时，附加的文件会随消息一起发出。
+
+**辅助入口：ChannelHeader 状态指示器**
+
+群聊和私聊都显示：
+
+```
+群聊：# room-name                     📁 TestMagic · 142 files  [⚙]
+私聊：@ manager 💕                    📁 TestMagic · 142 files  [⚙]
+```
+
+**管理入口：设置面板的"工作区"模块**
+
+群聊 RoomSettingsPanel + 私聊 DMSettingsPanel 都有，可解绑、查看清单、切换自动附加开关。
+
+### 3.2 绑定流程
 
 ```
 1. 用户点击 [+] → 选择"绑定本地文件夹"
-2. 弹出原生文件选择对话框（Electron dialog.showOpenDialog）
-3. 用户选择文件夹 /Users/alice/Projects/myapp
-4. 弹出确认对话框 BindFolderConfirmDialog：
+2. 弹出原生文件选择对话框
+3. 用户选择 /Users/jacefu/TestMagic
+4. 弹出确认对话框：
 
-   私聊上下文：
    ┌──────────────────────────────────────────┐
    │ 绑定本地文件夹到此对话？                  │
    ├──────────────────────────────────────────┤
-   │ 📁 myapp                                 │
-   │ /Users/alice/Projects/myapp              │
+   │ 📁 TestMagic                             │
+   │ /Users/jacefu/TestMagic                  │
    │                                          │
    │ 扫描到 142 个文件 (2.4 MB)               │
    │ 已自动忽略：node_modules, .git, .env     │
    │                                          │
    │ 工作方式：                                │
-   │ ✓ 文件保留在你的电脑上，不上传到任何服务器│  ← 新增亮点
-   │ ✓ manager 看到清单后，可按需请求读取文件 │
-   │ ✓ Magic 离线时 manager 无法访问文件       │
+   │ ✓ 文件保留在你的电脑上                    │
+   │ ✓ 当你的消息提到文件路径时，Magic 自动把  │
+   │   文件内容附到消息中发给 Agent             │
+   │ ✓ 你也可以点 📁 按钮显式选择文件          │
+   │ ✓ 自动附加可在设置中关闭                  │
    │                                          │
    │ ☐ 我理解上述说明                          │
    │                                          │
    │            [取消]  [绑定]                  │
    └──────────────────────────────────────────┘
 
-5. 用户确认 → 客户端扫描文件夹（秒级完成，仅遍历不读内容）
-6. 发布 Matrix state event（文件清单）→ Agent 立即看到
-7. 启动 chokidar 监听本地变化
-8. 启动 Matrix 事件订阅，等待 read_request
+5. 用户确认 → Magic Client 扫描文件夹
+6. ⭐ 发送绑定通告消息（普通聊天消息）：
 
-⚠ 整个流程没有"上传进度"环节，因为根本不上传
+   消息内容：
+   ┌──────────────────────────────────────────┐
+   │ 📁 已绑定本地工作区：TestMagic            │
+   │                                          │
+   │ 包含 142 个文件（2.4 MB）                 │
+   │                                          │
+   │ 文件清单：                                │
+   │ - README.md                              │
+   │ - package.json                           │
+   │ - src/main.py                            │
+   │ - src/auth.py                            │
+   │ - src/utils.py                           │
+   │ - tests/test_main.py                     │
+   │ - ... 还有 N 个文件                       │
+   │                                          │
+   │ 接下来当我提到文件路径（如 src/main.py） │
+   │ 时，文件内容会自动附加到我的消息中。     │
+   │ 你可以基于实际文件内容回答我的问题。      │
+   └──────────────────────────────────────────┘
+
+   如果文件清单超过 100 个，则附带一个 m.file 附件
+   workspace-manifest.txt 包含完整清单。
+
+7. ChannelHeader 显示 📁 状态指示
+8. MessageComposer 工具栏出现 📁 按钮
 ```
 
-### 4.3 同步状态视图
+### 3.3 智能附加流程（核心）
 
-WorkspacePanel 中的状态指示：
-
-| 状态 | 图标 | 描述 |
-|------|------|------|
-| 未绑定 | — | "尚未绑定本地文件夹" + [绑定文件夹] 按钮 |
-| 已绑定 · 在线 | ✅ | "已绑定 142 个文件，Agent 可访问" |
-| 已绑定 · 离线 | 🌙 | "已绑定 但 Magic 离线，Agent 暂时无法读取文件" |
-| 文件夹被移动/删除 | ⚠️ | "本地文件夹找不到了" + [重新绑定/解绑] |
-| 刚响应了请求 | 📖 | "刚才 manager 读取了 src/main.py（2 秒前）"（短暂显示） |
-
-### 4.4 访问审计视图（隐私保障）
-
-为让用户随时知道 Agent 读了哪些文件，在 WorkspaceSection 增加**访问日志**：
+用户在已绑定房间发消息：
 
 ```
-最近访问记录：
-━━━━━━━━━━━━━━━━━━━━━━━━━
-📖 manager · 读取 src/auth.py · 2 分钟前
-📖 manager · 读取 src/main.py · 5 分钟前
-📋 manager · 列出 tests/ · 8 分钟前
-━━━━━━━━━━━━━━━━━━━━━━━━━
-[查看完整记录]
+用户输入：
+  "看看 src/main.py 这个文件设计上有什么问题？"
+
+Magic Client 拦截发送：
+  1. 提取文本中的 token
+  2. 与 workspace 文件树匹配：
+     - 完整路径匹配："src/main.py" ✅
+  3. 读取本地文件 /Users/jacefu/TestMagic/src/main.py
+  4. 决定附加方式：
+     - 文件大小：3.2 KB（< 50KB 阈值）
+     - 类型：文本
+     - → 内联到消息正文
+
+实际发送的消息（普通 m.text）：
+  ┌──────────────────────────────────────────┐
+  │ 看看 src/main.py 这个文件设计上有什么问题？│
+  │                                          │
+  │ ────────                                 │
+  │ 📎 src/main.py                           │
+  │ ```python                                │
+  │ from flask import Flask                  │
+  │ app = Flask(__name__)                    │
+  │                                          │
+  │ @app.route("/")                          │
+  │ def index():                             │
+  │   ...                                    │
+  │ ```                                      │
+  └──────────────────────────────────────────┘
+
+UI 渲染（用户视角）：
+  普通消息气泡，附带文件 chip：
+  ┌──────────────────────────────────────────┐
+  │ 看看 src/main.py 这个文件设计上有什么问题？│
+  │                                          │
+  │ [📄 src/main.py · 3.2 KB]                │
+  └──────────────────────────────────────────┘
+
+  （展开 chip 可查看完整内容）
+
+Agent 视角：
+  收到带代码块的消息，直接基于代码回答
 ```
 
-记录持久化在客户端本地（不上链）。
+### 3.4 显式选择流程
+
+```
+1. 用户点击 MessageComposer 工具栏的 📁 按钮
+2. 弹出 WorkspaceFilePicker：
+
+   ┌──────────────────────────────────────────┐
+   │ 选择要附加的文件                          │
+   │ ────────                                 │
+   │ ☐ README.md                              │
+   │ ☐ package.json                           │
+   │ ▼ src/                                   │
+   │   ☑ main.py (3.2 KB)                    │
+   │   ☑ auth.py (1.8 KB)                    │
+   │   ☐ utils.py                             │
+   │ ▼ tests/                                 │
+   │   ☐ test_main.py                         │
+   │ ────────                                 │
+   │ 已选 2 个文件 (5.0 KB)                   │
+   │                                          │
+   │      [取消]  [附加到下一条消息]            │
+   └──────────────────────────────────────────┘
+
+3. 用户勾选 → 点确认
+4. MessageComposer 输入框上方出现 chip：
+   [📄 src/main.py] [📄 src/auth.py] [✕ 清空]
+5. 用户输入文字 → 发送
+6. 文件随消息一起发出（同 §3.3 的内联或附件方式）
+```
+
+### 3.5 大文件 / 二进制文件处理
+
+```
+用户输入："看看 docs/diagram.png 这个图"
+
+Magic Client 检测：
+  - 文件类型：image/png
+  - 大小：800 KB
+  - → 走 Matrix media upload，发独立 m.image 消息
+
+Magic Client 实际发送 2 条消息：
+  消息 1（m.text）：
+    "看看 docs/diagram.png 这个图"
+
+  消息 2（m.image）：
+    {
+      "msgtype": "m.image",
+      "body": "diagram.png",
+      "info": { ... },
+      "url": "mxc://matrix.example.com/abc123",
+      "com.magic.workspace.attachment": {
+        "originalPath": "docs/diagram.png",
+        "fromWorkspace": "TestMagic"
+      }
+    }
+
+Agent 视角：
+  看到文字 + 图片附件，按其能力处理
+  （视觉模型可分析图片；纯文本模型可读取 alt text/文件名）
+```
+
+### 3.6 自动附加的开关
+
+设置面板的"工作区"模块中：
+
+```
+工作区
+├─ 已绑定: TestMagic
+├─ 同步状态: ✅
+├─ ⚙ 自动附加: [✓ 开启]
+│   说明：当我的消息提到 workspace 中的文件路径时，
+│        自动读取并附加文件内容到消息。
+├─ ⚙ 单文件大小上限: [50 KB]（超过转为附件）
+├─ [打开本地文件夹]
+└─ [解除绑定]
+```
+
+关闭自动附加后，仅 📁 按钮的显式选择生效。
+
+---
+
+## 4. 文件检测算法
+
+智能附加的核心是**从用户消息文本中识别 workspace 文件引用**。
+
+### 4.1 检测策略（优先级从高到低）
+
+#### 4.1.1 反引号包裹的路径
+
+```
+正则: /`([^`]+)`/g
+示例：
+  "看看 `src/main.py`" → 提取 "src/main.py"
+  "对比 `a.py` 和 `b.py`" → 提取两个
+检查：提取的字符串如果完全匹配 workspace 文件树中的某条路径 → 附加
+```
+
+#### 4.1.2 显式 @file 语法
+
+```
+正则: /@file:([^\s]+)/g
+示例：
+  "看看 @file:src/main.py" → 提取 "src/main.py"
+  这是给"知道这个语法"的高级用户用的，类似 GitHub 的 #issue 引用
+```
+
+#### 4.1.3 完整路径直接出现
+
+```
+检查每个 token 是否包含 / 或 \
+示例：
+  "src/main.py 怎么样？" → 提取 "src/main.py"
+  "看看 tests/test_auth.py" → 提取 "tests/test_auth.py"
+检查：是否是 workspace 树中的有效路径 → 附加
+```
+
+#### 4.1.4 唯一文件名匹配
+
+```
+对于不带路径的文件名（如 "main.py"）：
+- 检查 workspace 树中有几个文件名匹配
+- 如果只有 1 个 → 附加
+- 如果有多个 → 不附加（避免歧义），UI 提示用户使用完整路径
+- 如果是常见文件（README.md, package.json, Cargo.toml 等）→ 附加根目录的那个
+示例：
+  "看看 main.py" → 如果只有 src/main.py → 附加
+  "看看 main.py" → 如果有 src/main.py 和 tests/main.py → 不附加，提示
+  "看看 README.md" → 总是附加根目录的 README.md
+```
+
+### 4.2 不附加的情况
+
+- 路径不在 workspace 中（如用户写 `/etc/passwd`）
+- 文件被 .magicignore 排除
+- 文件 > 5 MB（提示用户大文件需用显式选择）
+- 用户在设置中关闭了自动附加
+
+### 4.3 上限保护
+
+- 单条消息最多自动附加 5 个文件（防止用户写"看看所有 .py 文件"导致全量附加）
+- 超过则附加前 5 个并提示："已附加前 5 个文件，如需更多请使用 📁 按钮"
+- 自动附加的总大小不超过 1 MB（防止把消息撑爆）
 
 ---
 
@@ -515,8 +452,8 @@ export function registerWorkspaceIpcHandlers(workspace: WorkspaceManager) {
     workspace.scanFolder(folderPath)
   );
 
-  ipcMain.handle("workspace:bind", async (_e, roomId: string, folderPath: string) =>
-    workspace.bind(roomId, folderPath)
+  ipcMain.handle("workspace:bind", async (_e, roomId: string, folderPath: string, boundBy: string) =>
+    workspace.bind(roomId, folderPath, boundBy)
   );
 
   ipcMain.handle("workspace:unbind", async (_e, roomId: string) =>
@@ -527,48 +464,33 @@ export function registerWorkspaceIpcHandlers(workspace: WorkspaceManager) {
     workspace.getBinding(roomId)
   );
 
-  ipcMain.handle("workspace:getAllBindings", async () =>
-    workspace.getAllBindings()
+  ipcMain.handle("workspace:getFileTree", async (_e, roomId: string) =>
+    workspace.getFileTree(roomId)
   );
 
   ipcMain.handle("workspace:revealInFinder", async (_e, roomId: string) =>
     workspace.revealInFinder(roomId)
   );
 
-  // ⭐ 新增：响应 read_request 的核心接口
+  // ⭐ 核心接口：renderer 在发送消息时调用，读取本地文件
   ipcMain.handle("workspace:readFile",
-    async (_e, roomId: string, relPath: string, maxSize: number, requesterId: string) =>
-      workspace.readFile(roomId, relPath, maxSize, requesterId)
+    async (_e, roomId: string, relPath: string) =>
+      workspace.readFile(roomId, relPath)
   );
 
-  ipcMain.handle("workspace:listDir",
-    async (_e, roomId: string, relPath: string, depth: number, requesterId: string) =>
-      workspace.listDir(roomId, relPath, depth, requesterId)
+  // ⭐ 偏好设置：自动附加开关
+  ipcMain.handle("workspace:setAutoAttach",
+    async (_e, roomId: string, enabled: boolean) =>
+      workspace.setAutoAttach(roomId, enabled)
   );
 
-  ipcMain.handle("workspace:getAccessLog",
-    async (_e, roomId: string, limit: number) =>
-      workspace.getAccessLog(roomId, limit)
-  );
-
-  // ⭐ 新增：用于通告消息发送的辅助接口
-  ipcMain.handle("workspace:getLastBinding",
-    async (_e, roomId: string) => workspace.getLastBinding(roomId)
-  );
-  ipcMain.handle("workspace:getLastNotifyAt",
-    async (_e, roomId: string) => workspace.getLastNotifyAt(roomId)
-  );
-  ipcMain.handle("workspace:getLastNotifiedFileCount",
-    async (_e, roomId: string) => workspace.getLastNotifiedFileCount(roomId)
-  );
-  ipcMain.handle("workspace:recordNotify",
-    async (_e, roomId: string, fileCount: number) =>
-      workspace.recordNotify(roomId, fileCount)
+  ipcMain.handle("workspace:getAutoAttach",
+    async (_e, roomId: string) => workspace.getAutoAttach(roomId)
   );
 }
 ```
 
-#### 5.1.2 WorkspaceManager（核心）
+#### 5.1.2 WorkspaceManager（简化版）
 
 ```typescript
 // apps/desktop/src/main/workspace/WorkspaceManager.ts
@@ -587,21 +509,13 @@ interface Binding {
   fileCount: number;
   totalSize: number;
   ignorePatterns: string[];
+  autoAttach: boolean;          // ⭐ 自动附加开关
 }
 
 interface FileEntry {
   path: string;
   size: number;
   mtime: number;
-}
-
-interface AccessLogEntry {
-  timestamp: number;
-  type: "read" | "list";
-  path: string;
-  agentUserId: string;
-  bytes: number;
-  success: boolean;
 }
 
 interface ScanResult {
@@ -614,13 +528,10 @@ interface ScanResult {
 
 export class WorkspaceManager {
   private bindings: Map<string, Binding> = new Map();
-  private lastBindings: Map<string, Binding> = new Map(); // 解绑后保留以供通告消息使用
+  private fileTrees: Map<string, FileEntry[]> = new Map();
   private watchers: Map<string, FSWatcher> = new Map();
-  private accessLogs: Map<string, AccessLogEntry[]> = new Map();
-  private notifyTracker: Map<string, { lastNotifyAt: number; lastFileCount: number }> = new Map();
   private storageFile: string;
-  private accessLogFile: string;
-  private onFileTreeChanged: (roomId: string, files: FileEntry[], meta: { isFirstBind?: boolean; isUnbind?: boolean }) => void;
+  private onBindingChanged: (roomId: string, binding: Binding | null, files: FileEntry[]) => void;
 
   private readonly DEFAULT_IGNORES = [
     "node_modules/**", ".git/**", ".svn/**", ".hg/**",
@@ -634,19 +545,18 @@ export class WorkspaceManager {
     "*.pem", "*.key", "*.p12", "*.pfx", "id_rsa*",
   ];
 
-  // 单文件读取上限：10 MB
+  // 单文件读取上限：10 MB（renderer 侧会更保守，5 MB 就拒绝自动附加）
   private readonly MAX_READ_SIZE = 10 * 1024 * 1024;
 
   // 总文件数硬上限
   private readonly MAX_FILE_COUNT = 10000;
 
-  // 文件夹总大小元数据上限：5 GB（不限实际读取，仅扫描）
+  // 文件夹元数据扫描上限
   private readonly MAX_TOTAL_SIZE = 5 * 1024 * 1024 * 1024;
 
-  constructor(onFileTreeChanged: (roomId: string, files: FileEntry[], meta: { isFirstBind?: boolean; isUnbind?: boolean }) => void) {
+  constructor(onBindingChanged: (roomId: string, binding: Binding | null, files: FileEntry[]) => void) {
     this.storageFile = path.join(app.getPath("userData"), "workspaces.json");
-    this.accessLogFile = path.join(app.getPath("userData"), "workspace-access-log.json");
-    this.onFileTreeChanged = onFileTreeChanged;
+    this.onBindingChanged = onBindingChanged;
   }
 
   async load(): Promise<void> {
@@ -660,18 +570,12 @@ export class WorkspaceManager {
       }
     } catch {}
 
-    try {
-      const data = await fs.readFile(this.accessLogFile, "utf-8");
-      const parsed = JSON.parse(data);
-      for (const [roomId, logs] of Object.entries(parsed)) {
-        this.accessLogs.set(roomId, logs as AccessLogEntry[]);
-      }
-    } catch {}
-
-    // 恢复文件监听
+    // 恢复文件监听 + 重新扫描文件树
     for (const [roomId, binding] of this.bindings.entries()) {
       try {
         await fs.access(binding.localPath);
+        const scan = await this.scanFolder(binding.localPath);
+        this.fileTrees.set(roomId, scan.files);
         await this.startWatching(roomId, binding);
       } catch {
         console.warn(`绑定路径不存在: ${binding.localPath}`);
@@ -681,14 +585,14 @@ export class WorkspaceManager {
 
   private async save(): Promise<void> {
     const data = {
-      version: 2,
+      version: 3,  // v3 标记
       bindings: Object.fromEntries(this.bindings.entries()),
     };
     await fs.writeFile(this.storageFile, JSON.stringify(data, null, 2));
   }
 
   /**
-   * 扫描文件夹，返回文件清单（仅元数据，不读内容）
+   * 扫描文件夹，返回文件清单（仅元数据）
    */
   async scanFolder(folderPath: string): Promise<ScanResult> {
     const ignore = new IgnoreEngine(this.DEFAULT_IGNORES);
@@ -722,21 +626,11 @@ export class WorkspaceManager {
         } else if (entry.isFile()) {
           try {
             const stat = await fs.stat(fullPath);
-            files.push({
-              path: relPath,
-              size: stat.size,
-              mtime: stat.mtimeMs,
-            });
+            files.push({ path: relPath, size: stat.size, mtime: stat.mtimeMs });
             totalSize += stat.size;
 
-            if (files.length >= this.MAX_FILE_COUNT) {
-              truncated = true;
-              break;
-            }
-            if (totalSize >= this.MAX_TOTAL_SIZE) {
-              truncated = true;
-              break;
-            }
+            if (files.length >= this.MAX_FILE_COUNT) { truncated = true; break; }
+            if (totalSize >= this.MAX_TOTAL_SIZE) { truncated = true; break; }
           } catch {}
         }
       }
@@ -748,9 +642,9 @@ export class WorkspaceManager {
   }
 
   /**
-   * 绑定文件夹（只在本地登记，不上传）
+   * 绑定文件夹
    */
-  async bind(roomId: string, folderPath: string, boundBy: string): Promise<Binding> {
+  async bind(roomId: string, folderPath: string, boundBy: string): Promise<{ binding: Binding; files: FileEntry[] }> {
     const stat = await fs.stat(folderPath);
     if (!stat.isDirectory()) throw new Error("选择的不是文件夹");
 
@@ -769,57 +663,39 @@ export class WorkspaceManager {
       fileCount: scan.fileCount,
       totalSize: scan.totalSize,
       ignorePatterns: this.DEFAULT_IGNORES,
+      autoAttach: true,  // 默认开启自动附加
     };
 
     this.bindings.set(roomId, binding);
+    this.fileTrees.set(roomId, scan.files);
     await this.save();
 
-    // ⭐ 通知 renderer 发布 Matrix state event + 发送绑定通告消息
-    this.onFileTreeChanged(roomId, scan.files, { isFirstBind: true });
+    // 通知 renderer 发送绑定通告消息（带文件清单）
+    this.onBindingChanged(roomId, binding, scan.files);
 
-    // 启动文件监听
     await this.startWatching(roomId, binding);
 
-    this.notifyBindingChange(roomId, binding);
-
-    return binding;
+    return { binding, files: scan.files };
   }
 
   async unbind(roomId: string): Promise<void> {
-    const binding = this.bindings.get(roomId);
     const watcher = this.watchers.get(roomId);
     if (watcher) {
       await watcher.close();
       this.watchers.delete(roomId);
     }
-
-    // 在删除 binding 前记录到 lastBindings（供解绑通告消息使用）
-    if (binding) {
-      this.lastBindings.set(roomId, binding);
-    }
-
     this.bindings.delete(roomId);
+    this.fileTrees.delete(roomId);
     await this.save();
-
-    // ⭐ 通知 renderer 清空 state event + 发送解绑通告消息
-    this.onFileTreeChanged(roomId, [], { isUnbind: true });
-
-    this.notifyBindingChange(roomId, null);
-  }
-
-  /**
-   * 获取最近一次（已解绑的）绑定信息，用于解绑通告
-   */
-  getLastBinding(roomId: string): Binding | null {
-    return this.lastBindings.get(roomId) ?? null;
+    this.onBindingChanged(roomId, null, []);
   }
 
   getBinding(roomId: string): Binding | null {
     return this.bindings.get(roomId) ?? null;
   }
 
-  getAllBindings(): Binding[] {
-    return Array.from(this.bindings.values());
+  getFileTree(roomId: string): FileEntry[] {
+    return this.fileTrees.get(roomId) ?? [];
   }
 
   revealInFinder(roomId: string): void {
@@ -828,207 +704,80 @@ export class WorkspaceManager {
   }
 
   /**
-   * ⭐ 核心：响应 Agent 的文件读取请求
+   * ⭐ 读取文件（renderer 在拦截消息发送时调用）
    */
-  async readFile(
-    roomId: string,
-    relPath: string,
-    maxSize: number = this.MAX_READ_SIZE,
-    requesterId: string = "unknown"
-  ): Promise<{
+  async readFile(roomId: string, relPath: string): Promise<{
     ok: boolean;
     content?: Buffer;
     encoding?: "utf-8" | "base64";
     size?: number;
     mtime?: number;
+    isText?: boolean;
     error?: string;
-    errorMessage?: string;
   }> {
     const binding = this.bindings.get(roomId);
-    if (!binding) {
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      return { ok: false, error: "binding_unbound", errorMessage: "对话未绑定文件夹" };
-    }
+    if (!binding) return { ok: false, error: "未绑定" };
 
-    // 路径安全校验
     const safe = this.resolveSafePath(binding.localPath, relPath);
-    if (!safe) {
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      return { ok: false, error: "permission_denied", errorMessage: "路径越界" };
-    }
+    if (!safe) return { ok: false, error: "路径越界" };
 
-    // 忽略列表校验
     const ignore = new IgnoreEngine(binding.ignorePatterns);
-    if (ignore.matches(relPath)) {
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      return { ok: false, error: "permission_denied", errorMessage: "文件被忽略列表排除" };
-    }
+    if (ignore.matches(relPath)) return { ok: false, error: "文件被忽略列表排除" };
 
     try {
       const stat = await fs.stat(safe);
-      if (!stat.isFile()) {
-        return { ok: false, error: "file_not_found", errorMessage: "不是文件" };
-      }
-      const cap = Math.min(maxSize, this.MAX_READ_SIZE);
-      if (stat.size > cap) {
-        this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-        return {
-          ok: false,
-          error: "size_exceeded",
-          errorMessage: `文件 ${stat.size} 字节超过上限 ${cap}`,
-        };
+      if (!stat.isFile()) return { ok: false, error: "不是文件" };
+      if (stat.size > this.MAX_READ_SIZE) {
+        return { ok: false, error: `文件过大（${stat.size} 字节）` };
       }
 
       const content = await fs.readFile(safe);
-      const encoding = this.detectEncoding(content);
-
-      this.logAccess(roomId, requesterId, "read", relPath, content.length, true);
+      const isText = this.detectIsText(content);
 
       return {
         ok: true,
         content,
-        encoding,
+        encoding: isText ? "utf-8" : "base64",
         size: content.length,
         mtime: stat.mtimeMs,
+        isText,
       };
     } catch (err: any) {
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      if (err.code === "ENOENT") {
-        return { ok: false, error: "file_not_found", errorMessage: "文件不存在" };
-      }
-      return { ok: false, error: "permission_denied", errorMessage: err.message };
+      return { ok: false, error: err.code === "ENOENT" ? "文件不存在" : err.message };
     }
   }
 
-  /**
-   * 列出指定子目录
-   */
-  async listDir(
-    roomId: string,
-    relPath: string,
-    depth: number = 1,
-    requesterId: string = "unknown"
-  ): Promise<{
-    ok: boolean;
-    entries?: Array<{ path: string; size: number; mtime: number; isDirectory: boolean }>;
-    error?: string;
-  }> {
-    const binding = this.bindings.get(roomId);
-    if (!binding) return { ok: false, error: "binding_unbound" };
-
-    const safe = this.resolveSafePath(binding.localPath, relPath);
-    if (!safe) return { ok: false, error: "permission_denied" };
-
-    const ignore = new IgnoreEngine(binding.ignorePatterns);
-    const entries: Array<{ path: string; size: number; mtime: number; isDirectory: boolean }> = [];
-
-    const walk = async (dir: string, currentDepth: number): Promise<void> => {
-      if (currentDepth > depth) return;
-      const items = await fs.readdir(dir, { withFileTypes: true });
-      for (const item of items) {
-        const fullPath = path.join(dir, item.name);
-        const itemRel = path.relative(binding.localPath, fullPath).replace(/\\/g, "/");
-        if (ignore.matches(itemRel)) continue;
-        try {
-          const stat = await fs.stat(fullPath);
-          entries.push({
-            path: itemRel,
-            size: stat.size,
-            mtime: stat.mtimeMs,
-            isDirectory: item.isDirectory(),
-          });
-          if (item.isDirectory() && currentDepth < depth) {
-            await walk(fullPath, currentDepth + 1);
-          }
-        } catch {}
-      }
-    };
-
-    await walk(safe, 0);
-
-    this.logAccess(roomId, requesterId, "list", relPath, 0, true);
-
-    return { ok: true, entries };
+  setAutoAttach(roomId: string, enabled: boolean): void {
+    const b = this.bindings.get(roomId);
+    if (b) {
+      b.autoAttach = enabled;
+      this.save();
+    }
   }
 
-  /**
-   * 路径安全解析：防止 path traversal
-   */
+  getAutoAttach(roomId: string): boolean {
+    return this.bindings.get(roomId)?.autoAttach ?? false;
+  }
+
   private resolveSafePath(rootPath: string, relPath: string): string | null {
     const normalized = path.normalize(relPath).replace(/^[/\\]+/, "");
     const resolved = path.resolve(rootPath, normalized);
-    if (!resolved.startsWith(rootPath + path.sep) && resolved !== rootPath) {
-      return null;
-    }
+    if (!resolved.startsWith(rootPath + path.sep) && resolved !== rootPath) return null;
     return resolved;
   }
 
-  private detectEncoding(content: Buffer): "utf-8" | "base64" {
+  private detectIsText(content: Buffer): boolean {
     const sample = content.slice(0, 8192);
+    if (sample.includes(0)) return false; // 含 NULL 字节 → 二进制
     try {
       const decoded = sample.toString("utf-8");
       const replacementCount = (decoded.match(/\uFFFD/g) || []).length;
-      if (replacementCount > sample.length * 0.01) return "base64";
-      if (sample.includes(0)) return "base64";
-      return "utf-8";
+      return replacementCount <= sample.length * 0.01;
     } catch {
-      return "base64";
+      return false;
     }
   }
 
-  private async logAccess(
-    roomId: string,
-    agentUserId: string,
-    type: "read" | "list",
-    relPath: string,
-    bytes: number,
-    success: boolean
-  ): Promise<void> {
-    const log = this.accessLogs.get(roomId) ?? [];
-    const entry = {
-      timestamp: Date.now(),
-      type,
-      path: relPath,
-      agentUserId,
-      bytes,
-      success,
-    };
-    log.push(entry);
-    if (log.length > 200) log.splice(0, log.length - 200);
-    this.accessLogs.set(roomId, log);
-
-    const allLogs = Object.fromEntries(this.accessLogs.entries());
-    fs.writeFile(this.accessLogFile, JSON.stringify(allLogs)).catch(() => {});
-
-    this.notifyAccessLog(roomId, entry);
-  }
-
-  getAccessLog(roomId: string, limit: number = 50): AccessLogEntry[] {
-    const log = this.accessLogs.get(roomId) ?? [];
-    return log.slice(-limit).reverse();
-  }
-
-  /**
-   * 通告消息防抖 — 记录最后一次通告
-   */
-  getLastNotifyAt(roomId: string): number {
-    return this.notifyTracker.get(roomId)?.lastNotifyAt ?? 0;
-  }
-
-  getLastNotifiedFileCount(roomId: string): number {
-    return this.notifyTracker.get(roomId)?.lastFileCount ?? 0;
-  }
-
-  recordNotify(roomId: string, fileCount: number): void {
-    this.notifyTracker.set(roomId, {
-      lastNotifyAt: Date.now(),
-      lastFileCount: fileCount,
-    });
-  }
-
-  /**
-   * 启动文件监听 — 变化时重新发布清单
-   */
   private async startWatching(roomId: string, binding: Binding): Promise<void> {
     const ignore = new IgnoreEngine(binding.ignorePatterns);
     const watcher = chokidar.watch(binding.localPath, {
@@ -1042,42 +791,37 @@ export class WorkspaceManager {
     });
 
     let debounceTimer: NodeJS.Timeout | null = null;
-    const triggerRepublish = () => {
+    const triggerRescan = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         const scan = await this.scanFolder(binding.localPath);
         binding.fileCount = scan.fileCount;
         binding.totalSize = scan.totalSize;
+        this.fileTrees.set(roomId, scan.files);
         await this.save();
-        // 文件变化（非首次绑定）— meta 不带 isFirstBind/isUnbind
-        this.onFileTreeChanged(roomId, scan.files, {});
-        this.notifyBindingChange(roomId, binding);
+        // 注意：v3 不在每次文件变化时发新的 Matrix 消息，只更新本地树
+        // 仅在用户主动操作时才发消息
+        this.notifyTreeChanged(roomId);
       }, 2000);
     };
 
-    watcher.on("add", triggerRepublish);
-    watcher.on("change", triggerRepublish);
-    watcher.on("unlink", triggerRepublish);
+    watcher.on("add", triggerRescan);
+    watcher.on("change", triggerRescan);
+    watcher.on("unlink", triggerRescan);
 
     this.watchers.set(roomId, watcher);
   }
 
-  private notifyBindingChange(roomId: string, binding: Binding | null): void {
+  private notifyTreeChanged(roomId: string): void {
+    const binding = this.bindings.get(roomId);
+    const files = this.fileTrees.get(roomId) ?? [];
     BrowserWindow.getAllWindows().forEach((win) =>
-      win.webContents.send("workspace:binding-changed", { roomId, binding })
-    );
-  }
-
-  private notifyAccessLog(roomId: string, entry: AccessLogEntry): void {
-    BrowserWindow.getAllWindows().forEach((win) =>
-      win.webContents.send("workspace:access-logged", { roomId, entry })
+      win.webContents.send("workspace:tree-changed", { roomId, binding, files })
     );
   }
 
   async shutdown(): Promise<void> {
-    for (const w of this.watchers.values()) {
-      await w.close();
-    }
+    for (const w of this.watchers.values()) await w.close();
     this.watchers.clear();
   }
 }
@@ -1085,499 +829,636 @@ export class WorkspaceManager {
 
 #### 5.1.3 IgnoreEngine
 
-沿用上一版 spec 的 minimatch 实现。
+沿用前版 minimatch 实现。
 
-### 5.2 Renderer 端 — Matrix 协议处理
+### 5.2 Renderer 端 — 核心拦截器
 
-#### 5.2.1 useWorkspaceMatrixBridge — 核心桥接 Hook
+#### 5.2.1 useMessageInterceptor — 消息发送拦截器
 
 ```typescript
-// packages/ui/src/hooks/useWorkspaceMatrixBridge.ts
-import { useEffect } from "react";
+// packages/ui/src/hooks/useMessageInterceptor.ts
+import { useCallback } from "react";
 import { getClient } from "@magic/matrix-client";
 
+interface FileEntry {
+  path: string;
+  size: number;
+  mtime: number;
+}
+
+interface SendOptions {
+  roomId: string;
+  text: string;
+  explicitAttachments?: string[];  // 用户通过 📁 按钮显式选择的文件
+}
+
 /**
- * App 顶层挂载，负责：
- * 1. 监听 main 进程的"文件清单变化" → 发布 Matrix state event
- * 2. 监听 Matrix Room.timeline 的 read_request/list_request
- *    → 调用 main 进程读文件 → 发回 read_response/list_response
+ * 消息发送拦截器 — 自动附加 workspace 文件
+ *
+ * 调用流程：
+ * 1. 用户在 MessageComposer 输入文字
+ * 2. 检测到文件路径引用 → 读取本地文件
+ * 3. 决定附加方式（内联代码块 / m.file 附件）
+ * 4. 发送最终消息
  */
-export function useWorkspaceMatrixBridge() {
-  useEffect(() => {
+export function useMessageInterceptor() {
+  const sendWithWorkspace = useCallback(async ({ roomId, text, explicitAttachments = [] }: SendOptions) => {
     const client = getClient();
-    if (!client) return;
+    if (!client) throw new Error("Matrix client 未初始化");
 
-    // === 1. main 进程通知文件清单变化 → 发布 state event + 发通告 ===
-    const fileTreeHandler = async (
-      _e: any,
-      { roomId, files, isFirstBind, isUnbind }: {
-        roomId: string;
-        files: any[];
-        isFirstBind?: boolean;
-        isUnbind?: boolean;
-      }
-    ) => {
-      const userId = client.getUserId();
-      if (!userId) return;
-
-      try {
-        if (files.length === 0 || isUnbind) {
-          // 解绑：清空 state event
-          await client.sendStateEvent(
-            roomId,
-            "com.magic.workspace.binding",
-            { bound: false },
-            userId
-          );
-
-          // ⭐ 发送解绑通告消息（让 Agent LLM 感知）
-          const binding = await window.electron!.workspace.getLastBinding?.(roomId);
-          if (binding) {
-            await client.sendEvent(roomId, "m.room.message", {
-              msgtype: "m.notice",
-              body: `📁 工作区已解绑：${binding.displayName}\n\n用户已解除本地文件夹绑定。后续提问中，请不要再尝试通过 com.magic.workspace.read_request 读取此工作区的文件。`,
-              "com.magic.workspace.notification": {
-                kind: "unbound",
-                binding_owner: userId,
-                displayName: binding.displayName,
-              },
-            });
-          }
-          return;
-        }
-
-        // 决定是否需要 chunked 模式
-        const inlineLimit = 500;
-        const useChunked = files.length > inlineLimit;
-        const binding = await window.electron!.workspace.getBinding(roomId);
-
-        if (!useChunked) {
-          await client.sendStateEvent(
-            roomId,
-            "com.magic.workspace.binding",
-            {
-              bound: true,
-              displayName: binding?.displayName ?? "",
-              boundBy: userId,
-              boundAt: binding?.boundAt ?? Date.now(),
-              fileCount: files.length,
-              totalSize: files.reduce((sum, f) => sum + f.size, 0),
-              tree: files,
-              treeChunked: false,
-            },
-            userId
-          );
-        } else {
-          // Chunked 模式
-          const CHUNK_SIZE = 200;
-          const chunkEventIds: string[] = [];
-          for (let i = 0; i < files.length; i += CHUNK_SIZE) {
-            const chunk = files.slice(i, i + CHUNK_SIZE);
-            const result = await client.sendEvent(roomId, "com.magic.workspace.tree_chunk", {
-              chunkIndex: Math.floor(i / CHUNK_SIZE),
-              totalChunks: Math.ceil(files.length / CHUNK_SIZE),
-              files: chunk,
-            });
-            chunkEventIds.push(result.event_id);
-          }
-          await client.sendStateEvent(
-            roomId,
-            "com.magic.workspace.binding",
-            {
-              bound: true,
-              displayName: binding?.displayName ?? "",
-              boundBy: userId,
-              boundAt: binding?.boundAt ?? Date.now(),
-              fileCount: files.length,
-              totalSize: files.reduce((sum, f) => sum + f.size, 0),
-              tree: null,
-              treeChunked: true,
-              treeChunks: chunkEventIds.length,
-              treeManifestEventIds: chunkEventIds,
-            },
-            userId
-          );
-        }
-
-        // ⭐ 发送绑定通告消息（让 Agent LLM 感知）
-        if (isFirstBind) {
-          const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-          const sizeStr = formatSize(totalSize);
-          const previewFiles = files.slice(0, 30).map(f => `  • ${f.path}`).join("\n");
-          const remaining = files.length > 30 ? `\n  ... 还有 ${files.length - 30} 个文件` : "";
-
-          const body = `📁 工作区已绑定：${binding?.displayName}（${files.length} 个文件，${sizeStr}）
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【对话上下文 · 给 AI 助手的说明】
-
-用户已将本地文件夹 "${binding?.displayName}" 绑定到此对话。
-当用户提及"文件"、"代码"、"项目"、"看看"、"读取"等可能涉及文件的内容时，
-你应当**优先访问此工作区中的文件**，而不是引用你自己的内部工作目录。
-
-📋 文件清单（前 30 个，完整清单见房间状态事件 com.magic.workspace.binding）：
-${previewFiles}${remaining}
-
-🔧 如何读取文件：
-发送 Matrix 事件 com.magic.workspace.read_request，包含字段：
-  - request_id: 唯一标识（UUID）
-  - path: 相对路径（如 "src/main.py"）
-  - binding_owner: "${userId}"
-
-客户端会通过 com.magic.workspace.read_response 事件返回内容。
-
-⚠️ 注意：
-  • 路径必须是相对路径（不是 /Users/... 这种绝对路径）
-  • 单次最多读取 10 MB
-  • 客户端可能离线，请处理 owner_offline 错误
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-          await client.sendEvent(roomId, "m.room.message", {
-            msgtype: "m.notice",
-            body,
-            "com.magic.workspace.notification": {
-              kind: "bound",
-              binding_owner: userId,
-              displayName: binding?.displayName,
-              fileCount: files.length,
-              totalSize,
-            },
-          });
-        } else {
-          // 文件变化场景：判断是否需要发通告（重大变化才发）
-          const lastNotifyAt = await window.electron!.workspace.getLastNotifyAt?.(roomId);
-          const lastFileCount = await window.electron!.workspace.getLastNotifiedFileCount?.(roomId);
-          const now = Date.now();
-          const sinceLastNotify = now - (lastNotifyAt ?? 0);
-          const fileCountDelta = Math.abs(files.length - (lastFileCount ?? files.length));
-          const significantChange =
-            lastFileCount && fileCountDelta / lastFileCount >= 0.1;
-
-          if (significantChange && sinceLastNotify > 5 * 60 * 1000) {
-            const delta = files.length - (lastFileCount ?? files.length);
-            const direction = delta > 0 ? `新增 ${delta}` : `减少 ${-delta}`;
-            await client.sendEvent(roomId, "m.room.message", {
-              msgtype: "m.notice",
-              body: `📁 ${binding?.displayName} 文件已更新（现 ${files.length} 个文件，${direction} 个）`,
-              "com.magic.workspace.notification": {
-                kind: "updated",
-                binding_owner: userId,
-                displayName: binding?.displayName,
-                fileCount: files.length,
-              },
-            });
-            await window.electron!.workspace.recordNotify?.(roomId, files.length);
-          }
-        }
-      } catch (err) {
-        console.error("发布文件清单失败:", err);
-      }
-    };
-
-    function formatSize(bytes: number): string {
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-      return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+    // 1. 获取 workspace 状态
+    const binding = await window.electron?.workspace.getBinding(roomId);
+    if (!binding) {
+      // 没有绑定，直接发普通消息
+      return await client.sendTextMessage(roomId, text);
     }
 
-    const unsubFileTree = window.electron?.workspace.onFileTreeChanged?.(fileTreeHandler);
+    const fileTree: FileEntry[] = await window.electron!.workspace.getFileTree(roomId);
+    const autoAttach = binding.autoAttach;
 
-    // === 2. 监听 Matrix Room.timeline 的 read_request ===
-    const handleTimelineEvent = async (event: any) => {
-      const myUserId = client.getUserId();
-      const senderId = event.getSender();
-      if (senderId === myUserId) return; // 忽略自己
+    // 2. 收集要附加的文件路径
+    const detectedPaths = autoAttach ? detectFilePaths(text, fileTree) : [];
+    const allPaths = [...new Set([...detectedPaths, ...explicitAttachments])];
 
-      const eventType = event.getType();
-      const roomId = event.getRoomId();
-      if (!roomId) return;
+    // 上限：5 个文件 / 1 MB
+    const limited = limitAttachments(allPaths, fileTree, 5, 1024 * 1024);
 
-      if (eventType === "com.magic.workspace.read_request") {
-        const content = event.getContent();
-        // 校验请求是否针对我（多人绑定时通过 binding_owner 路由）
-        if (content.binding_owner && content.binding_owner !== myUserId) return;
+    if (limited.length === 0) {
+      // 无附件，直接发
+      return await client.sendTextMessage(roomId, text);
+    }
 
-        const binding = await window.electron!.workspace.getBinding(roomId);
-        if (!binding || binding.boundBy !== myUserId) return;
+    // 3. 读取每个文件
+    const attachments = await Promise.all(
+      limited.map(async (relPath) => {
+        const result = await window.electron!.workspace.readFile(roomId, relPath);
+        return { path: relPath, ...result };
+      })
+    );
 
-        const result = await window.electron!.workspace.readFile(
-          roomId, content.path, content.max_size ?? 1048576, senderId
-        );
+    const validAttachments = attachments.filter(a => a.ok);
 
-        const responseContent: any = {
-          request_id: content.request_id,
-          path: content.path,
-          ok: result.ok,
-          "m.relates_to": {
-            rel_type: "m.reference",
-            event_id: event.getId(),
-          },
-        };
+    // 4. 分类：内联 vs 独立附件
+    const SMALL_TEXT_THRESHOLD = 50 * 1024; // 50 KB
+    const inlineable = validAttachments.filter(a =>
+      a.isText && (a.size ?? 0) <= SMALL_TEXT_THRESHOLD
+    );
+    const standalone = validAttachments.filter(a =>
+      !a.isText || (a.size ?? 0) > SMALL_TEXT_THRESHOLD
+    );
 
-        if (result.ok && result.content) {
-          const SMALL_THRESHOLD = 32 * 1024;
-          if (result.content.length > SMALL_THRESHOLD) {
-            // 大文件走 Matrix media upload
-            const blob = new Blob([result.content]);
-            const uploadRes = await client.uploadContent(blob, {
-              type: result.encoding === "utf-8" ? "text/plain" : "application/octet-stream",
-              name: content.path.split("/").pop() ?? "file",
-            });
-            Object.assign(responseContent, {
-              via_media: true,
-              mxc_url: uploadRes.content_uri,
-              mime_type: result.encoding === "utf-8" ? "text/plain" : "application/octet-stream",
-              size: result.size,
-              encoding: result.encoding,
-              mtime: result.mtime,
-            });
-          } else {
-            // 小文件内联
-            Object.assign(responseContent, {
-              via_media: false,
-              size: result.size,
-              encoding: result.encoding,
-              content: result.encoding === "utf-8"
-                ? (result.content as Buffer).toString("utf-8")
-                : (result.content as Buffer).toString("base64"),
-              mtime: result.mtime,
-            });
-          }
-        } else {
-          responseContent.error = result.error;
-          responseContent.errorMessage = result.errorMessage;
-        }
-
-        await client.sendEvent(roomId, "com.magic.workspace.read_response", responseContent);
-      } else if (eventType === "com.magic.workspace.list_request") {
-        const content = event.getContent();
-        if (content.binding_owner && content.binding_owner !== myUserId) return;
-
-        const binding = await window.electron!.workspace.getBinding(roomId);
-        if (!binding || binding.boundBy !== myUserId) return;
-
-        const result = await window.electron!.workspace.listDir(
-          roomId, content.path ?? "", content.depth ?? 1, senderId
-        );
-
-        await client.sendEvent(roomId, "com.magic.workspace.list_response", {
-          request_id: content.request_id,
-          path: content.path,
-          ok: result.ok,
-          entries: result.entries,
-          error: result.error,
-          "m.relates_to": { rel_type: "m.reference", event_id: event.getId() },
-        });
+    // 5. 构造主消息（用户文字 + 内联代码块）
+    let mainBody = text;
+    if (inlineable.length > 0) {
+      mainBody += "\n\n────────";
+      for (const att of inlineable) {
+        const lang = guessLanguage(att.path);
+        const content = (att.content as Buffer).toString("utf-8");
+        mainBody += `\n\n📎 \`${att.path}\`\n\`\`\`${lang}\n${content}\n\`\`\``;
       }
-    };
+    }
 
-    client.on("Room.timeline", handleTimelineEvent);
-
-    return () => {
-      unsubFileTree?.();
-      client.off("Room.timeline", handleTimelineEvent);
+    // 标记此消息含 workspace 附件（供 UI 渲染 chip）
+    const eventContent: any = {
+      msgtype: "m.text",
+      body: mainBody,
     };
+    if (inlineable.length > 0 || standalone.length > 0) {
+      eventContent["com.magic.workspace.attached"] = {
+        workspaceName: binding.displayName,
+        files: [...inlineable, ...standalone].map(a => ({
+          path: a.path,
+          size: a.size,
+          inlined: inlineable.includes(a),
+        })),
+      };
+    }
+
+    const result = await client.sendEvent(roomId, "m.room.message", eventContent);
+
+    // 6. 发独立附件消息
+    for (const att of standalone) {
+      const blob = new Blob([att.content as Buffer]);
+      const filename = att.path.split("/").pop() ?? "file";
+      const mimeType = att.isText ? "text/plain" : guessMimeType(att.path);
+
+      const upload = await client.uploadContent(blob, {
+        type: mimeType,
+        name: filename,
+      });
+
+      await client.sendEvent(roomId, "m.room.message", {
+        msgtype: att.isText ? "m.file" : (mimeType.startsWith("image/") ? "m.image" : "m.file"),
+        body: filename,
+        info: {
+          size: att.size,
+          mimetype: mimeType,
+        },
+        url: upload.content_uri,
+        "com.magic.workspace.attachment": {
+          originalPath: att.path,
+          fromWorkspace: binding.displayName,
+        },
+      });
+    }
+
+    return result;
   }, []);
+
+  return { sendWithWorkspace };
+}
+
+/**
+ * 从消息文本中检测 workspace 文件路径引用
+ */
+function detectFilePaths(text: string, fileTree: FileEntry[]): string[] {
+  const paths = new Set<string>();
+  const treePathSet = new Set(fileTree.map(f => f.path));
+  const fileNameToPaths = new Map<string, string[]>();
+  for (const f of fileTree) {
+    const baseName = f.path.split("/").pop() ?? "";
+    if (!fileNameToPaths.has(baseName)) fileNameToPaths.set(baseName, []);
+    fileNameToPaths.get(baseName)!.push(f.path);
+  }
+
+  // 策略 1: 反引号包裹的路径
+  const backtickRegex = /`([^`\n]+)`/g;
+  let match;
+  while ((match = backtickRegex.exec(text)) !== null) {
+    const candidate = match[1].trim();
+    if (treePathSet.has(candidate)) {
+      paths.add(candidate);
+    } else {
+      // 如果是裸文件名，且只有一个匹配
+      const matches = fileNameToPaths.get(candidate);
+      if (matches && matches.length === 1) paths.add(matches[0]);
+    }
+  }
+
+  // 策略 2: @file: 语法
+  const atFileRegex = /@file:([^\s]+)/g;
+  while ((match = atFileRegex.exec(text)) !== null) {
+    const candidate = match[1].trim().replace(/[.,;]$/, "");
+    if (treePathSet.has(candidate)) paths.add(candidate);
+  }
+
+  // 策略 3: 包含 / 的 token
+  const tokens = text.split(/[\s，。！？,!?]+/);
+  for (const tok of tokens) {
+    const cleaned = tok.replace(/[.,;:!?，。；：！？)】」』"']+$/, "")
+                       .replace(/^[(【「『"']+/, "");
+    if (cleaned.includes("/") && treePathSet.has(cleaned)) {
+      paths.add(cleaned);
+    }
+  }
+
+  // 策略 4: 唯一文件名匹配（裸文件名）
+  for (const tok of tokens) {
+    const cleaned = tok.replace(/[.,;:!?，。；：！？)】」』"']+$/, "")
+                       .replace(/^[(【「『"']+/, "");
+    const matches = fileNameToPaths.get(cleaned);
+    if (matches && matches.length === 1) {
+      paths.add(matches[0]);
+    }
+    // 常见根目录文件
+    if (["README.md", "package.json", "Cargo.toml", "go.mod", "pom.xml"].includes(cleaned)) {
+      if (treePathSet.has(cleaned)) paths.add(cleaned);
+    }
+  }
+
+  return Array.from(paths);
+}
+
+function limitAttachments(paths: string[], tree: FileEntry[], maxCount: number, maxTotalSize: number): string[] {
+  const treeMap = new Map(tree.map(f => [f.path, f]));
+  const result: string[] = [];
+  let totalSize = 0;
+  for (const p of paths) {
+    if (result.length >= maxCount) break;
+    const entry = treeMap.get(p);
+    if (!entry) continue;
+    if (entry.size > 5 * 1024 * 1024) continue; // 跳过 > 5MB 的文件
+    if (totalSize + entry.size > maxTotalSize) break;
+    result.push(p);
+    totalSize += entry.size;
+  }
+  return result;
+}
+
+function guessLanguage(filepath: string): string {
+  const ext = filepath.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    "py": "python", "js": "javascript", "ts": "typescript",
+    "tsx": "tsx", "jsx": "jsx", "rs": "rust", "go": "go",
+    "java": "java", "c": "c", "cpp": "cpp", "h": "c", "hpp": "cpp",
+    "rb": "ruby", "php": "php", "swift": "swift", "kt": "kotlin",
+    "sh": "bash", "yaml": "yaml", "yml": "yaml", "json": "json",
+    "md": "markdown", "html": "html", "css": "css", "scss": "scss",
+    "sql": "sql", "toml": "toml", "xml": "xml",
+  };
+  return map[ext] ?? "";
+}
+
+function guessMimeType(filepath: string): string {
+  const ext = filepath.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "gif": "image/gif", "webp": "image/webp", "svg": "image/svg+xml",
+    "pdf": "application/pdf", "zip": "application/zip",
+  };
+  return map[ext] ?? "application/octet-stream";
 }
 ```
 
-#### 5.2.2 在 App 入口挂载 Bridge
+#### 5.2.2 useWorkspaceBinding — 状态 Hook
 
-```tsx
-// apps/desktop/src/renderer/src/App.tsx
-import { useWorkspaceMatrixBridge } from "@magic/ui/hooks";
+```typescript
+// packages/ui/src/hooks/useWorkspaceBinding.ts
+import { useState, useEffect, useCallback } from "react";
+import { getClient } from "@magic/matrix-client";
 
-function App() {
-  // 登录后挂载（可放在 AuthGuard 后）
-  useWorkspaceMatrixBridge();
-  return <MainLayout />;
-}
-```
-
-#### 5.2.3 BindFolderButton, BindFolderConfirmDialog, WorkspaceSection
-
-UI 组件**整体复用上一版**，仅文案微调（强调"文件不上传"）。WorkspaceSection 新增**访问日志**子区块：
-
-```tsx
-// packages/ui/src/workspace/AccessLogSection.tsx
-import { useEffect, useState } from "react";
-
-export function AccessLogSection({ roomId }: { roomId: string }) {
-  const [logs, setLogs] = useState<any[]>([]);
+export function useWorkspaceBinding(roomId: string) {
+  const [binding, setBinding] = useState<any>(null);
+  const [fileTree, setFileTree] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const data = await window.electron?.workspace.getAccessLog(roomId, 10);
-      if (!cancelled) setLogs(data ?? []);
+      const b = await window.electron?.workspace.getBinding(roomId);
+      const t = await window.electron?.workspace.getFileTree(roomId);
+      if (!cancelled) {
+        setBinding(b);
+        setFileTree(t ?? []);
+        setIsLoading(false);
+      }
     })();
 
-    const handler = (_e: any, payload: { roomId: string; entry: any }) => {
+    const handler = (_e: any, payload: { roomId: string; binding: any; files: any[] }) => {
       if (payload.roomId === roomId) {
-        setLogs((prev) => [payload.entry, ...prev].slice(0, 10));
+        setBinding(payload.binding);
+        setFileTree(payload.files);
       }
     };
-    const unsub = window.electron?.workspace.onAccessLogged?.(handler);
+    const unsub = window.electron?.workspace.onTreeChanged?.(handler);
 
     return () => { cancelled = true; unsub?.(); };
   }, [roomId]);
 
-  if (logs.length === 0) {
-    return (
-      <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-        Agent 暂未访问任何文件
-      </p>
-    );
+  const unbind = useCallback(async () => {
+    await window.electron?.workspace.unbind(roomId);
+  }, [roomId]);
+
+  const setAutoAttach = useCallback(async (enabled: boolean) => {
+    await window.electron?.workspace.setAutoAttach(roomId, enabled);
+    const b = await window.electron?.workspace.getBinding(roomId);
+    setBinding(b);
+  }, [roomId]);
+
+  return { binding, fileTree, isLoading, unbind, setAutoAttach };
+}
+```
+
+#### 5.2.3 绑定时发送通告消息
+
+绑定操作流程：
+
+```typescript
+// 在 BindFolderConfirmDialog 的 handleBind 中
+const handleBind = async () => {
+  // ... 调用 main 进程绑定
+  const { binding, files } = await window.electron!.workspace.bind(roomId, folderPath, userId);
+
+  // ⭐ 发送绑定通告消息（普通 m.text，让 Agent 看到）
+  const client = getClient();
+  const treePreview = files.slice(0, 50).map(f => `- ${f.path}`).join("\n");
+  const remaining = files.length > 50 ? `\n- ... 还有 ${files.length - 50} 个文件` : "";
+
+  const announceBody = `📁 已绑定本地工作区：${binding.displayName}
+
+包含 ${binding.fileCount} 个文件（${formatSize(binding.totalSize)}）
+
+文件清单：
+${treePreview}${remaining}
+
+接下来当我提到文件路径（如 \`src/main.py\`）时，文件内容会自动附加到我的消息中。你可以基于实际文件内容回答我的问题。
+
+如果需要查看完整文件清单，可以告诉我。`;
+
+  await client.sendEvent(roomId, "m.room.message", {
+    msgtype: "m.text",
+    body: announceBody,
+    "com.magic.workspace.notification": {
+      kind: "bound",
+      displayName: binding.displayName,
+      fileCount: binding.fileCount,
+    },
+  });
+
+  // 如果文件超过 100 个，附加完整清单文件
+  if (files.length > 100) {
+    const manifestText = files.map(f =>
+      `${f.path} (${f.size} bytes)`
+    ).join("\n");
+    const blob = new Blob([manifestText], { type: "text/plain" });
+    const upload = await client.uploadContent(blob, {
+      type: "text/plain",
+      name: "workspace-manifest.txt",
+    });
+    await client.sendEvent(roomId, "m.room.message", {
+      msgtype: "m.file",
+      body: "workspace-manifest.txt",
+      info: { size: manifestText.length, mimetype: "text/plain" },
+      url: upload.content_uri,
+      "com.magic.workspace.attachment": {
+        originalPath: "(manifest)",
+        fromWorkspace: binding.displayName,
+      },
+    });
   }
 
+  // 同时发送 state event 通告绑定状态（用于多设备同步）
+  await client.sendStateEvent(
+    roomId,
+    "com.magic.workspace.binding",
+    {
+      bound: true,
+      displayName: binding.displayName,
+      boundBy: userId,
+      boundAt: binding.boundAt,
+      fileCount: binding.fileCount,
+    },
+    userId
+  );
+
+  onClose();
+};
+```
+
+#### 5.2.4 MessageComposer 集成
+
+```tsx
+// MessageComposer 修改：使用 sendWithWorkspace 替代 sendTextMessage
+import { useMessageInterceptor } from "@magic/ui/hooks";
+import { WorkspaceFilePicker } from "../workspace/WorkspaceFilePicker";
+
+export function MessageComposer({ roomId }: { roomId: string }) {
+  const { sendWithWorkspace } = useMessageInterceptor();
+  const { binding, fileTree } = useWorkspaceBinding(roomId);
+  const [text, setText] = useState("");
+  const [explicitAttachments, setExplicitAttachments] = useState<string[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handleSend = useCallback(async () => {
+    if (!text.trim() && explicitAttachments.length === 0) return;
+
+    await sendWithWorkspace({
+      roomId,
+      text,
+      explicitAttachments,
+    });
+
+    setText("");
+    setExplicitAttachments([]);
+  }, [roomId, text, explicitAttachments, sendWithWorkspace]);
+
   return (
-    <div className="space-y-1">
-      <p className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-        最近访问
-      </p>
-      {logs.slice(0, 5).map((log, i) => (
-        <div key={i} className="flex items-center gap-1.5 text-[10px]"
-             style={{ color: log.success ? 'var(--text-secondary)' : 'var(--color-danger)' }}>
-          <span>{log.type === "read" ? "📖" : "📋"}</span>
-          <span className="truncate font-mono">{log.path}</span>
-          <span className="ml-auto shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-            {formatRelativeTime(log.timestamp)}
-          </span>
+    <div>
+      {/* 已选附件 chip */}
+      {explicitAttachments.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-3 pt-2">
+          {explicitAttachments.map((p) => (
+            <span key={p} className="...">
+              📄 {p}
+              <button onClick={() => setExplicitAttachments(prev => prev.filter(x => x !== p))}>✕</button>
+            </span>
+          ))}
         </div>
-      ))}
+      )}
+
+      {/* 输入框 */}
+      <div className="flex items-end gap-2 p-3">
+        {/* + 按钮（含绑定文件夹等菜单） */}
+        <AttachmentMenu roomId={roomId} />
+
+        {/* 📁 工作区文件选择器（仅在已绑定时显示） */}
+        {binding && (
+          <button
+            onClick={() => setShowPicker(true)}
+            className="..."
+            title="从工作区选择文件附加"
+          >
+            📁
+            {explicitAttachments.length > 0 && (
+              <span className="...">{explicitAttachments.length}</span>
+            )}
+          </button>
+        )}
+
+        <textarea value={text} onChange={(e) => setText(e.target.value)} ... />
+
+        <button onClick={handleSend}>发送</button>
+      </div>
+
+      {showPicker && (
+        <WorkspaceFilePicker
+          fileTree={fileTree}
+          initialSelected={explicitAttachments}
+          onConfirm={(paths) => {
+            setExplicitAttachments(paths);
+            setShowPicker(false);
+          }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 }
 ```
 
-### 5.3 Agent 侧（如何使用此协议）
+#### 5.2.5 WorkspaceFilePicker 组件
 
-> 本节不属于 Magic Client 实现范围，但为 Agent 集成方提供参考。
+```tsx
+// packages/ui/src/workspace/WorkspaceFilePicker.tsx
+import { useState } from "react";
+import { DialogOverlay } from "../common/DialogOverlay";
 
-Agent 容器中需要实现的逻辑（伪代码）：
+interface FileEntry {
+  path: string;
+  size: number;
+  mtime: number;
+}
 
-```python
-# Agent 的 file-access skill
-import uuid
-import asyncio
-import base64
+interface Props {
+  fileTree: FileEntry[];
+  initialSelected: string[];
+  onConfirm: (paths: string[]) => void;
+  onClose: () => void;
+}
 
-class WorkspaceFileAccess:
-    def __init__(self, matrix_client, room_id, binding_owner):
-        self.client = matrix_client
-        self.room_id = room_id
-        self.binding_owner = binding_owner
-        self.pending = {}  # request_id → Future
+export function WorkspaceFilePicker({ fileTree, initialSelected, onConfirm, onClose }: Props) {
+  const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
+  const [filter, setFilter] = useState("");
 
-    async def get_file_tree(self):
-        """从房间 state 中读取文件清单"""
-        state = await self.client.get_state_event(
-            self.room_id, "com.magic.workspace.binding", self.binding_owner
-        )
-        if not state.get("bound"):
-            return None
-        if state.get("treeChunked"):
-            return await self._fetch_chunked_tree(state["treeManifestEventIds"])
-        return state.get("tree", [])
+  const filtered = filter
+    ? fileTree.filter(f => f.path.toLowerCase().includes(filter.toLowerCase()))
+    : fileTree;
 
-    async def read_file(self, path, max_size=1048576):
-        """请求读取文件"""
-        request_id = str(uuid.uuid4())
-        future = asyncio.Future()
-        self.pending[request_id] = future
+  const toggle = (path: string) => {
+    const next = new Set(selected);
+    if (next.has(path)) next.delete(path);
+    else next.add(path);
+    setSelected(next);
+  };
 
-        await self.client.send_event(self.room_id, "com.magic.workspace.read_request", {
-            "request_id": request_id,
-            "path": path,
-            "max_size": max_size,
-            "encoding": "auto",
-            "binding_owner": self.binding_owner,
-        })
+  const totalSize = fileTree
+    .filter(f => selected.has(f.path))
+    .reduce((sum, f) => sum + f.size, 0);
 
-        try:
-            response = await asyncio.wait_for(future, timeout=30)
-            if not response["ok"]:
-                raise FileNotFoundError(response.get("errorMessage"))
+  return (
+    <DialogOverlay onClose={onClose}>
+      <div className="w-full max-w-md rounded-xl p-6 shadow-2xl"
+           style={{ background: 'var(--bg-primary)' }}>
+        <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+          选择要附加的文件
+        </h2>
 
-            if response.get("via_media"):
-                content = await self.client.download_media(response["mxc_url"])
-                return content.decode("utf-8") if response["encoding"] == "utf-8" else content
-            else:
-                if response["encoding"] == "utf-8":
-                    return response["content"]
-                else:
-                    return base64.b64decode(response["content"])
-        except asyncio.TimeoutError:
-            del self.pending[request_id]
-            raise TimeoutError(f"用户客户端 {self.binding_owner} 未在 30 秒内响应")
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="过滤文件..."
+          className="mt-3 w-full rounded px-3 py-2 text-sm outline-none"
+          style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+        />
 
-    async def on_room_event(self, event):
-        if event["type"] != "com.magic.workspace.read_response":
-            return
-        request_id = event["content"].get("request_id")
-        if request_id in self.pending:
-            self.pending[request_id].set_result(event["content"])
-            del self.pending[request_id]
+        <div className="mt-3 max-h-80 overflow-y-auto">
+          {filtered.map((f) => (
+            <label
+              key={f.path}
+              className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(f.path)}
+                onChange={() => toggle(f.path)}
+                className="h-4 w-4"
+              />
+              <span className="flex-1 truncate font-mono"
+                    style={{ color: 'var(--text-primary)' }}>
+                {f.path}
+              </span>
+              <span className="text-[10px] shrink-0"
+                    style={{ color: 'var(--text-tertiary)' }}>
+                {formatSize(f.size)}
+              </span>
+            </label>
+          ))}
+        </div>
 
+        <div className="mt-3 flex items-center justify-between text-xs"
+             style={{ color: 'var(--text-secondary)' }}>
+          <span>已选 {selected.size} / {fileTree.length} 个文件 ({formatSize(totalSize)})</span>
+          {selected.size > 0 && (
+            <button onClick={() => setSelected(new Set())}
+                    style={{ color: 'var(--color-danger)' }}>
+              清空
+            </button>
+          )}
+        </div>
 
-# Agent 工具调用流程示例
-async def handle_user_request(user_message):
-    workspace = WorkspaceFileAccess(matrix_client, current_room, binding_owner)
+        <div className="mt-5 flex justify-end gap-3">
+          <button onClick={onClose}
+                  className="rounded-lg px-4 py-2 text-sm"
+                  style={{ color: 'var(--text-secondary)' }}>
+            取消
+          </button>
+          <button onClick={() => onConfirm(Array.from(selected))}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                  style={{ background: 'var(--gradient-button, linear-gradient(135deg, #6C5CE7, #3B82F6))' }}>
+            附加到下一条消息
+          </button>
+        </div>
+      </div>
+    </DialogOverlay>
+  );
+}
 
-    # 1. 看清单
-    tree = await workspace.get_file_tree()
-    if not tree:
-        return "对话中没有绑定文件夹"
-
-    # 2. LLM 决定读哪些文件
-    relevant_paths = llm_select_relevant_files(tree, user_message)
-
-    # 3. 按需读取
-    file_contents = {}
-    for path in relevant_paths:
-        try:
-            file_contents[path] = await workspace.read_file(path)
-        except Exception as e:
-            file_contents[path] = f"[读取失败: {e}]"
-
-    # 4. 拼进 Prompt
-    prompt = f"""
-用户请求：{user_message}
-
-相关文件：
-{format_files_for_prompt(file_contents)}
-
-请基于以上文件回答用户的问题。
-"""
-    return await llm.complete(prompt)
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
 ```
 
-⚠️ Agent 集成方需注意：
-- read_request 是异步的，需要 timeout 处理（默认 30 秒）
-- Magic 客户端可能离线 → Agent 需优雅降级
-- 不要无脑请求所有文件，先用文件名/路径让 LLM 决定相关性
+#### 5.2.6 MessageBubble 渲染附件 chip
+
+带 workspace 附件的消息，UI 渲染时把内联代码块折叠为 chip：
+
+```tsx
+// MessageBubble.tsx 添加附件渲染逻辑
+function MessageBubble({ event }: { event: any }) {
+  const content = event.getContent();
+  const attached = content["com.magic.workspace.attached"];
+
+  if (attached) {
+    // 提取主消息（去掉内联代码块部分）
+    const mainText = content.body.split("\n────────")[0];
+
+    return (
+      <div className="message-bubble">
+        <p>{mainText}</p>
+
+        {/* 附件 chip */}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {attached.files.map((f: any) => (
+            <button
+              key={f.path}
+              className="..."
+              title={`点击查看完整内容（${formatSize(f.size)}）`}
+              onClick={() => /* 展开/查看 */}
+            >
+              📄 {f.path} · {formatSize(f.size)}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // 默认渲染
+  return <DefaultMessageBubble event={event} />;
+}
+```
 
 ---
 
 ## 6. 安全性
 
-### 6.1 文件访问控制（关键改进）
+### 6.1 文件访问控制
 
-由于读取按需进行，安全护栏分布在两层：
+- **路径越界防护**：`resolveSafePath()` 防止 `../../etc/passwd`
+- **忽略列表**：`.env` / `.ssh` / `id_rsa` 等敏感文件即使用户主动选择也拒绝读取
+- **大小限制**：单文件 5 MB（自动附加） / 10 MB（显式选择硬上限）
+- **数量限制**：单条消息最多 5 个自动附加文件，1 MB 总大小
 
-**第 1 层：Magic 客户端（最强护栏）**
-- 路径越界防护：`resolveSafePath()` 拒绝逃出绑定根的路径（如 `../../etc/passwd`）
-- 忽略列表过滤：即使 Agent 请求 `.env`，客户端也拒绝
-- 单次读取大小上限：硬编码 10MB
-- 仅响应**自己绑定的房间**的请求
+### 6.2 用户授权
 
-**第 2 层：Matrix 协议天然护栏**
-- 房间成员鉴权：非房间成员发的事件被 Homeserver 拒绝
-- 端到端加密：E2EE 房间中文件内容被 Megolm 加密
-- 审计：所有 read_request/response 永久存于房间历史
+- 必须用户主动通过原生选择器选择文件夹
+- 必须勾选"我理解"才能确认绑定
+- 自动附加默认开启，但**可在设置中关闭**
+- 每条消息发送时，用户能看到附件 chip 知道附了哪些文件
 
-### 6.2 默认忽略列表（强化）
+### 6.3 隐私权衡（v3 需要明示）
+
+⚠️ **与 v2 的关键差异**：v3 的文件**会通过 Matrix 上传到 Homeserver**（作为消息正文或 mxc:// 附件）。
+
+- **E2EE 房间**：附件被 Megolm 加密，仅房间成员可解密 ✅
+- **非 E2EE 房间**：Homeserver 管理员可见 ⚠️
+
+绑定确认对话框中明确告知用户。
+
+### 6.4 默认忽略列表
 
 ```
 .ssh/**, .aws/**, .gnupg/**, .config/**/credentials*
@@ -1586,28 +1467,8 @@ id_rsa*, id_ed25519*, id_ecdsa*
 .env, .env.*, *.envrc
 .npmrc, .pypirc, .gem/credentials
 .docker/config.json, .kube/config
+node_modules/**, .git/**, dist/**, build/**, ...
 ```
-
-### 6.3 用户授权与可见性
-
-- 必须用户主动通过原生选择器选择
-- 必须勾选"我理解"才能确认
-- ChannelHeader 始终显示绑定状态
-- WorkspaceSection 显示完整访问日志
-- 用户可随时解绑
-
-### 6.4 范围隔离
-
-- 每个房间独立绑定
-- 多用户同时绑定时，每个 binding_owner 独立响应
-- 解绑后立即停止响应
-
-### 6.5 端到端加密注意事项
-
-E2EE 房间中：
-- read_response 中的文件内容被 Megolm 加密 ✅
-- 但 state event（文件清单）通常**不加密**（state event 在大多数 Matrix 房间是明文）
-- 解决方案：清单只含路径和大小，不暴露文件内容；敏感项目建议绑定到 E2EE 房间且使用 chunked tree（chunk 走 message event 走加密）
 
 ---
 
@@ -1617,35 +1478,30 @@ E2EE 房间中：
 |---|--------|---------|
 | AC-1 | 群聊房间和私聊都能在 + 菜单看到"绑定本地文件夹" | 视觉检查两种场景 |
 | AC-2 | 点击后弹出原生文件选择器 | 手动验证 |
-| AC-3 | 选择文件夹后显示扫描结果（文件数+大小） | 手动验证 |
-| AC-4 | 确认对话框文案明确说明"文件不上传到服务器" | 视觉检查 |
-| AC-5 | 私聊场景下警告显示对方具体名字（非"Agent"泛称） | 私聊中绑定验证 |
-| AC-6 | 必须勾选"我理解"才能绑定 | 手动验证 |
-| AC-7 | 绑定后**立即**完成（无上传等待，秒级） | 手动计时验证 |
-| AC-8 | 绑定后房间内出现 `com.magic.workspace.binding` state event | Matrix 客户端工具检查 |
-| AC-8b | **绑定后房间内出现一条 m.notice 消息**，正文包含文件清单 + 给 AI 的指令 ⭐ | 检查聊天消息 |
-| AC-8c | **客户端 UI 把这条 m.notice 渲染为状态卡片**（不显示原始 body） ⭐ | 视觉检查 |
-| AC-8d | **绑定后让 Agent 列出文件，Agent 应回答工作区中的文件**（而非自己内部目录） ⭐ | 实测对话 |
-| AC-8e | 解绑后房间内出现解绑 m.notice 消息 | 检查聊天消息 |
-| AC-8f | 文件数变化超过 ±10% 且距上次通告超过 5 分钟，发送变更通告 | 修改文件验证 |
-| AC-9 | state event 中包含完整文件清单（< 500 文件场景） | 检查 event content |
-| AC-10 | 文件数 > 500 时使用 chunked 模式发清单 | 创建大目录验证 |
-| AC-11 | ChannelHeader 显示 📁 文件夹名 + 文件数 | 视觉检查 |
-| AC-12 | 群聊和私聊设置面板的"工作区"模块都正常显示 | 两边检查 |
-| AC-13 | **Agent 发送 read_request 后，客户端在 1 秒内返回 read_response** ⭐ | 用 Matrix 工具发请求 |
-| AC-14 | 读取 < 32KB 文件走内联 content | 检查 response 字段 |
-| AC-15 | 读取 > 32KB 文件走 mxc:// 媒体上传 | 检查 response 字段 |
-| AC-16 | Agent 请求 `../../etc/passwd` 被拒绝（permission_denied） | 故意发越界请求 |
-| AC-17 | Agent 请求 `.env` 被拒绝（permission_denied） | 故意请求敏感文件 |
-| AC-18 | 请求超过 max_size 的文件返回 size_exceeded | 验证大文件 |
-| AC-19 | 请求不存在的文件返回 file_not_found | 验证 |
-| AC-20 | 修改本地文件后 2 秒内重新发布清单 state event | 修改文件验证 |
-| AC-21 | WorkspaceSection 显示访问日志（"manager 读取了 src/main.py"） | 触发请求后检查 |
-| AC-22 | 访问日志持久化（重启应用后还在） | 重启验证 |
-| AC-23 | 解绑时清空 state event（bound: false） | 解绑后检查 |
-| AC-24 | 同一文件夹可绑定到多个对话且互不影响 | 绑两个房间验证 |
-| AC-25 | 重启应用后绑定关系恢复，文件监听重新启动 | 重启验证 |
-| AC-26 | **完全没有任何 HTTP 请求发到 Matrix Homeserver 之外的服务器** ⭐ | 抓包工具验证 |
+| AC-3 | 选择文件夹后显示扫描结果 | 手动验证 |
+| AC-4 | 必须勾选"我理解"才能绑定 | 手动验证 |
+| AC-5 | 绑定后立即在房间内看到一条普通聊天消息：「📁 已绑定本地工作区: TestMagic ... 文件清单：...」 | 视觉检查 |
+| AC-6 | 文件超过 100 个时，绑定通告附带 workspace-manifest.txt 文件 | 创建大文件夹验证 |
+| AC-7 | ChannelHeader 显示 📁 状态指示 | 视觉检查 |
+| AC-8 | MessageComposer 工具栏出现 📁 按钮 | 视觉检查 |
+| AC-9 | **核心**：在 Agent 私聊中绑定文件夹后，发送 "看看 \`src/main.py\` 写得怎么样"，Agent 收到的消息中包含 main.py 的实际代码内容 ⭐ | Element Web 查 raw 消息 |
+| AC-10 | **核心**：Agent 基于实际文件内容回答（不再说"我无法访问本地文件"） ⭐ | 实测对话 |
+| AC-11 | 消息正文中含反引号路径如 \`src/main.py\` 自动触发附加 | 实测发送 |
+| AC-12 | 唯一文件名匹配自动附加（如 "看看 main.py"，且 workspace 中只有一个 main.py） | 实测发送 |
+| AC-13 | 多个同名文件不自动附加（避免歧义） | 创建多个同名文件验证 |
+| AC-14 | 点击 📁 按钮弹出 WorkspaceFilePicker，可勾选文件 | 视觉验证 |
+| AC-15 | 选中的文件以 chip 形式显示在输入框上方 | 视觉验证 |
+| AC-16 | 发送消息后 chip 清空 | 实测 |
+| AC-17 | 单文件 < 50KB 文本走内联代码块（在消息 body 内） | 检查 raw 消息 |
+| AC-18 | 单文件 > 50KB 走 m.file 附件（独立消息） | 检查 raw 消息 |
+| AC-19 | 二进制文件走 m.file（图片走 m.image） | 实测 png/jpg |
+| AC-20 | 路径越界请求被拒绝（如 \`../../etc/passwd\`） | 故意构造 |
+| AC-21 | .env 等敏感文件无法被附加（即使用户显式选择） | 创建 .env 验证 |
+| AC-22 | 设置面板可关闭"自动附加"开关 | 视觉操作 |
+| AC-23 | 关闭后消息中提到文件路径不再自动附加（仍可用 📁 按钮） | 实测 |
+| AC-24 | 解绑后 ChannelHeader 不再显示 📁，📁 按钮消失 | 视觉验证 |
+| AC-25 | 重启应用后绑定关系恢复 | 重启验证 |
+| AC-26 | 单条消息最多附加 5 个文件，超出时提示用户 | 故意触发多匹配 |
 | AC-27 | `pnpm typecheck && pnpm build` 通过 | 命令验证 |
 
 ---
@@ -1656,32 +1512,21 @@ E2EE 房间中：
 
 **创建文件**：
 - `apps/desktop/src/main/workspace/IgnoreEngine.ts`
-- `apps/desktop/src/main/workspace/WorkspaceManager.ts`（按 §5.1.2 实现）
-- `apps/desktop/src/main/ipc/workspace.ts`（按 §5.1.1 实现）
+- `apps/desktop/src/main/workspace/WorkspaceManager.ts`（按 §5.1.2）
+- `apps/desktop/src/main/ipc/workspace.ts`（按 §5.1.1）
 
 **修改文件**：
-- `apps/desktop/src/main/index.ts` — 初始化 WorkspaceManager 并注册 IPC
-
-主进程 `main/index.ts` 的初始化代码：
+- `apps/desktop/src/main/index.ts` —— 初始化 WorkspaceManager 并注册 IPC
 
 ```typescript
-import { BrowserWindow } from "electron";
-import { WorkspaceManager } from "./workspace/WorkspaceManager";
-import { registerWorkspaceIpcHandlers } from "./ipc/workspace";
-
-const workspace = new WorkspaceManager((roomId, files, meta) => {
-  // ⭐ 把 meta 一起转发给 renderer
+const workspace = new WorkspaceManager((roomId, binding, files) => {
   BrowserWindow.getAllWindows().forEach((win) =>
-    win.webContents.send("workspace:file-tree-changed", { roomId, files, ...meta })
+    win.webContents.send("workspace:tree-changed", { roomId, binding, files })
   );
 });
-
 await workspace.load();
 registerWorkspaceIpcHandlers(workspace);
-
-app.on("before-quit", async () => {
-  await workspace.shutdown();
-});
+app.on("before-quit", async () => { await workspace.shutdown(); });
 ```
 
 **依赖安装**：
@@ -1689,8 +1534,6 @@ app.on("before-quit", async () => {
 pnpm add chokidar minimatch -F @magic/desktop
 pnpm add -D @types/minimatch -F @magic/desktop
 ```
-
-⚠️ 与上一版的区别：**没有 SyncEngine、没有 fetch、没有 EventSource**。
 
 **验证**：`pnpm typecheck`
 
@@ -1709,190 +1552,97 @@ contextBridge.exposeInMainWorld("electron", {
       ipcRenderer.invoke("workspace:bind", rid, p, boundBy),
     unbind: (rid: string) => ipcRenderer.invoke("workspace:unbind", rid),
     getBinding: (rid: string) => ipcRenderer.invoke("workspace:getBinding", rid),
-    getAllBindings: () => ipcRenderer.invoke("workspace:getAllBindings"),
+    getFileTree: (rid: string) => ipcRenderer.invoke("workspace:getFileTree", rid),
     revealInFinder: (rid: string) => ipcRenderer.invoke("workspace:revealInFinder", rid),
+    readFile: (rid: string, p: string) => ipcRenderer.invoke("workspace:readFile", rid, p),
+    setAutoAttach: (rid: string, e: boolean) => ipcRenderer.invoke("workspace:setAutoAttach", rid, e),
+    getAutoAttach: (rid: string) => ipcRenderer.invoke("workspace:getAutoAttach", rid),
 
-    // ⭐ 关键新增
-    readFile: (rid: string, p: string, maxSize: number, requesterId: string) =>
-      ipcRenderer.invoke("workspace:readFile", rid, p, maxSize, requesterId),
-    listDir: (rid: string, p: string, depth: number, requesterId: string) =>
-      ipcRenderer.invoke("workspace:listDir", rid, p, depth, requesterId),
-    getAccessLog: (rid: string, limit: number) =>
-      ipcRenderer.invoke("workspace:getAccessLog", rid, limit),
-
-    // ⭐ 通告消息辅助
-    getLastBinding: (rid: string) => ipcRenderer.invoke("workspace:getLastBinding", rid),
-    getLastNotifyAt: (rid: string) => ipcRenderer.invoke("workspace:getLastNotifyAt", rid),
-    getLastNotifiedFileCount: (rid: string) =>
-      ipcRenderer.invoke("workspace:getLastNotifiedFileCount", rid),
-    recordNotify: (rid: string, fileCount: number) =>
-      ipcRenderer.invoke("workspace:recordNotify", rid, fileCount),
-
-    onBindingChanged: (h: any) => {
-      ipcRenderer.on("workspace:binding-changed", h);
-      return () => ipcRenderer.removeListener("workspace:binding-changed", h);
-    },
-    onFileTreeChanged: (h: any) => {
-      ipcRenderer.on("workspace:file-tree-changed", h);
-      return () => ipcRenderer.removeListener("workspace:file-tree-changed", h);
-    },
-    onAccessLogged: (h: any) => {
-      ipcRenderer.on("workspace:access-logged", h);
-      return () => ipcRenderer.removeListener("workspace:access-logged", h);
+    onTreeChanged: (h: any) => {
+      ipcRenderer.on("workspace:tree-changed", h);
+      return () => ipcRenderer.removeListener("workspace:tree-changed", h);
     },
   },
 });
 ```
 
-更新 `preload/index.d.ts` 类型声明。
+更新 `preload/index.d.ts`。
 
 **验证**：`pnpm typecheck`
 
 ---
 
-### 任务 3：useWorkspaceMatrixBridge Hook（最关键）
+### 任务 3：核心 Hook —— useMessageInterceptor
 
-**创建文件**：`packages/ui/src/hooks/useWorkspaceMatrixBridge.ts`
+**创建文件**：`packages/ui/src/hooks/useMessageInterceptor.ts`（按 §5.2.1）
 
-按 §5.2.1 实现，包含：
-- 监听 main 进程的 file-tree-changed → 发布 state event
-- 监听 Matrix Room.timeline 的 read_request/list_request → 调用 main 进程读取 → 发回响应
+包含：
+- 文件路径检测（4 种策略）
+- 文件读取（IPC 调用 main 进程）
+- 内联 vs 附件分类
+- 主消息 + 附件消息发送
 
 **验证**：`pnpm typecheck`
 
 ---
 
-### 任务 4：在 App 顶层挂载 Bridge
+### 任务 4：useWorkspaceBinding Hook
 
-**修改文件**：`apps/desktop/src/renderer/src/App.tsx`
+**创建文件**：`packages/ui/src/hooks/useWorkspaceBinding.ts`（按 §5.2.2）
 
-```tsx
-import { useWorkspaceMatrixBridge } from "@magic/ui/hooks";
-
-function App() {
-  useWorkspaceMatrixBridge();
-  return <MainLayout />;
-}
-```
-
-**验证**：`pnpm typecheck && pnpm dev:desktop`
+**验证**：`pnpm typecheck`
 
 ---
 
 ### 任务 5：UI 组件
 
 **创建文件**：
-- `packages/ui/src/hooks/useWorkspaceBinding.ts`
-- `packages/ui/src/workspace/BindFolderButton.tsx`
-- `packages/ui/src/workspace/BindFolderConfirmDialog.tsx`（**强调不上传文案**）
-- `packages/ui/src/workspace/WorkspaceSection.tsx`
-- `packages/ui/src/workspace/AccessLogSection.tsx`（**新增**）
-- `packages/ui/src/workspace/WorkspaceIndicator.tsx`
-- `packages/ui/src/workspace/WorkspaceNotificationCard.tsx`（**新增 ⭐ 渲染 m.notice 为卡片**）
+- `packages/ui/src/workspace/BindFolderButton.tsx`（沿用前版基础上改文案）
+- `packages/ui/src/workspace/BindFolderConfirmDialog.tsx`（按 §5.2.3 调用 bind 后发送通告消息）
+- `packages/ui/src/workspace/WorkspaceFilePicker.tsx`（按 §5.2.5）
+- `packages/ui/src/workspace/WorkspaceSection.tsx`（设置面板模块）
+- `packages/ui/src/workspace/WorkspaceIndicator.tsx`（ChannelHeader 中的小图标）
+
+**验证**：`pnpm typecheck`
+
+---
+
+### 任务 6：MessageComposer 集成
+
+**修改文件**：`packages/ui/src/composer/MessageComposer.tsx`
+
+按 §5.2.4：
+- 引入 `useMessageInterceptor` 和 `useWorkspaceBinding`
+- 加 📁 按钮
+- 加附件 chip 显示
+- 替换 `sendTextMessage` 为 `sendWithWorkspace`
+
+**验证**：`pnpm typecheck`
+
+---
+
+### 任务 7：MessageBubble 渲染附件 chip
+
+**修改文件**：`packages/ui/src/chat/MessageBubble.tsx`
+
+按 §5.2.6 检测 `com.magic.workspace.attached` 字段，把内联代码块折叠为可点击 chip。
+
+**验证**：`pnpm typecheck`
+
+---
+
+### 任务 8：集成到 ChannelHeader + 设置面板
 
 **修改文件**：
-- `packages/ui/src/chat/MessageBubble.tsx`：检测到 `com.magic.workspace.notification` 字段时，用 `WorkspaceNotificationCard` 代替默认气泡渲染（不显示原始 body）
-
-WorkspaceNotificationCard 渲染示例：
-
-```tsx
-// packages/ui/src/workspace/WorkspaceNotificationCard.tsx
-export function WorkspaceNotificationCard({ event }: { event: any }) {
-  const meta = event.content["com.magic.workspace.notification"];
-
-  if (meta.kind === "bound") {
-    return (
-      <div className="rounded-lg p-3 my-1"
-           style={{
-             background: 'var(--bg-surface)',
-             border: '0.5px solid var(--border-default)',
-           }}>
-        <div className="flex items-center gap-2">
-          <span className="text-base">📁</span>
-          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            工作区已绑定：{meta.displayName}
-          </span>
-        </div>
-        <p className="mt-1 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-          {meta.fileCount} 个文件 · {formatSize(meta.totalSize)}
-        </p>
-        <p className="mt-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-          Agent 现在可以按需读取此文件夹中的文件
-        </p>
-      </div>
-    );
-  }
-
-  if (meta.kind === "unbound") {
-    return (
-      <div className="rounded-lg p-2 my-1"
-           style={{ background: 'var(--bg-surface)' }}>
-        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-          📁 工作区已解绑：{meta.displayName}
-        </p>
-      </div>
-    );
-  }
-
-  if (meta.kind === "updated") {
-    return (
-      <div className="text-center text-[10px] my-1"
-           style={{ color: 'var(--text-tertiary)' }}>
-        📁 {meta.displayName} 已更新（{meta.fileCount} 个文件）
-      </div>
-    );
-  }
-
-  return null;
-}
-```
-
-**MessageBubble 集成**：
-
-```tsx
-// MessageBubble.tsx 渲染时检测
-if (event.content?.["com.magic.workspace.notification"]) {
-  return <WorkspaceNotificationCard event={event} />;
-}
-// ... 默认气泡渲染
-```
-
-⚠️ 关键：**只是 UI 替换渲染，原始 m.notice 消息（含完整 body）仍存在于房间历史**——
-Agent LLM 通过 sync 拿到的还是带完整指令的 body，只是人类看到的是简洁卡片。
+- `packages/ui/src/chat/ChannelHeader.tsx` —— 显示 📁 状态指示
+- `packages/ui/src/settings/RoomSettingsPanel.tsx` —— 加 WorkspaceSection
+- `packages/ui/src/settings/DMSettingsPanel.tsx` —— 加 WorkspaceSection
 
 **验证**：`pnpm typecheck`
 
 ---
 
-### 任务 6：集成到 MessageComposer + 按钮菜单
-
-在 + 菜单中加"绑定本地文件夹"。
-
-**验证**：`pnpm typecheck`
-
----
-
-### 任务 7：集成到 ChannelHeader（群聊 + 私聊）
-
-在房间名旁显示 WorkspaceIndicator，**两种对话场景共用**。
-
-**验证**：`pnpm typecheck`
-
----
-
-### 任务 8：集成到设置面板（群聊 + 私聊都需要）
-
-**修改文件**：
-- `packages/ui/src/settings/RoomSettingsPanel.tsx`
-- `packages/ui/src/settings/DMSettingsPanel.tsx`
-
-两边都插入 `<WorkspaceSection roomId={roomId} />`。
-
-**验证**：`pnpm typecheck`
-
----
-
-### 任务 9：导出 + 全局验证
+### 任务 9：全局验证
 
 ```bash
 pnpm typecheck
@@ -1901,70 +1651,42 @@ pnpm build
 pnpm dev:desktop
 ```
 
+按 §7 验收标准逐项手动测试，**重点验证 AC-9 和 AC-10**：
+
+1. 在 manager 私聊中绑定 TestMagic 文件夹
+2. 发送 "看看 `src/main.py` 写得怎么样"
+3. 用 Element Web 打开同一房间，查看 raw 事件
+4. 应该看到消息 body 中包含完整的 main.py 代码内容（在 ``` 代码块内）
+5. Agent 应基于代码实际内容回答，不再说"无法访问本地文件"
+
 完成后提交：
 ```bash
 git add -A
-git commit -m "feat: 022 - workspace folder binding via Matrix protocol (on-demand, zero backend)"
+git commit -m "feat: 022 v3 - workspace folder binding via Matrix native attachments"
 ```
 
 ---
 
-## 9. v1 vs 后续版本
+## 9. v1 vs v2 vs v3 对照
 
-### v1（本 spec 范围）
-- ✅ 用户主动绑定本地文件夹
-- ✅ Matrix state event 发布文件清单（含 chunked 模式）
-- ✅ 监听 read_request → 按需读取并响应
-- ✅ 监听 list_request → 按需列表并响应
-- ✅ chokidar 监听本地变化，2 秒防抖后重新发布清单
-- ✅ 路径越界 + 忽略列表 + 大小限制三道护栏
-- ✅ 访问日志持久化 + UI 展示
-- ✅ 大文件走 Matrix media upload
-- ✅ 群聊 + 私聊统一支持
-- ✅ **零后端依赖**
-
-### v2（未来）
-- 写入支持（write_request + 用户审批 UI）
-- 客户端离线时的缓存层（Agent 仍能读取最近访问过的文件）
-- 文件级权限：用户可勾选哪些子目录"对 Agent 可见"
-- E2EE 状态事件（隐藏文件清单不被服务器看到）
-- 跨设备同步绑定关系（通过 Matrix account data）
-
-### v3（未来）
-- 多文件夹绑定（一个对话多个工作区）
-- 增量清单更新（只发送变化的文件而非全量重发）
-- 与 Git 集成（Agent 可看到 git status / diff）
+| 项目 | v1（已废弃） | v2（已废弃） | v3（本版） |
+|------|------|------|------|
+| 后端依赖 | Magic 后端 + MinIO | 无 | 无 |
+| 自定义协议 | HTTP API | 自定义 Matrix 事件 | **无** |
+| Agent 侧改造 | 容器挂载 MinIO | 实现 read_request/response | **无需任何改造** ⭐ |
+| 文件传输方式 | MinIO 上传 | 应该走 read_response（实际不工作） | Matrix 原生 m.file / 内联代码块 |
+| 触发文件传输 | 绑定时全量 | Agent 发请求 | 用户消息提到文件路径 |
+| 是否实际工作 | ✅ 但太重 | ❌ Agent 不实现协议 | ✅ Agent 看普通消息就行 |
 
 ---
 
 ## 10. 风险与缓解
 
-| 风险 | 影响 | 缓解措施 |
+| 风险 | 影响 | 缓解 |
 |------|------|---------|
-| 客户端离线时 Agent 无法访问 | 功能可用性下降 | UI 显示"绑定但客户端离线"，Agent 收到 `owner_offline` 错误后优雅降级 |
-| Agent 高频请求大量文件造成本地 IO 压力 | 性能问题 | 单次请求大小硬上限 10MB；后续可加并发限制 |
-| 大型 monorepo 文件清单超过 64KB state event 上限 | 清单发布失败 | 自动 chunked 模式（>500 文件） |
-| 文件清单变化频繁触发 state event 抖动 | 房间历史污染 | chokidar 防抖 2 秒 |
-| 路径越界攻击 | 安全风险 | `resolveSafePath()` 双重校验（normalize + startsWith） |
-| Agent 通过文件清单推断用户隐私 | 隐私 | 默认忽略列表 + 用户可自定义 `.magicignore` |
-| state event 中文件清单不加密 | 元数据泄露 | 文档明示限制；敏感项目用 chunked 模式（chunk 走加密 message event） |
-| 多设备同时绑定同一房间 | 响应冲突 | state event 用 state_key=userId 隔离；read_request 用 binding_owner 字段定向 |
-| 应用闪退导致 watcher 未关闭 | 资源泄漏 | `app.on('before-quit')` 调用 `workspace.shutdown()` |
-
----
-
-## 11. 与上一版 spec 的对照（重要变更摘要）
-
-| 项目 | 上一版（已废弃） | 本版 |
-|------|-----------------|------|
-| 后端依赖 | Magic 后端 + MinIO | **无** |
-| HTTP API | `PUT/GET/DELETE /workspace/...` | **无** |
-| 数据流 | 上传到 MinIO → Agent 容器挂载 | Matrix 协议按需请求-响应 |
-| 文件存储 | 本地 + MinIO 双副本 | **仅本地** |
-| 网络流量 | 绑定时全量上传 | 仅传输 Agent 实际请求的文件 |
-| 同步引擎 | SyncEngine（uploadFolder/uploadFile） | **删除** |
-| 远程变更监听 | SSE / WebSocket | **删除** |
-| 离线访问 | ✅ Agent 可访问已同步文件 | ❌ 客户端必须在线 |
-| 隐私 | 文件长期驻留服务端 | 文件从未离开本地 |
-| 实施复杂度 | 需后端配合 + 部署 MinIO | 仅前端 + Matrix 协议 |
-| 预估工时 | 5-7 天（不含后端） | **4-5 天** |
+| 自动附加误触发 | 把不想发的文件发出去 | 用户能在 chip 看到，发送前可清空；可关闭自动附加 |
+| 文件路径检测不准 | 漏检测 / 误检测 | 提供 `@file:path` 显式语法 + 📁 按钮兜底 |
+| 大文件污染聊天 | 消息体积大 | 50KB 阈值切分 inline / attachment；硬上限 5 MB / 1 MB total |
+| 隐私：文件上传到 Homeserver | 元数据/内容泄露 | 绑定确认明示；推荐 E2EE 房间；忽略列表强制过滤敏感文件 |
+| 路径越界 | 安全 | resolveSafePath 双重校验 |
+| chokidar CPU | 大文件夹监听 | 防抖 + 忽略列表 + 文件数上限 |

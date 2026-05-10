@@ -1,29 +1,27 @@
 import { useWorkspaceBinding } from "../hooks/useWorkspaceBinding.js";
 import { SectionTitle } from "../settings/roomSettingsPrimitives.js";
 import { BindFolderButton } from "./BindFolderButton.js";
-import { AccessLogSection } from "./AccessLogSection.js";
 import { isElectron } from "../hooks/useElectronAPI.js";
 
 interface WorkspaceSectionProps {
   roomId: string;
   /** Pretty-name for the binding peer. Used inside the confirm dialog
-   *  ("manager 看到清单后…") so the user sees who specifically can
-   *  request files. Group rooms can pass the room name; DMs the peer
-   *  display name. */
+   *  copy. Group rooms can pass the room name; DMs the peer display
+   *  name. */
   peerLabel?: string;
 }
 
 /**
- * Spec 022 § 4.3 — settings-panel block that surfaces the room's
- * folder binding state, the bind/unbind controls, and the recent
- * access log. Renders nothing on the web build (the WorkspaceManager
- * lives in Electron's main process).
+ * Spec 022 v3 §3.6 / §4.3 — settings-panel block for the workspace
+ * binding. Shows the bound folder summary, reveal-in-Finder, unbind,
+ * and (new in v3) the auto-attach toggle. The access log from v2 is
+ * gone because v3 doesn't field read requests anymore.
  */
 export function WorkspaceSection({
   roomId,
   peerLabel = "Agent",
 }: WorkspaceSectionProps) {
-  const { binding, loading, unbind, revealInFinder } =
+  const { binding, loading, unbind, revealInFinder, setAutoAttach } =
     useWorkspaceBinding(roomId);
 
   if (!isElectron()) {
@@ -57,8 +55,8 @@ export function WorkspaceSection({
             className="text-[11.5px]"
             style={{ color: "var(--text-secondary)" }}
           >
-            尚未绑定本地文件夹。绑定后 {peerLabel} 可按需读取文件，
-            文件不会上传到服务器。
+            尚未绑定本地文件夹。绑定后当你的消息提到文件路径时，
+            Magic 会自动把文件内容附到消息中发给 {peerLabel}。
           </p>
           <BindFolderButton roomId={roomId} peerLabel={peerLabel} />
         </div>
@@ -103,15 +101,33 @@ export function WorkspaceSection({
             </div>
           </div>
 
-          <div className="px-1">
-            <p
-              className="mb-1 text-[10px] font-medium"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              最近访问
-            </p>
-            <AccessLogSection roomId={roomId} />
-          </div>
+          {/* Spec §3.6 — auto-attach toggle. When off, only files
+              picked through the 📁 button get attached. */}
+          <label
+            className="flex cursor-pointer items-center justify-between gap-2 rounded-lg p-2.5 transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ background: "var(--bg-surface)" }}
+          >
+            <span className="flex-1">
+              <span
+                className="text-[11.5px] font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                自动附加
+              </span>
+              <span
+                className="mt-0.5 block text-[10px]"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                当我的消息提到 workspace 中的文件路径时，自动读取并附加文件内容
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={binding.autoAttach}
+              onChange={(e) => void setAutoAttach(e.target.checked)}
+              className="h-3.5 w-3.5 cursor-pointer accent-[var(--brand-purple)]"
+            />
+          </label>
         </div>
       )}
     </div>

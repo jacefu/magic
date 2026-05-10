@@ -68,7 +68,7 @@ const electronAPI: IElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke("app:get-version"),
   getPlatform: () => ipcRenderer.invoke("app:get-platform"),
 
-  // ---- Workspace (Spec 022) ----
+  // ---- Workspace (Spec 022 v3) ----
   workspace: {
     pickFolder: () => ipcRenderer.invoke("workspace:pickFolder"),
     scanFolder: (folderPath) =>
@@ -76,50 +76,23 @@ const electronAPI: IElectronAPI = {
     bind: (roomId, folderPath, boundBy) =>
       ipcRenderer.invoke("workspace:bind", roomId, folderPath, boundBy),
     unbind: (roomId) => ipcRenderer.invoke("workspace:unbind", roomId),
-    getBinding: (roomId) => ipcRenderer.invoke("workspace:getBinding", roomId),
-    getAllBindings: () => ipcRenderer.invoke("workspace:getAllBindings"),
+    getBinding: (roomId) =>
+      ipcRenderer.invoke("workspace:getBinding", roomId),
+    getFileTree: (roomId) =>
+      ipcRenderer.invoke("workspace:getFileTree", roomId),
     revealInFinder: (roomId) =>
       ipcRenderer.invoke("workspace:revealInFinder", roomId),
-    readFile: (roomId, relPath, maxSize, requesterId) =>
-      ipcRenderer.invoke(
-        "workspace:readFile",
-        roomId,
-        relPath,
-        maxSize,
-        requesterId,
-      ),
-    listDir: (roomId, relPath, depth, requesterId) =>
-      ipcRenderer.invoke(
-        "workspace:listDir",
-        roomId,
-        relPath,
-        depth,
-        requesterId,
-      ),
-    getAccessLog: (roomId, limit) =>
-      ipcRenderer.invoke("workspace:getAccessLog", roomId, limit),
-    getLastBinding: (roomId) =>
-      ipcRenderer.invoke("workspace:getLastBinding", roomId),
-    getLastNotifyAt: (roomId) =>
-      ipcRenderer.invoke("workspace:getLastNotifyAt", roomId),
-    getLastNotifiedFileCount: (roomId) =>
-      ipcRenderer.invoke("workspace:getLastNotifiedFileCount", roomId),
-    recordNotify: (roomId, fileCount) =>
-      ipcRenderer.invoke("workspace:recordNotify", roomId, fileCount),
-    onFileTreeChanged: (cb) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: any) => cb(data);
-      ipcRenderer.on("workspace:file-tree-changed", handler);
-      return () => ipcRenderer.off("workspace:file-tree-changed", handler);
-    },
-    onBindingChanged: (cb) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: any) => cb(data);
-      ipcRenderer.on("workspace:binding-changed", handler);
-      return () => ipcRenderer.off("workspace:binding-changed", handler);
-    },
-    onAccessLogged: (cb) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: any) => cb(data);
-      ipcRenderer.on("workspace:access-logged", handler);
-      return () => ipcRenderer.off("workspace:access-logged", handler);
+    readFile: (roomId, relPath) =>
+      ipcRenderer.invoke("workspace:readFile", roomId, relPath),
+    setAutoAttach: (roomId, enabled) =>
+      ipcRenderer.invoke("workspace:setAutoAttach", roomId, enabled),
+    getAutoAttach: (roomId) =>
+      ipcRenderer.invoke("workspace:getAutoAttach", roomId),
+    onTreeChanged: (cb) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) =>
+        cb(data);
+      ipcRenderer.on("workspace:tree-changed", handler);
+      return () => ipcRenderer.off("workspace:tree-changed", handler);
     },
   },
 };

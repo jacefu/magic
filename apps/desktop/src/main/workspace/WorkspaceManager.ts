@@ -1,21 +1,23 @@
 import * as path from "path";
 import * as fs from "fs/promises";
 import type { Dirent } from "fs";
-import { app, shell, BrowserWindow } from "electron";
+import { app, shell } from "electron";
 import chokidar, { type FSWatcher } from "chokidar";
 import { IgnoreEngine } from "./IgnoreEngine.js";
 
 /**
- * Spec 022 — Magic Client's workspace folder binding manager.
+ * Spec 022 v3 — workspace folder binding manager.
  *
- * Holds per-room bindings (the local folder the user picked), serves
- * file-tree scans + on-demand reads to the renderer's Matrix bridge,
- * and watches each bound folder so the published file tree stays
- * fresh. No cloud / no backend — files never leave the local disk.
+ * Per-room binding store, file tree cache, watcher, and on-demand
+ * single-file reader. The renderer's useMessageInterceptor calls
+ * `readFile()` when a user message references a workspace path; the
+ * file then rides the chat as a Matrix-native attachment / inline
+ * code block.
  *
- * Storage:
- *   - bindings.json  ← per-room { localPath, displayName, … }
- *   - access-log.json ← per-room ring buffer (200 entries, latest first)
+ * Deliberately minimal compared to v2 — no access log, no notify
+ * tracker, no read/list request dispatch. The renderer drives all
+ * file output; this module just answers "give me this file" and
+ * keeps the cached file tree fresh.
  */
 
 export interface FileEntry {
@@ -41,84 +43,38 @@ export interface Binding {
   fileCount: number;
   totalSize: number;
   ignorePatterns: string[];
-}
-
-export interface AccessLogEntry {
-  timestamp: number;
-  type: "read" | "list";
-  path: string;
-  agentUserId: string;
-  bytes: number;
-  success: boolean;
+  /** Spec §3.6 — when off, useMessageInterceptor only attaches files
+   *  the user *explicitly* picked via 📁; auto-detection from text
+   *  is skipped. */
+  autoAttach: boolean;
 }
 
 export interface ReadResult {
   ok: boolean;
-  // Returned as a base64 string so it crosses the IPC boundary cleanly
-  // (the contextBridge can't serialize a Buffer). Renderer decides how
-  // to re-encode for the Matrix payload.
+  /** base64-encoded file bytes — IPC can't ferry a Buffer directly. */
   contentBase64?: string;
   encoding?: "utf-8" | "base64";
   size?: number;
   mtime?: number;
+  isText?: boolean;
   error?: string;
-  errorMessage?: string;
 }
 
-export interface ListResult {
-  ok: boolean;
-  entries?: Array<{
-    path: string;
-    size: number;
-    mtime: number;
-    isDirectory: boolean;
-  }>;
-  error?: string;
-  errorMessage?: string;
-}
-
-/**
- * Spec 022 § 5.1.2 — the file-tree change callback. main/index.ts
- * supplies a forwarder that pipes (roomId, files, meta) onto the
- * `workspace:file-tree-changed` IPC channel; the renderer bridge
- * consumes it and decides whether to publish a state event and / or
- * an `m.notice` Agent-awareness message.
- *
- * `meta.isFirstBind` is true exactly once, on the initial bind.
- * `meta.isUnbind` is true on the unbind emission (always paired with
- * `files = []`). Watcher republishes pass an empty meta — the bridge
- * uses notifyTracker to decide whether the change is significant
- * enough to send a follow-up notice.
- */
-export type FileTreeChangedHandler = (
+export type BindingChangedHandler = (
   roomId: string,
+  binding: Binding | null,
   files: FileEntry[],
-  meta: { isFirstBind?: boolean; isUnbind?: boolean },
 ) => void;
 
 export class WorkspaceManager {
   private bindings = new Map<string, Binding>();
-  /** Last-known binding for a room, retained after unbind so the
-   *  Agent-awareness "已解绑" notice can still reference the folder
-   *  name without round-tripping the renderer. */
-  private lastBindings = new Map<string, Binding>();
+  private fileTrees = new Map<string, FileEntry[]>();
   private watchers = new Map<string, FSWatcher>();
-  private accessLogs = new Map<string, AccessLogEntry[]>();
-  /** Per-room throttle for "files updated" notices. The bridge writes
-   *  here via recordNotify after publishing one; subsequent watcher
-   *  republishes consult getLastNotifyAt / getLastNotifiedFileCount
-   *  to decide whether the change warrants a fresh announcement. */
-  private notifyTracker = new Map<
-    string,
-    { lastNotifyAt: number; lastFileCount: number }
-  >();
   private storageFile: string;
-  private accessLogFile: string;
-  private onFileTreeChanged: FileTreeChangedHandler;
+  private onBindingChanged: BindingChangedHandler;
 
-  // Sane default ignore list — keeps Agents away from secrets, build
-  // artifacts, and noise. Users can layer their own `.magicignore` on
-  // top of this. Patterns follow glob syntax (minimatch).
+  // Spec §6.4 — defaults block secrets, build artifacts, and VCS noise.
+  // Users can layer their own `.magicignore` on top.
   private readonly DEFAULT_IGNORES = [
     "node_modules/**",
     ".git/**",
@@ -164,61 +120,49 @@ export class WorkspaceManager {
     ".kube/config",
   ];
 
-  // Per-request file size cap. Spec § 6.1 — even if the caller asks
-  // for more, this is the hard upper bound.
+  // Spec §6.1 — main-process hard upper bound. Renderer has its own
+  // tighter caps (5 MB auto-attach, 1 MB total per message).
   private readonly MAX_READ_SIZE = 10 * 1024 * 1024;
 
-  // Scan-time guards so a giant tree can't hang the bind flow forever.
+  // Scan-time guards so a giant tree can't hang the bind flow.
   private readonly MAX_FILE_COUNT = 10000;
   private readonly MAX_TOTAL_SIZE = 5 * 1024 * 1024 * 1024;
 
-  // chokidar republish debounce — avoid event-storm spam while a save
-  // operation is mid-flight (most editors emit 3–5 change events per
-  // save).
-  private readonly REPUBLISH_DEBOUNCE_MS = 2000;
+  // chokidar republish debounce — most editors emit 3-5 events per save.
+  private readonly RESCAN_DEBOUNCE_MS = 2000;
 
-  constructor(onFileTreeChanged: FileTreeChangedHandler) {
+  constructor(onBindingChanged: BindingChangedHandler) {
     this.storageFile = path.join(
       app.getPath("userData"),
       "magic-workspaces.json",
     );
-    this.accessLogFile = path.join(
-      app.getPath("userData"),
-      "magic-workspace-access-log.json",
-    );
-    this.onFileTreeChanged = onFileTreeChanged;
+    this.onBindingChanged = onBindingChanged;
   }
 
-  /**
-   * Load persisted bindings + access logs and re-attach watchers. Call
-   * once on `app.whenReady()`.
-   */
   async load(): Promise<void> {
     try {
       const raw = await fs.readFile(this.storageFile, "utf-8");
       const parsed = JSON.parse(raw) as { bindings?: Record<string, Binding> };
       if (parsed.bindings) {
         for (const [roomId, binding] of Object.entries(parsed.bindings)) {
+          // Backfill autoAttach for older payloads where it was absent.
+          if (typeof binding.autoAttach !== "boolean") {
+            binding.autoAttach = true;
+          }
           this.bindings.set(roomId, binding);
         }
       }
     } catch {
-      /* fresh install — no file yet */
+      /* fresh install */
     }
 
-    try {
-      const raw = await fs.readFile(this.accessLogFile, "utf-8");
-      const parsed = JSON.parse(raw) as Record<string, AccessLogEntry[]>;
-      for (const [roomId, log] of Object.entries(parsed)) {
-        this.accessLogs.set(roomId, log);
-      }
-    } catch {
-      /* nothing yet */
-    }
-
+    // Restore file watchers + re-scan trees so the in-memory cache is
+    // populated before the first IPC call.
     for (const [roomId, binding] of this.bindings.entries()) {
       try {
         await fs.access(binding.localPath);
+        const scan = await this.scanFolder(binding.localPath);
+        this.fileTrees.set(roomId, scan.files);
         await this.startWatching(roomId, binding);
       } catch {
         console.warn(
@@ -233,37 +177,32 @@ export class WorkspaceManager {
       try {
         await watcher.close();
       } catch {
-        /* best-effort */
+        /* best effort */
       }
     }
     this.watchers.clear();
   }
 
-  private async saveBindings(): Promise<void> {
+  private async save(): Promise<void> {
     const data = {
-      version: 2,
+      version: 3,
       bindings: Object.fromEntries(this.bindings.entries()),
     };
     await fs.writeFile(this.storageFile, JSON.stringify(data, null, 2));
   }
 
-  private async saveAccessLogs(): Promise<void> {
-    const data = Object.fromEntries(this.accessLogs.entries());
-    await fs.writeFile(this.accessLogFile, JSON.stringify(data));
-  }
-
-  // ---------- public surface called from IPC ----------
+  // ---------- public surface called over IPC ----------
 
   async scanFolder(folderPath: string): Promise<ScanResult> {
     const ignore = new IgnoreEngine(this.DEFAULT_IGNORES);
     try {
-      const dotMagicIgnore = await fs.readFile(
+      const dotIgnore = await fs.readFile(
         path.join(folderPath, ".magicignore"),
         "utf-8",
       );
-      ignore.addPatterns(dotMagicIgnore.split(/\r?\n/));
+      ignore.addPatterns(dotIgnore.split(/\r?\n/));
     } catch {
-      /* no .magicignore — only defaults apply */
+      /* no .magicignore → defaults only */
     }
 
     const files: FileEntry[] = [];
@@ -308,7 +247,7 @@ export class WorkspaceManager {
               break;
             }
           } catch {
-            /* unreadable file — skip */
+            /* unreadable — skip */
           }
         }
       }
@@ -329,7 +268,7 @@ export class WorkspaceManager {
     roomId: string,
     folderPath: string,
     boundBy: string,
-  ): Promise<Binding> {
+  ): Promise<{ binding: Binding; files: FileEntry[] }> {
     const stat = await fs.stat(folderPath);
     if (!stat.isDirectory()) {
       throw new Error("选择的不是文件夹");
@@ -350,61 +289,45 @@ export class WorkspaceManager {
       fileCount: scan.fileCount,
       totalSize: scan.totalSize,
       ignorePatterns: this.DEFAULT_IGNORES,
+      // Spec §3.6 — auto-attach defaults on; user can flip in settings.
+      autoAttach: true,
     };
 
     this.bindings.set(roomId, binding);
-    // Mirror into lastBindings so getLastBinding always works without
-    // needing to special-case "currently bound vs recently unbound".
-    this.lastBindings.set(roomId, binding);
-    await this.saveBindings();
+    this.fileTrees.set(roomId, scan.files);
+    await this.save();
 
-    // Spec §3.5 — first emit carries isFirstBind so the bridge knows
-    // to ship the initial Agent-awareness notice.
-    this.onFileTreeChanged(roomId, scan.files, { isFirstBind: true });
-    this.emitBindingChanged(roomId, binding);
+    // Renderer-side handler picks this up and ships the bind
+    // announcement message + state event (§5.2.3).
+    this.onBindingChanged(roomId, binding, scan.files);
 
     await this.startWatching(roomId, binding);
 
-    return binding;
+    return { binding, files: scan.files };
   }
 
   async unbind(roomId: string): Promise<void> {
-    // Snapshot the binding *before* deletion so the unbind notice can
-    // still reference the displayName.
-    const binding = this.bindings.get(roomId);
-    if (binding) this.lastBindings.set(roomId, binding);
-
     const watcher = this.watchers.get(roomId);
     if (watcher) {
       try {
         await watcher.close();
       } catch {
-        /* best-effort */
+        /* best effort */
       }
       this.watchers.delete(roomId);
     }
     this.bindings.delete(roomId);
-    // Drop the throttle entry too — re-binding the same room in this
-    // session shouldn't carry over stale "lastNotifiedFileCount".
-    this.notifyTracker.delete(roomId);
-    await this.saveBindings();
-
-    // Empty file list + isUnbind tells the bridge to publish
-    // `{ bound: false }` *and* an unbind notice.
-    this.onFileTreeChanged(roomId, [], { isUnbind: true });
-    this.emitBindingChanged(roomId, null);
+    this.fileTrees.delete(roomId);
+    await this.save();
+    this.onBindingChanged(roomId, null, []);
   }
 
   getBinding(roomId: string): Binding | null {
     return this.bindings.get(roomId) ?? null;
   }
 
-  getLastBinding(roomId: string): Binding | null {
-    return this.lastBindings.get(roomId) ?? null;
-  }
-
-  getAllBindings(): Binding[] {
-    return Array.from(this.bindings.values());
+  getFileTree(roomId: string): FileEntry[] {
+    return this.fileTrees.get(roomId) ?? [];
   }
 
   revealInFinder(roomId: string): void {
@@ -412,182 +335,75 @@ export class WorkspaceManager {
     if (binding) shell.openPath(binding.localPath);
   }
 
-  // ---------- Spec §3.5 notification throttle ----------
-
-  getLastNotifyAt(roomId: string): number {
-    return this.notifyTracker.get(roomId)?.lastNotifyAt ?? 0;
-  }
-
-  getLastNotifiedFileCount(roomId: string): number {
-    return this.notifyTracker.get(roomId)?.lastFileCount ?? 0;
-  }
-
-  recordNotify(roomId: string, fileCount: number): void {
-    this.notifyTracker.set(roomId, {
-      lastNotifyAt: Date.now(),
-      lastFileCount: fileCount,
+  setAutoAttach(roomId: string, enabled: boolean): void {
+    const binding = this.bindings.get(roomId);
+    if (!binding) return;
+    binding.autoAttach = enabled;
+    // Fire-and-forget save; the in-memory toggle takes effect
+    // immediately and persistence is best-effort.
+    this.save().catch(() => {
+      /* swallow */
     });
+    this.onBindingChanged(
+      roomId,
+      binding,
+      this.fileTrees.get(roomId) ?? [],
+    );
+  }
+
+  getAutoAttach(roomId: string): boolean {
+    return this.bindings.get(roomId)?.autoAttach ?? false;
   }
 
   /**
-   * Spec § 5.1.2 — core: serve a single file in response to an
-   * Agent's `read_request`. The renderer bridge calls into here and
-   * relays the result back over Matrix.
+   * Spec §5.1.2 — single-file read used by useMessageInterceptor.
    *
-   * Three guards: (a) path normalization rejects `..`/absolute paths,
-   * (b) the ignore engine blocks anything the user shielded (.env,
-   * keys), (c) the per-request size cap is the smaller of the
-   * caller's `maxSize` and `MAX_READ_SIZE`.
+   * Three guards: (a) `resolveSafePath` rejects `..` traversal,
+   * (b) the per-binding ignore engine blocks anything the user
+   * shielded (.env, *.key etc.) even if they explicitly pick it,
+   * (c) the per-request size cap is `MAX_READ_SIZE`. Renderer
+   * applies tighter limits on top.
    */
-  async readFile(
-    roomId: string,
-    relPath: string,
-    maxSize: number,
-    requesterId: string,
-  ): Promise<ReadResult> {
+  async readFile(roomId: string, relPath: string): Promise<ReadResult> {
     const binding = this.bindings.get(roomId);
-    if (!binding) {
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      return {
-        ok: false,
-        error: "binding_unbound",
-        errorMessage: "对话未绑定文件夹",
-      };
-    }
+    if (!binding) return { ok: false, error: "未绑定" };
 
     const safe = this.resolveSafePath(binding.localPath, relPath);
-    if (!safe) {
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      return {
-        ok: false,
-        error: "permission_denied",
-        errorMessage: "路径越界",
-      };
-    }
+    if (!safe) return { ok: false, error: "路径越界" };
 
     const ignore = new IgnoreEngine(binding.ignorePatterns);
     if (ignore.matches(relPath)) {
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      return {
-        ok: false,
-        error: "permission_denied",
-        errorMessage: "文件被忽略列表排除",
-      };
+      return { ok: false, error: "文件被忽略列表排除" };
     }
 
     try {
       const stat = await fs.stat(safe);
-      if (!stat.isFile()) {
-        this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-        return {
-          ok: false,
-          error: "file_not_found",
-          errorMessage: "不是文件",
-        };
-      }
-      const cap = Math.min(maxSize || this.MAX_READ_SIZE, this.MAX_READ_SIZE);
-      if (stat.size > cap) {
-        this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-        return {
-          ok: false,
-          error: "size_exceeded",
-          errorMessage: `文件 ${stat.size} 字节超过上限 ${cap}`,
-        };
+      if (!stat.isFile()) return { ok: false, error: "不是文件" };
+      if (stat.size > this.MAX_READ_SIZE) {
+        return { ok: false, error: `文件过大（${stat.size} 字节）` };
       }
       const buf = await fs.readFile(safe);
-      const encoding = this.detectEncoding(buf);
-      this.logAccess(roomId, requesterId, "read", relPath, buf.length, true);
+      const isText = this.detectIsText(buf);
       return {
         ok: true,
         contentBase64: buf.toString("base64"),
-        encoding,
+        encoding: isText ? "utf-8" : "base64",
         size: buf.length,
         mtime: stat.mtimeMs,
+        isText,
       };
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
-      this.logAccess(roomId, requesterId, "read", relPath, 0, false);
-      if (e.code === "ENOENT") {
-        return {
-          ok: false,
-          error: "file_not_found",
-          errorMessage: "文件不存在",
-        };
-      }
-      return {
-        ok: false,
-        error: "permission_denied",
-        errorMessage: e.message ?? "读取失败",
-      };
+      if (e.code === "ENOENT") return { ok: false, error: "文件不存在" };
+      return { ok: false, error: e.message ?? "读取失败" };
     }
-  }
-
-  async listDir(
-    roomId: string,
-    relPath: string,
-    depth: number,
-    requesterId: string,
-  ): Promise<ListResult> {
-    const binding = this.bindings.get(roomId);
-    if (!binding) {
-      return { ok: false, error: "binding_unbound" };
-    }
-    const safe = this.resolveSafePath(binding.localPath, relPath || "");
-    if (!safe) {
-      return { ok: false, error: "permission_denied" };
-    }
-    const ignore = new IgnoreEngine(binding.ignorePatterns);
-    const entries: NonNullable<ListResult["entries"]> = [];
-    const maxDepth = Math.max(0, Math.min(depth ?? 1, 5));
-
-    const walk = async (dir: string, currentDepth: number): Promise<void> => {
-      if (currentDepth > maxDepth) return;
-      let items: Dirent[];
-      try {
-        items = (await fs.readdir(dir, { withFileTypes: true })) as Dirent[];
-      } catch {
-        return;
-      }
-      for (const item of items) {
-        const fullPath = path.join(dir, item.name);
-        const itemRel = path
-          .relative(binding.localPath, fullPath)
-          .replace(/\\/g, "/");
-        if (ignore.matches(itemRel)) continue;
-        try {
-          const stat = await fs.stat(fullPath);
-          entries.push({
-            path: itemRel,
-            size: stat.size,
-            mtime: stat.mtimeMs,
-            isDirectory: item.isDirectory(),
-          });
-          if (item.isDirectory() && currentDepth < maxDepth) {
-            await walk(fullPath, currentDepth + 1);
-          }
-        } catch {
-          /* skip */
-        }
-      }
-    };
-
-    await walk(safe, 0);
-    this.logAccess(roomId, requesterId, "list", relPath, 0, true);
-    return { ok: true, entries };
-  }
-
-  getAccessLog(roomId: string, limit: number): AccessLogEntry[] {
-    const log = this.accessLogs.get(roomId) ?? [];
-    return log.slice(-Math.max(1, Math.min(limit || 50, 200))).reverse();
   }
 
   // ---------- internals ----------
 
-  /**
-   * Reject any relPath that escapes the binding root. We normalize
-   * away `..` segments + leading slashes, then resolve against the
-   * root and require the result to live at-or-below the root path.
-   */
+  /** Reject relPath that escapes the binding root. Two-stage: normalize
+   *  away `..` segments + require the resolved path to live at-or-
+   *  below the root. */
   private resolveSafePath(rootPath: string, relPath: string): string | null {
     const normalized = path.normalize(relPath ?? "").replace(/^[\\/]+/, "");
     if (normalized.split(path.sep).includes("..")) return null;
@@ -601,21 +417,15 @@ export class WorkspaceManager {
     return resolved;
   }
 
-  /**
-   * Heuristic UTF-8 vs binary detection. Buffers with replacement
-   * characters or NUL bytes in the first 8KB are treated as binary
-   * and base64-encoded for transit; everything else flows as UTF-8.
-   */
-  private detectEncoding(content: Buffer): "utf-8" | "base64" {
+  private detectIsText(content: Buffer): boolean {
     const sample = content.subarray(0, Math.min(content.length, 8192));
-    if (sample.includes(0)) return "base64";
+    if (sample.includes(0)) return false;
     try {
       const decoded = sample.toString("utf-8");
       const replacementCount = (decoded.match(/�/g) || []).length;
-      if (replacementCount > sample.length * 0.01) return "base64";
-      return "utf-8";
+      return replacementCount <= sample.length * 0.01;
     } catch {
-      return "base64";
+      return false;
     }
   }
 
@@ -639,85 +449,33 @@ export class WorkspaceManager {
     });
 
     let debounceTimer: NodeJS.Timeout | null = null;
-    const triggerRepublish = () => {
+    const triggerRescan = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         try {
           const scan = await this.scanFolder(binding.localPath);
           binding.fileCount = scan.fileCount;
           binding.totalSize = scan.totalSize;
-          // Keep lastBindings in step with the live binding so any
-          // unbind notice that follows shows the latest fileCount.
-          this.lastBindings.set(roomId, { ...binding });
-          await this.saveBindings();
-          // Empty meta — bridge consults notifyTracker to decide
-          // whether this republish is significant enough to announce.
-          this.onFileTreeChanged(roomId, scan.files, {});
-          this.emitBindingChanged(roomId, binding);
+          this.fileTrees.set(roomId, scan.files);
+          await this.save();
+          // Spec §5.1.2 — v3 only refreshes the cache on watcher
+          // events. Notifying renderer keeps the UI's file tree in
+          // sync (so the 📁 picker shows newly-added files); we do
+          // *not* spam Matrix with a fresh announcement on every
+          // change.
+          this.onBindingChanged(roomId, binding, scan.files);
         } catch (err) {
-          console.error("[workspace] republish failed:", err);
+          console.error("[workspace] rescan failed:", err);
         }
-      }, this.REPUBLISH_DEBOUNCE_MS);
+      }, this.RESCAN_DEBOUNCE_MS);
     };
 
-    watcher.on("add", triggerRepublish);
-    watcher.on("change", triggerRepublish);
-    watcher.on("unlink", triggerRepublish);
-    watcher.on("addDir", triggerRepublish);
-    watcher.on("unlinkDir", triggerRepublish);
+    watcher.on("add", triggerRescan);
+    watcher.on("change", triggerRescan);
+    watcher.on("unlink", triggerRescan);
+    watcher.on("addDir", triggerRescan);
+    watcher.on("unlinkDir", triggerRescan);
 
     this.watchers.set(roomId, watcher);
-  }
-
-  private logAccess(
-    roomId: string,
-    agentUserId: string,
-    type: "read" | "list",
-    relPath: string,
-    bytes: number,
-    success: boolean,
-  ): void {
-    const log = this.accessLogs.get(roomId) ?? [];
-    const entry: AccessLogEntry = {
-      timestamp: Date.now(),
-      type,
-      path: relPath,
-      agentUserId,
-      bytes,
-      success,
-    };
-    log.push(entry);
-    if (log.length > 200) log.splice(0, log.length - 200);
-    this.accessLogs.set(roomId, log);
-    // Best-effort persistence; we don't await so a slow disk doesn't
-    // bottleneck the request path.
-    this.saveAccessLogs().catch(() => {
-      /* swallow */
-    });
-    this.emitAccessLogged(roomId, entry);
-  }
-
-  private emitBindingChanged(
-    roomId: string,
-    binding: Binding | null,
-  ): void {
-    this.broadcast("workspace:binding-changed", { roomId, binding });
-  }
-
-  private emitAccessLogged(roomId: string, entry: AccessLogEntry): void {
-    this.broadcast("workspace:access-logged", { roomId, entry });
-  }
-
-  /**
-   * Broadcast a payload to every renderer window. We don't need to
-   * track a "primary" window because the renderers each subscribe
-   * with their own onBindingChanged / onAccessLogged listeners.
-   */
-  private broadcast(channel: string, payload: unknown): void {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        win.webContents.send(channel, payload);
-      }
-    }
   }
 }

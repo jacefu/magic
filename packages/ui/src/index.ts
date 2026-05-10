@@ -25,16 +25,15 @@ export type { Theme, Language } from "./hooks/useSettings.js";
 // Workspace (spec 016)
 export { AddServerDialog } from "./workspace/AddServerDialog.js";
 
-// Workspace folder binding (spec 022)
+// Workspace folder binding (spec 022 v3 — Matrix-native attachments)
 export { BindFolderButton } from "./workspace/BindFolderButton.js";
 export { BindFolderConfirmDialog } from "./workspace/BindFolderConfirmDialog.js";
 export { WorkspaceSection } from "./workspace/WorkspaceSection.js";
-export { AccessLogSection } from "./workspace/AccessLogSection.js";
 export { WorkspaceIndicator } from "./workspace/WorkspaceIndicator.js";
-export { WorkspaceNotificationCard } from "./workspace/WorkspaceNotificationCard.js";
+export { WorkspaceFilePicker } from "./workspace/WorkspaceFilePicker.js";
 export { useWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
 export type { UseWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
-export { useWorkspaceMatrixBridge } from "./hooks/useWorkspaceMatrixBridge.js";
+export { useMessageInterceptor } from "./hooks/useMessageInterceptor.js";
 
 // Layouts
 export { MainLayout } from "./layouts/MainLayout.js";

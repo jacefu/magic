@@ -6,13 +6,13 @@ export const MAGIC_EVENTS = {
   SOUL_CONTENT: "com.magic.soul.content",
   MEMORY_CONTENT: "com.magic.memory.content",
   HEARTBEAT: "com.magic.heartbeat",
-  // Spec 022 — workspace folder binding (Matrix-only protocol).
+  // Spec 022 v3 — workspace folder binding state event. v3 dropped
+  // the read_request / read_response / list_request / list_response /
+  // tree_chunk types from v2 because Agents weren't going to
+  // implement them; v3 ships file content as native Matrix
+  // attachments instead. The state event survives so multi-device
+  // / multi-client setups stay in sync about which room is bound.
   WORKSPACE_BINDING: "com.magic.workspace.binding",
-  WORKSPACE_TREE_CHUNK: "com.magic.workspace.tree_chunk",
-  WORKSPACE_READ_REQUEST: "com.magic.workspace.read_request",
-  WORKSPACE_READ_RESPONSE: "com.magic.workspace.read_response",
-  WORKSPACE_LIST_REQUEST: "com.magic.workspace.list_request",
-  WORKSPACE_LIST_RESPONSE: "com.magic.workspace.list_response",
 } as const;
 
 export const AgentStatusEvent = z.object({
@@ -44,7 +44,7 @@ export const SoulContentEvent = z.object({
 });
 export type SoulContentEvent = z.infer<typeof SoulContentEvent>;
 
-// ---- Spec 022: workspace folder binding events ----
+// ---- Spec 022 v3: workspace folder binding ----
 
 const WorkspaceFileEntrySchema = z.object({
   path: z.string(),
@@ -55,11 +55,9 @@ export type WorkspaceFileEntrySchema = z.infer<typeof WorkspaceFileEntrySchema>;
 
 /**
  * State event posted by the Magic client when a user binds a folder.
- * `state_key` is the binder's user id so multiple users can bind the
- * same room independently. `tree` is inlined when the file list fits
- * inside Matrix's ~64 KB state event ceiling; otherwise it's null and
- * `treeChunked` flips to true with `treeManifestEventIds` pointing at
- * `WORKSPACE_TREE_CHUNK` message events that carry the manifest.
+ * Lightweight in v3: just metadata, no file tree (tree is shipped via
+ * a regular m.text announcement message and Matrix-native attachments
+ * the user triggers later — see spec §3.3).
  */
 export const WorkspaceBindingEvent = z.object({
   bound: z.boolean(),
@@ -67,83 +65,10 @@ export const WorkspaceBindingEvent = z.object({
   boundBy: z.string().optional(),
   boundAt: z.number().optional(),
   fileCount: z.number().optional(),
-  totalSize: z.number().optional(),
-  tree: z.array(WorkspaceFileEntrySchema).nullable().optional(),
-  treeChunked: z.boolean().optional(),
-  treeChunks: z.number().optional(),
-  treeManifestEventIds: z.array(z.string()).optional(),
 });
 export type WorkspaceBindingEvent = z.infer<typeof WorkspaceBindingEvent>;
 
-export const WorkspaceTreeChunkEvent = z.object({
-  chunkIndex: z.number(),
-  totalChunks: z.number(),
-  files: z.array(WorkspaceFileEntrySchema),
-});
-export type WorkspaceTreeChunkEvent = z.infer<typeof WorkspaceTreeChunkEvent>;
-
-export const WorkspaceReadRequestEvent = z.object({
-  request_id: z.string(),
-  path: z.string(),
-  encoding: z.enum(["utf-8", "base64", "auto"]).optional(),
-  max_size: z.number().optional(),
-  binding_owner: z.string().optional(),
-});
-export type WorkspaceReadRequestEvent = z.infer<
-  typeof WorkspaceReadRequestEvent
->;
-
-/**
- * Either inline `content` (small files, encoded per `encoding`) or
- * `via_media: true` + `mxc_url` for files over the inline threshold —
- * the renderer uploads to the Matrix media repo so the Agent can
- * fetch via the standard /_matrix/media/v3/download endpoint.
- */
-export const WorkspaceReadResponseEvent = z.object({
-  request_id: z.string(),
-  path: z.string(),
-  ok: z.boolean(),
-  size: z.number().optional(),
-  mtime: z.number().optional(),
-  encoding: z.enum(["utf-8", "base64"]).optional(),
-  content: z.string().optional(),
-  via_media: z.boolean().optional(),
-  mxc_url: z.string().optional(),
-  mime_type: z.string().optional(),
-  error: z.string().optional(),
-  errorMessage: z.string().optional(),
-});
-export type WorkspaceReadResponseEvent = z.infer<
-  typeof WorkspaceReadResponseEvent
->;
-
-export const WorkspaceListRequestEvent = z.object({
-  request_id: z.string(),
-  path: z.string().optional(),
-  depth: z.number().optional(),
-  binding_owner: z.string().optional(),
-});
-export type WorkspaceListRequestEvent = z.infer<
-  typeof WorkspaceListRequestEvent
->;
-
-export const WorkspaceListResponseEvent = z.object({
-  request_id: z.string(),
-  path: z.string().optional(),
-  ok: z.boolean(),
-  entries: z
-    .array(
-      z.object({
-        path: z.string(),
-        size: z.number(),
-        mtime: z.number(),
-        isDirectory: z.boolean(),
-      }),
-    )
-    .optional(),
-  error: z.string().optional(),
-  errorMessage: z.string().optional(),
-});
-export type WorkspaceListResponseEvent = z.infer<
-  typeof WorkspaceListResponseEvent
->;
+// v2 schemas (read_request / read_response / list_request /
+// list_response / tree_chunk) were removed — v3 ships file content
+// as native Matrix m.file / m.image / inline-code-block messages
+// instead, so there's no custom payload shape to validate.

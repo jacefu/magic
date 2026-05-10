@@ -95,17 +95,13 @@ export function BindFolderConfirmDialog({
 
         <div className="mt-3 space-y-1.5 text-[11.5px] leading-relaxed">
           <p style={{ color: "var(--text-secondary)" }}>工作方式：</p>
+          <Bullet>文件保留在你的电脑上</Bullet>
           <Bullet>
-            文件保留在你的电脑上，<strong>不上传到任何服务器</strong>
+            当你的消息提到文件路径时，Magic 会<strong>自动把文件内容附到消息中</strong>
+            发给 <span className="font-medium">{peerLabel}</span>
           </Bullet>
-          <Bullet>
-            <span className="font-medium">{peerLabel}</span> 看到清单后，可按需
-            请求读取文件
-          </Bullet>
-          <Bullet>Magic 离线时无法访问文件</Bullet>
-          <Bullet>
-            读取记录会显示在工作区面板，你随时可以查看与解绑
-          </Bullet>
+          <Bullet>你也可以点 📁 按钮显式选择文件</Bullet>
+          <Bullet>自动附加可在设置中关闭</Bullet>
         </div>
 
         <label

@@ -18,26 +18,18 @@ import { settingsStore } from "./store.js";
 
 let mainWindow: BrowserWindow | null = null;
 
-// Spec 022 §5.1.2 — file-tree changes are pushed to every renderer
-// over the workspace:file-tree-changed channel. The bridge in the
-// renderer turns those into Matrix state events + (per spec §3.5)
-// `m.notice` agent-awareness messages.
-const workspace = new WorkspaceManager((roomId, files, meta) => {
-  // Diagnostic — pairs with the renderer-side log so you can confirm
-  // main is sending isFirstBind / isUnbind correctly. If main says
-  // isFirstBind=true but the renderer log doesn't, the IPC dropped it.
-  // eslint-disable-next-line no-console
-  console.log("[workspace/main] file-tree-changed broadcast", {
-    roomId,
-    fileCount: files.length,
-    meta,
-  });
+// Spec 022 v3 §5.1.2 — broadcast bind/unbind/file-tree refresh to
+// every renderer via the workspace:tree-changed channel. The
+// renderer's useWorkspaceBinding picks this up to refresh its local
+// view; the actual Matrix-side announcement is fired from the bind
+// dialog (see §5.2.3), not from here.
+const workspace = new WorkspaceManager((roomId, binding, files) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
-      win.webContents.send("workspace:file-tree-changed", {
+      win.webContents.send("workspace:tree-changed", {
         roomId,
+        binding,
         files,
-        ...meta,
       });
     }
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import {
   useRoomStore,
   useUIStore,
@@ -7,7 +7,9 @@ import {
 import { useComposer } from "../hooks/useComposer.js";
 import { usePasteFile } from "../hooks/usePasteFile.js";
 import { isElectron } from "../hooks/useElectronAPI.js";
+import { useWorkspaceBinding } from "../hooks/useWorkspaceBinding.js";
 import { BindFolderButton } from "../workspace/BindFolderButton.js";
+import { WorkspaceFilePicker } from "../workspace/WorkspaceFilePicker.js";
 import { ComposerInput } from "./ComposerInput.js";
 import { ReplyPreview } from "./ReplyPreview.js";
 import { EmojiPicker } from "./EmojiPicker.js";
@@ -30,6 +32,21 @@ export function MessageComposer({
   onFilesSelected,
   onSent,
 }: MessageComposerProps) {
+  // Spec 022 v3 §3.4 — explicit attachments selected via the 📁
+  // picker. Held here (not in useComposer) so the chip strip can
+  // render and the picker can hydrate from the current selection.
+  const [explicitAttachments, setExplicitAttachments] = useState<string[]>([]);
+  const explicitAttachmentsRef = useRef(explicitAttachments);
+  explicitAttachmentsRef.current = explicitAttachments;
+
+  const getExplicitAttachments = useCallback(
+    () => explicitAttachmentsRef.current,
+    [],
+  );
+  const onAfterSend = useCallback(() => {
+    setExplicitAttachments([]);
+  }, []);
+
   const {
     value,
     setValue,
@@ -39,10 +56,25 @@ export function MessageComposer({
     handleSend,
     cancelReply,
     switchRoom,
-  } = useComposer({ roomId, onSent });
+  } = useComposer({ roomId, onSent, getExplicitAttachments, onAfterSend });
 
   const room = useRoomStore((s) => s.rooms[roomId]);
   const placeholder = room?.name ? `发消息到 #${room.name}` : "输入消息…";
+
+  const { binding, fileTree } = useWorkspaceBinding(roomId);
+  const [filePickerOpen, setFilePickerOpen] = useState(false);
+
+  // Strip stale picks when switching rooms — attachments belong to a
+  // specific binding, carrying them over to a different room would
+  // either no-op or attach files from the wrong place.
+  useEffect(() => {
+    setExplicitAttachments([]);
+  }, [roomId]);
+
+  const fileTreeMap = useMemo(
+    () => new Map(fileTree.map((f) => [f.path, f])),
+    [fileTree],
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
@@ -142,6 +174,57 @@ export function MessageComposer({
     <div className="bg-[var(--bg-primary)] px-4 pb-3 pt-2">
       {replyEvent && <ReplyPreview event={replyEvent} onCancel={cancelReply} />}
 
+      {/* Spec §3.4 — chip strip for explicitly-attached workspace
+          files. Lives above the input so it doesn't fight the icon
+          row for space. */}
+      {explicitAttachments.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+          {explicitAttachments.map((p) => {
+            const entry = fileTreeMap.get(p);
+            return (
+              <span
+                key={p}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px]"
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "0.5px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <span aria-hidden>📄</span>
+                <span className="font-mono">{p}</span>
+                {entry && (
+                  <span style={{ color: "var(--text-tertiary)" }}>
+                    · {formatChipSize(entry.size)}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExplicitAttachments((prev) =>
+                      prev.filter((x) => x !== p),
+                    )
+                  }
+                  className="ml-0.5 rounded text-[10px] transition-opacity hover:opacity-80"
+                  style={{ color: "var(--text-tertiary)" }}
+                  title="移除"
+                >
+                  ✕
+                </button>
+              </span>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setExplicitAttachments([])}
+            className="text-[10.5px] transition-opacity hover:opacity-80"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            清空
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center gap-1 rounded-lg bg-[var(--bg-surface)] pr-2">
         {/* + attach button (left, inside field) */}
         <input
@@ -198,6 +281,30 @@ export function MessageComposer({
           )}
         </div>
 
+        {/* Spec §3.1 §3.4 — 📁 button only appears when a binding
+            exists. Counter badge shows current explicit pick count. */}
+        {binding && (
+          <button
+            type="button"
+            onClick={() => setFilePickerOpen(true)}
+            title="从工作区选择文件附加"
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+          >
+            <span aria-hidden className="text-[16px]">
+              📁
+            </span>
+            {explicitAttachments.length > 0 && (
+              <span
+                aria-hidden
+                className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
+                style={{ background: "var(--brand-purple)" }}
+              >
+                {explicitAttachments.length}
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Text input — flex-1, vertically centered against the icon row */}
         <div className="flex min-w-0 flex-1 items-center">
           <ComposerInput
@@ -248,8 +355,29 @@ export function MessageComposer({
           )}
         </div>
       </div>
+
+      {/* Spec §3.4 — workspace file picker. Mounts above everything
+          via the DialogOverlay portal; selection is committed to
+          explicitAttachments on confirm. */}
+      {filePickerOpen && (
+        <WorkspaceFilePicker
+          fileTree={fileTree}
+          initialSelected={explicitAttachments}
+          onConfirm={(paths) => {
+            setExplicitAttachments(paths);
+            setFilePickerOpen(false);
+          }}
+          onClose={() => setFilePickerOpen(false)}
+        />
+      )}
     </div>
   );
+}
+
+function formatChipSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function PlusCircleIcon() {
