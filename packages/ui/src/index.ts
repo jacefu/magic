@@ -90,6 +90,8 @@ export { useAutoAccept } from "./hooks/useAutoAccept.js";
 export { useElectronAPI, isElectron } from "./hooks/useElectronAPI.js";
 export { useFilteredRooms } from "./hooks/useFilteredRooms.js";
 export type { RoomGroup } from "./hooks/useFilteredRooms.js";
+export { useMessageSearch } from "./hooks/useMessageSearch.js";
+export type { MessageSearch, SearchMatch } from "./hooks/useMessageSearch.js";
 export { useTimeline } from "./hooks/useTimeline.js";
 export type { TimelineItem } from "./hooks/useTimeline.js";
 export { useComposer } from "./hooks/useComposer.js";

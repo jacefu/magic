@@ -8,6 +8,7 @@ import { UploadProgressBar } from "../files/UploadProgressBar.js";
 import { DropZoneOverlay } from "../files/DropZoneOverlay.js";
 import { useFileUpload } from "../hooks/useFileUpload.js";
 import { useDragDrop } from "../hooks/useDragDrop.js";
+import { useMessageSearch } from "../hooks/useMessageSearch.js";
 
 export function ChatView() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
@@ -78,16 +79,23 @@ function ChatViewContent({
     scrollToBottomRef.current?.();
   }, []);
 
+  // Search state is owned here so the header can drive both the result
+  // counter UI and the timeline's scroll-to / highlight reaction.
+  const search = useMessageSearch(roomId);
+
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-primary)]"
       {...dragProps}
     >
-      <ChannelHeader roomId={roomId} />
+      <ChannelHeader roomId={roomId} search={search} />
       <ChatTimeline
         roomId={roomId}
         onReply={onReply}
         scrollToBottomRef={scrollToBottomRef}
+        searchQuery={search.query}
+        highlightEventId={search.activeMatch?.eventId ?? null}
+        searchJumpCount={search.jumpCount}
       />
 
       <UploadProgressBar tasks={tasks} onCancel={cancelTask} />

@@ -103,8 +103,19 @@ export function bridgeToStores(
     room: Room | undefined,
     toStartOfTimeline: boolean | undefined,
   ) => {
-    if (!room || toStartOfTimeline) return;
+    if (!room) return;
     const serialized = serializeEvent(event);
+    if (toStartOfTimeline) {
+      // Backfill from `paginateBackwards` arrives with this flag set.
+      // Without prepending these into the store the user could only
+      // ever see whatever /sync handed back on first load — scrolling
+      // to the top would silently no-op once the SDK had already
+      // backfilled into its in-memory timeline.
+      useRoomStore
+        .getState()
+        .prependMessages(sessionId, room.roomId, [serialized]);
+      return;
+    }
     useRoomStore.getState().addMessage(sessionId, room.roomId, serialized);
     notificationCallback?.(serialized);
   };

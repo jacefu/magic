@@ -13,12 +13,20 @@ interface TextMessageProps {
   format?: string;
   isOwn: boolean;
   roomId: string;
+  /**
+   * In-room search query (>= 2 chars). When set, every plain-text leaf
+   * inside the rendered markdown gets matched substrings wrapped in
+   * `<mark>` for visual highlighting. Code/pre blocks are skipped so
+   * syntax highlighting isn't disturbed.
+   */
+  searchQuery?: string;
 }
 
 export function TextMessage({
   body,
   isOwn,
   roomId,
+  searchQuery,
 }: TextMessageProps) {
   const members = useRoomMembersForMentions(roomId);
 
@@ -38,6 +46,13 @@ export function TextMessage({
     () => injectMentionLinks(normalizeBodyForMarkdown(body), members),
     [body, members],
   );
+
+  // Highlight is gated behind a >=2 char query so single-keystroke
+  // typing doesn't repaint the entire markdown tree on every input.
+  const highlightTerm =
+    searchQuery && searchQuery.trim().length >= 2 ? searchQuery.trim() : null;
+  const hl = (children: React.ReactNode): React.ReactNode =>
+    highlightTerm ? highlightChildren(children, highlightTerm) : children;
 
   const components: Components = {
     // Block code: <pre> wraps a <code class="language-*">. We intercept
@@ -127,7 +142,7 @@ export function TextMessage({
           className="border border-[var(--border-default)] px-3 py-1.5 font-semibold text-[var(--text-primary)]"
           style={style}
         >
-          {children}
+          {hl(children)}
         </th>
       );
     },
@@ -137,31 +152,31 @@ export function TextMessage({
           className="border border-[var(--border-default)] px-3 py-1.5 text-[var(--text-primary)]"
           style={style}
         >
-          {children}
+          {hl(children)}
         </td>
       );
     },
     p({ children }) {
-      return <p className="my-1 leading-[1.55]">{children}</p>;
+      return <p className="my-1 leading-[1.55]">{hl(children)}</p>;
     },
     h1({ children }) {
       return (
         <h1 className="my-2 text-[18px] font-semibold text-[var(--text-primary)]">
-          {children}
+          {hl(children)}
         </h1>
       );
     },
     h2({ children }) {
       return (
         <h2 className="my-2 text-[16px] font-semibold text-[var(--text-primary)]">
-          {children}
+          {hl(children)}
         </h2>
       );
     },
     h3({ children }) {
       return (
         <h3 className="my-2 text-[15px] font-semibold text-[var(--text-primary)]">
-          {children}
+          {hl(children)}
         </h3>
       );
     },
@@ -172,12 +187,12 @@ export function TextMessage({
       return <ol className="my-1.5 ml-5 list-decimal marker:text-[var(--text-tertiary)]">{children}</ol>;
     },
     li({ children }) {
-      return <li className="my-0.5 leading-[1.55]">{children}</li>;
+      return <li className="my-0.5 leading-[1.55]">{hl(children)}</li>;
     },
     blockquote({ children }) {
       return (
         <blockquote className="my-1.5 border-l-[3px] border-[var(--border-hover)] pl-3 text-[var(--text-secondary)]">
-          {children}
+          {hl(children)}
         </blockquote>
       );
     },
@@ -185,10 +200,10 @@ export function TextMessage({
       return <hr className="my-2 border-[var(--border-default)]" />;
     },
     strong({ children }) {
-      return <strong className="font-semibold text-[var(--text-primary)]">{children}</strong>;
+      return <strong className="font-semibold text-[var(--text-primary)]">{hl(children)}</strong>;
     },
     em({ children }) {
-      return <em className="text-[var(--text-primary)]">{children}</em>;
+      return <em className="text-[var(--text-primary)]">{hl(children)}</em>;
     },
   };
 
@@ -323,4 +338,61 @@ export function injectMentionLinks(
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Wrap occurrences of `term` (case-insensitive) inside any string leaves
+ * of `children` with a `<mark>` element. ReactElement children are passed
+ * through unchanged — the renderer for that element will run `hl` on
+ * its own children, so highlighting walks the whole tree as it renders.
+ *
+ * Skipping element children here (rather than recursing into their
+ * cloned `children` prop) keeps us from cloning across opaque
+ * components (SyntaxHighlighter, MentionPill) where we can't reason
+ * about the prop shape.
+ */
+function highlightChildren(
+  children: React.ReactNode,
+  term: string,
+): React.ReactNode {
+  if (typeof children === "string") {
+    return splitWithMark(children, term);
+  }
+  if (Array.isArray(children)) {
+    return children.map((child, i) => {
+      if (typeof child === "string") {
+        return <span key={`hl-${i}`}>{splitWithMark(child, term)}</span>;
+      }
+      return child;
+    });
+  }
+  return children;
+}
+
+function splitWithMark(text: string, term: string): React.ReactNode {
+  if (!text) return text;
+  const lower = text.toLowerCase();
+  const lowerTerm = term.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  let from = 0;
+  while (from < lower.length) {
+    const at = lower.indexOf(lowerTerm, from);
+    if (at === -1) break;
+    if (at > cursor) parts.push(text.slice(cursor, at));
+    parts.push(
+      <mark
+        key={`m-${at}`}
+        className="rounded-sm px-0.5"
+        style={{ background: "rgba(250,166,26,0.35)", color: "inherit" }}
+      >
+        {text.slice(at, at + term.length)}
+      </mark>,
+    );
+    cursor = at + term.length;
+    from = cursor;
+  }
+  if (parts.length === 0) return text;
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
 }

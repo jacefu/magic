@@ -1,25 +1,35 @@
-import { useState } from "react";
 import { useRoomStore, useUIStore } from "@magic/matrix-client";
 import { isDmRoom } from "../lib/isDmRoom.js";
+import type { MessageSearch } from "../hooks/useMessageSearch.js";
 
 interface ChannelHeaderProps {
   roomId: string;
+  /**
+   * Lifted from ChatView so the search counter, hit navigation, and the
+   * timeline's scroll-to / highlight reaction all read the same state.
+   */
+  search: MessageSearch;
 }
 
 // Channel header (h-12, shadow-sm bottom):
 //   left:  # name | topic
-//   right: members toggle (group rooms only) | search box
-export function ChannelHeader({ roomId }: ChannelHeaderProps) {
+//   right: members toggle (group rooms only) | settings | local search
+export function ChannelHeader({ roomId, search }: ChannelHeaderProps) {
   const room = useRoomStore((s) => s.rooms[roomId]);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanelMode = useUIStore((s) => s.rightPanelMode);
   const setRightPanel = useUIStore((s) => s.setRightPanel);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
 
-  // Header-search input is wired UI-only for now: backend message
-  // search isn't built yet. Surface a "即将上线" hint as soon as
-  // the user starts typing so there's no silent dead end.
-  const [searchValue, setSearchValue] = useState("");
+  const {
+    query,
+    setQuery,
+    matches,
+    activeMatchIndex,
+    goToPrevMatch,
+    goToNextMatch,
+    clearSearch,
+  } = search;
 
   if (!room) return null;
 
@@ -34,6 +44,10 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
     if (rightPanelOpen && rightPanelMode === "settings") closeRightPanel();
     else setRightPanel("settings");
   };
+
+  const trimmedQuery = query.trim();
+  const hasQuery = trimmedQuery.length >= 2;
+  const hasMatches = hasQuery && matches.length > 0;
 
   return (
     <div className="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--border-default)] bg-[var(--bg-primary)] px-4 shadow-sm">
@@ -81,38 +95,83 @@ export function ChannelHeader({ roomId }: ChannelHeaderProps) {
           <SettingsIcon />
         </HeaderIconButton>
 
-        {/* Header search — UI-only placeholder for in-room message
-            search. Visible border + leading icon so it reads as an
-            input field instead of dead space. */}
+        {/* Local message search — filters the loaded timeline. */}
         <div
-          className="relative ml-1 flex h-7 w-44 items-center rounded-md px-1.5"
+          className="ml-1 flex h-7 items-center gap-1 rounded-md px-1.5"
           style={{
             background: "var(--bg-surface)",
-            border: "0.5px solid var(--border-hover)",
+            border: hasQuery
+              ? "0.5px solid var(--brand-purple)"
+              : "0.5px solid var(--border-hover)",
           }}
-          title="消息搜索功能即将上线"
         >
           <SmallSearchIcon />
           <input
             type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (e.shiftKey) goToPrevMatch();
+                else goToNextMatch();
+                return;
+              }
+              if (e.key === "Escape") {
+                clearSearch();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
             placeholder={`搜索 ${room.name || "房间"}`}
-            className="ml-1.5 w-full bg-transparent text-[12px] text-[var(--text-secondary)]
-                       placeholder:text-[var(--text-tertiary)] outline-none
-                       focus:text-[var(--text-primary)]"
+            className="w-32 bg-transparent text-[12px] text-[var(--text-primary)]
+                       placeholder:text-[var(--text-tertiary)] outline-none"
           />
 
-          {searchValue && (
-            <div
-              className="absolute right-0 top-full z-10 mt-1 w-44 rounded-md px-2.5 py-1.5 text-[11px] shadow-lg"
-              style={{
-                background: "var(--bg-primary)",
-                border: "0.5px solid var(--border-default)",
-                color: "var(--text-secondary)",
-              }}
-            >
-              消息搜索功能即将上线
+          {hasQuery && (
+            <div className="flex shrink-0 items-center gap-0.5">
+              <span
+                className="text-[10px] tabular-nums"
+                style={{
+                  color: hasMatches
+                    ? "var(--text-secondary)"
+                    : "var(--text-tertiary)",
+                }}
+              >
+                {hasMatches ? `${activeMatchIndex + 1}/${matches.length}` : "0"}
+              </span>
+
+              {hasMatches && (
+                <>
+                  <button
+                    onClick={goToPrevMatch}
+                    title="上一个 (Shift+Enter)"
+                    className="rounded p-0.5 text-[var(--text-tertiary)]
+                               transition-colors hover:bg-[var(--bg-hover)]
+                               hover:text-[var(--text-primary)]"
+                  >
+                    <ChevronUpIcon />
+                  </button>
+                  <button
+                    onClick={goToNextMatch}
+                    title="下一个 (Enter)"
+                    className="rounded p-0.5 text-[var(--text-tertiary)]
+                               transition-colors hover:bg-[var(--bg-hover)]
+                               hover:text-[var(--text-primary)]"
+                  >
+                    <ChevronDownIcon />
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={clearSearch}
+                title="清除 (Esc)"
+                className="rounded p-0.5 text-[var(--text-tertiary)]
+                           transition-colors hover:bg-[var(--bg-hover)]
+                           hover:text-[var(--text-primary)]"
+              >
+                <ClearIcon />
+              </button>
             </div>
           )}
         </div>
@@ -197,6 +256,30 @@ function SmallSearchIcon() {
         strokeLinejoin="round"
         d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
       />
+    </svg>
+  );
+}
+
+function ChevronUpIcon() {
+  return (
+    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+  );
+}
+
+function ClearIcon() {
+  return (
+    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
 }

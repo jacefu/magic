@@ -16,6 +16,17 @@ interface MessageBubbleProps {
   showSender: boolean;
   isOwn: boolean;
   onReply?: (eventId: string) => void;
+  /**
+   * Active in-room search query. When >= 2 chars, MessageContent
+   * highlights matching substrings in the rendered text.
+   */
+  searchQuery?: string;
+  /**
+   * True when this bubble is the currently-selected search hit. Paints
+   * a brand-tinted ring + soft tint so the user can see exactly which
+   * message the counter refers to.
+   */
+  isHighlighted?: boolean;
 }
 
 // Discord-flat layout:
@@ -31,6 +42,8 @@ export const MessageBubble = memo(function MessageBubble({
   showSender,
   isOwn,
   onReply,
+  searchQuery,
+  isHighlighted,
 }: MessageBubbleProps) {
   const isMessage =
     event.type === "m.room.message" || event.type === "m.room.encrypted";
@@ -65,9 +78,17 @@ export const MessageBubble = memo(function MessageBubble({
 
   return (
     <div
-      className={`group relative flex gap-3 px-4 transition-colors duration-100
-                  hover:bg-[var(--msg-hover)]
+      id={`msg-${event.eventId}`}
+      className={`group relative flex gap-3 px-4 transition-colors duration-200
+                  ${
+                    isHighlighted
+                      ? "ring-1 ring-[var(--brand-purple)]"
+                      : "hover:bg-[var(--msg-hover)]"
+                  }
                   ${showSender ? "mt-2.5" : "mt-0.5"}`}
+      style={
+        isHighlighted ? { background: "rgba(108,92,231,0.08)" } : undefined
+      }
     >
       {/* 2px stripe rendered on every message — color matches the
           sender's avatar gradient so each participant has a consistent
@@ -121,7 +142,7 @@ export const MessageBubble = memo(function MessageBubble({
           </div>
         )}
         <div className="text-[13px] leading-[1.5] text-[var(--text-primary)]">
-          <MessageContent event={event} isOwn={isOwn} />
+          <MessageContent event={event} isOwn={isOwn} searchQuery={searchQuery} />
         </div>
       </div>
 

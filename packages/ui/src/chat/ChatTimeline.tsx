@@ -25,6 +25,23 @@ interface ChatTimelineProps {
    * just-shipped message.
    */
   scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
+  /**
+   * Active in-room search query. When set, MessageBubble highlights
+   * matched substrings inline.
+   */
+  searchQuery?: string;
+  /**
+   * Event id of the currently active search match. The timeline scrolls
+   * the matching message into view and MessageBubble paints a ring
+   * around it.
+   */
+  highlightEventId?: string | null;
+  /**
+   * Bumped every time the user presses prev/next. Lets the scroll-to-
+   * match effect re-fire even when `highlightEventId` didn't change
+   * (single-match case where wrapping next/prev keeps the same id).
+   */
+  searchJumpCount?: number;
 }
 
 // Pagination is triggered when the user scrolls within this many pixels
@@ -55,6 +72,9 @@ export function ChatTimeline({
   roomId,
   onReply,
   scrollToBottomRef,
+  searchQuery,
+  highlightEventId,
+  searchJumpCount,
 }: ChatTimelineProps) {
   const currentUserId = useAuthStore((s) => s.userId);
   const unreadMarker = useUnreadMarker(roomId, currentUserId);
@@ -82,6 +102,17 @@ export function ChatTimeline({
   // Refs for change-detection across renders.
   const prevRoomIdRef = useRef(roomId);
   const prevItemsLenRef = useRef(0);
+
+  // Set to true while a search-match scroll is in flight. handleScroll
+  // bails on its at-bottom recompute and pagination check during this
+  // window so the smooth-scroll animation can't latch the user as
+  // "browsing history" or trigger an unwanted backfill.
+  const isSearchJumpingRef = useRef(false);
+
+  // Tracks the previous active search query so we can detect the
+  // "search cleared" transition (had >=2 chars → empty) and snap the
+  // view back to the bottom.
+  const prevSearchActiveRef = useRef(false);
 
   // ---- scroll-to-bottom primitive (used everywhere else) ----
   const scrollToBottom = useCallback(
@@ -170,6 +201,13 @@ export function ChatTimeline({
 
   // ---- scroll handler ----
   const handleScroll = useCallback(() => {
+    // Smooth-scrolling to a search match emits dozens of scroll events
+    // mid-flight. Treating those as user-driven browsing would (a)
+    // strand isAtBottom on `false` so new messages stop auto-following
+    // and (b) accidentally trigger backfill if the match sits near the
+    // top. Bail until the jump settles.
+    if (isSearchJumpingRef.current) return;
+
     const container = containerRef.current;
     if (!container) return;
     const { scrollTop, scrollHeight, clientHeight } = container;
@@ -205,6 +243,52 @@ export function ChatTimeline({
     }
   }, [isAtBottom, latestMessageEventId, roomId]);
 
+  // Scroll the active search match into view. We rely on the per-bubble
+  // `id="msg-<eventId>"` set by MessageBubble — getElementById is fine
+  // here because event ids are globally unique within a Matrix homeserver.
+  //
+  // The dep on searchJumpCount lets prev/next still re-fire when only
+  // one match exists (wrapping keeps `highlightEventId` constant).
+  // rAF defers to after the React commit so the bubble id is mounted
+  // before we look it up.
+  useEffect(() => {
+    if (!highlightEventId) return;
+    isSearchJumpingRef.current = true;
+    const raf = requestAnimationFrame(() => {
+      const node = document.getElementById(`msg-${highlightEventId}`);
+      if (node) {
+        node.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+    // Smooth scroll typically settles in well under 500ms even on long
+    // distances. Releasing the ref past that mark lets handleScroll
+    // resume tracking the user's read position normally.
+    const timer = window.setTimeout(() => {
+      isSearchJumpingRef.current = false;
+    }, 500);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
+  }, [highlightEventId, searchJumpCount]);
+
+  // Detect "search cleared" — `query` had >=2 chars on the last render
+  // and is now empty. Snap back to bottom + restore at-bottom so live
+  // messages auto-follow again. Without this the user is stranded
+  // wherever the last match scroll left them.
+  useEffect(() => {
+    const isActive = !!searchQuery && searchQuery.trim().length >= 2;
+    const wasActive = prevSearchActiveRef.current;
+    prevSearchActiveRef.current = isActive;
+    if (wasActive && !isActive) {
+      isSearchJumpingRef.current = false;
+      setIsAtBottom(true);
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      });
+    }
+  }, [searchQuery]);
+
   if (messageCount === 0 && items.length === 0) {
     return <EmptyRoom />;
   }
@@ -231,6 +315,8 @@ export function ChatTimeline({
             key={timelineItemKey(item)}
             item={item}
             onReply={onReply}
+            searchQuery={searchQuery}
+            highlightEventId={highlightEventId}
           />
         ))}
 
@@ -238,11 +324,17 @@ export function ChatTimeline({
         <div ref={bottomRef} className="h-px w-full" />
       </div>
 
-      {/* Surface "↓ 新消息" only when the user is reading history
-          AND the room actually has unread notifications. Otherwise
-          a quiet scroll-up shouldn't pretend there's pending content. */}
-      {!isAtBottom && unreadCount > 0 && (
-        <NewMessageButton onClick={() => scrollToBottom("smooth")} />
+      {/* Always surface a jump-to-bottom affordance when the user is
+          parked above the at-bottom window — paginating into history
+          and then needing to scroll all the way back manually was the
+          actual stuck-at-top complaint. The label flips between
+          "↓ 新消息" (pending unread) and "↓ 最新消息" (catch-up button)
+          so it never claims new content that isn't there. */}
+      {!isAtBottom && (
+        <NewMessageButton
+          onClick={() => scrollToBottom("smooth")}
+          label={unreadCount > 0 ? "↓ 新消息" : "↓ 最新消息"}
+        />
       )}
     </div>
   );
@@ -263,9 +355,13 @@ function timelineItemKey(item: TimelineItem): string {
 function TimelineItemRow({
   item,
   onReply,
+  searchQuery,
+  highlightEventId,
 }: {
   item: TimelineItem;
   onReply?: (eventId: string) => void;
+  searchQuery?: string;
+  highlightEventId?: string | null;
 }) {
   switch (item.type) {
     case "message":
@@ -275,6 +371,8 @@ function TimelineItemRow({
           showSender={item.showSender}
           isOwn={item.isOwn}
           onReply={onReply}
+          searchQuery={searchQuery}
+          isHighlighted={item.event.eventId === highlightEventId}
         />
       );
     case "date-separator":

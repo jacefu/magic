@@ -7,9 +7,10 @@ import { UndecryptedMessage } from "../crypto/UndecryptedMessage.js";
 interface MessageContentProps {
   event: SerializedMatrixEvent;
   isOwn: boolean;
+  searchQuery?: string;
 }
 
-export function MessageContent({ event, isOwn }: MessageContentProps) {
+export function MessageContent({ event, isOwn, searchQuery }: MessageContentProps) {
   if (event.type === "m.room.encrypted") {
     return <UndecryptedMessage />;
   }
@@ -27,6 +28,7 @@ export function MessageContent({ event, isOwn }: MessageContentProps) {
           format={content.format as string | undefined}
           isOwn={isOwn}
           roomId={event.roomId}
+          searchQuery={searchQuery}
         />
       );
     case "m.image":
