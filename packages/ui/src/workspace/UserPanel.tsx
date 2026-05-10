@@ -1,9 +1,15 @@
 import { useAuthStore, useUIStore } from "@magic/matrix-client";
+import { LetterAvatar } from "../avatar/LetterAvatar.js";
 
 /**
  * Bottom-of-sidebar user panel: avatar + display name + settings gear.
  * Logout / disconnect lives inside the settings page (Servers section)
  * now that the app supports multi-server sessions.
+ *
+ * Spec 023 — the avatar follows the same letter-PNG default as every
+ * other avatar in the app. The current user is always a human, so
+ * `isAgent={false}` is hard-wired (matters only for digit-prefixed
+ * userIds, which fall back to 'H').
  */
 export function UserPanel() {
   const userId = useAuthStore((s) => s.userId);
@@ -11,17 +17,16 @@ export function UserPanel() {
 
   const displayName =
     userId?.match(/^@([^:]+)/)?.[1] ?? userId ?? "用户";
-  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <div className="relative flex items-center gap-1.5 bg-[var(--bg-panel)] px-1.5 py-1.5">
       <div className="relative shrink-0">
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-          style={{ background: "var(--gradient-button)" }}
-        >
-          {initials}
-        </div>
+        <LetterAvatar
+          name={displayName}
+          userId={userId ?? undefined}
+          isAgent={false}
+          size={32}
+        />
         <div className="absolute -bottom-px -right-px flex h-3 w-3 items-center justify-center rounded-full bg-[var(--bg-panel)]">
           <div
             className="h-2 w-2 rounded-full"

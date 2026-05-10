@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { addServer } from "@magic/matrix-client";
+import { MagicAppIcon } from "../branding/MagicAppIcon.js";
 
 /**
  * First-run welcome screen — shown by AuthGuard when no sessions exist.
@@ -110,16 +111,9 @@ export function WelcomePage() {
         {/* Centred welcome card */}
         <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8">
           <div className="mb-8 text-center">
-            <div
-              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[14px] text-[28px] font-semibold text-white"
-              style={{
-                background:
-                  "linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0)",
-                backgroundSize: "200% 200%",
-                animation: "gradient-shift 4s ease infinite",
-              }}
-            >
-              M
+            {/* Spec 023 §7.4 — Magic brand mark on the welcome card. */}
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center">
+              <MagicAppIcon size={56} />
             </div>
             <h1 className="text-[22px] font-semibold text-[var(--text-primary)]">
               欢迎使用 MAGIC

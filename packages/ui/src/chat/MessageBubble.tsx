@@ -122,7 +122,8 @@ export const MessageBubble = memo(function MessageBubble({
             avatarMxc={null}
             isDirect
             size={36}
-            gradient={senderGradient}
+            isAgent={agentInfo.isAgent}
+            userId={event.sender}
           />
         )}
       </div>

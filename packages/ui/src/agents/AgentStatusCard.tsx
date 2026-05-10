@@ -18,7 +18,14 @@ export const AgentStatusCard = memo(function AgentStatusCard({
     <div className="rounded-xl border border-[var(--border-default)]-light bg-[var(--bg-glass)] p-3 transition-colors hover:border-[var(--border-default)]">
       <div className="flex items-center gap-2.5">
         <div className="relative">
-          <RoomAvatar name={displayName} avatarMxc={null} isDirect size={32} />
+          <RoomAvatar
+            name={displayName}
+            avatarMxc={null}
+            isDirect
+            size={32}
+            isAgent
+            userId={agent.userId}
+          />
           <span className="absolute -bottom-0.5 -right-0.5">
             <AgentStatusDot status={agent.effectiveStatus} size="sm" pulse />
           </span>

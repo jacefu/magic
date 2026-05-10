@@ -6,6 +6,7 @@ import {
 } from "@magic/matrix-client";
 import { WorkspaceIcon } from "./WorkspaceIcon.js";
 import { AddServerDialog } from "./AddServerDialog.js";
+import { MagicAppIcon } from "../branding/MagicAppIcon.js";
 
 /**
  * Spec 016: each workspace icon = one logged-in Matrix homeserver.
@@ -94,7 +95,11 @@ export function WorkspaceBar() {
   );
 }
 
-/** Magic brand icon at the top of the workspace rail. */
+/** Magic brand icon at the top of the workspace rail. Spec 023 §7.4
+ *  swaps the legacy gradient sparkle for the user-supplied
+ *  MagicAppIcon, which auto-flips light/dark with the theme. The
+ *  selection indicator (left edge bar) survives so the rail still
+ *  signals "settings is open". */
 function MagicBrandIcon({
   active,
   onClick,
@@ -116,22 +121,9 @@ function MagicBrandIcon({
         onClick={onClick}
         title="Magic 设置"
         className="flex h-11 w-11 items-center justify-center rounded-[14px]
-                   text-white transition-opacity hover:opacity-90"
-        style={{
-          background: "linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0)",
-          backgroundSize: "200% 200%",
-          animation: active ? "gradient-shift 3s ease infinite" : undefined,
-        }}
+                   transition-opacity hover:opacity-90"
       >
-        <svg
-          className="h-6 w-6"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          aria-hidden
-        >
-          {/* Sparkle/star — the brand mark used on the WelcomePage too. */}
-          <path d="M12 2.5l2.4 5.4 5.6 1-4 4.1.9 5.5L12 16l-4.9 2.5.9-5.5-4-4.1 5.6-1L12 2.5z" />
-        </svg>
+        <MagicAppIcon size={36} />
       </button>
     </div>
   );

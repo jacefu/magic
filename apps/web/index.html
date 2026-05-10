@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Spec 023 §6.3 — favicon swaps with the OS color scheme. The
+         media-query variants are chosen first by browsers that
+         honour `prefers-color-scheme`; `favicon.png` stays as the
+         universal fallback. `apple-touch-icon` is used by iOS / iPadOS
+         when the page is added to the home screen. -->
+    <link rel="icon" type="image/png" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <title>MAGIC Client</title>
   </head>
   <body>

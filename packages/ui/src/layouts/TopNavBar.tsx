@@ -1,5 +1,6 @@
 import { useRoomStore } from "@magic/matrix-client";
 import { useEffect } from "react";
+import { MagicAppIcon } from "../branding/MagicAppIcon.js";
 
 // Discord's full-width title bar that spans across all columns. Background
 // matches the deepest layer (#1E1F22 — same as the workspace rail) so the
@@ -132,16 +133,10 @@ function NavIconButton({
 }
 
 function BrandMark() {
-  return (
-    <div
-      className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
-      style={{
-        background: "linear-gradient(135deg, #6C5CE7, #00B4D8, #00F5A0)",
-      }}
-    >
-      ✦
-    </div>
-  );
+  // Spec 023 §7.4 — replace the gradient sparkle with the
+  // user-supplied Magic icon. Theme-aware via MagicAppIcon's own
+  // useThemeMode subscription.
+  return <MagicAppIcon size={20} />;
 }
 
 function ArrowLeftIcon() {

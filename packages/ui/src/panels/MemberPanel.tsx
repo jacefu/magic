@@ -65,7 +65,14 @@ function MemberItem({ member }: { member: RoomMember }) {
       className="group flex w-full cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-left
                  hover:bg-[var(--bg-surface)]"
     >
-      <RoomAvatar name={name} avatarMxc={member.avatarMxc} isDirect size={28} />
+      <RoomAvatar
+        name={name}
+        avatarMxc={member.avatarMxc}
+        isDirect
+        size={28}
+        isAgent={member.isAgent}
+        userId={member.userId}
+      />
 
       {/* Name + runtime tag */}
       <span

@@ -48,6 +48,8 @@ export const MentionItem = memo(function MentionItem({
         avatarMxc={member.avatarMxc}
         isDirect
         size={28}
+        isAgent={member.isAgent}
+        userId={member.userId}
       />
 
       <div className="min-w-0 flex-1">

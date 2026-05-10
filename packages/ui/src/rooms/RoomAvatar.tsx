@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { useAuthenticatedMedia } from "../hooks/useAuthenticatedMedia.js";
+import { LetterAvatar } from "../avatar/LetterAvatar.js";
 
 interface RoomAvatarProps {
   name: string;
@@ -7,29 +8,48 @@ interface RoomAvatarProps {
   isDirect?: boolean;
   size?: number;
   /**
-   * Optional explicit gradient — used by callers (e.g. MessageBubble)
-   * who already resolved the sender's role and want the role-specific
-   * Cosmic AI gradient instead of the hash-based fallback.
+   * Spec 023 — drives the digit / unmappable-name fallback inside
+   * LetterAvatar. Agents fall back to 'A', humans to 'H'. Defaults
+   * to false because most callers (room headers, invite cards,
+   * channel headers) are *not* user avatars; the alpha-character
+   * fallback wins for any reasonable room name and only the
+   * Agent-vs-human disambiguation drops to this flag.
    */
-  gradient?: string;
+  isAgent?: boolean;
+  /**
+   * Optional Matrix user id used by `getDefaultAvatarLetter` as the
+   * recovery source when the display name starts with an emoji or
+   * symbol that has no obvious letter.
+   */
+  userId?: string;
 }
 
+/**
+ * Spec 023 § 7.2 — primary avatar component.
+ *
+ * Two paths:
+ *   - `avatarMxc` set → render the user-uploaded image (custom
+ *     avatars survive the v3 default-avatar refresh).
+ *   - otherwise → render `<LetterAvatar>` (theme-aware letter PNG).
+ *
+ * The pre-spec-023 fallback was a hash-coloured initial; that lived
+ * here. The hash palette + helper survive as `pickGradient` /
+ * `AVATAR_GRADIENTS` exports below because `MessageBubble` uses them
+ * to colour the per-sender brand stripe down the message row.
+ */
 export const RoomAvatar = memo(function RoomAvatar({
   name,
   avatarMxc,
   isDirect,
   size = 36,
-  gradient,
+  isAgent = false,
+  userId,
 }: RoomAvatarProps) {
   const avatarUrl = useAuthenticatedMedia(avatarMxc, size * 2, size * 2, "crop");
 
-  const initials = getInitials(name);
-  const bg = gradient ?? pickGradient(name);
-
-  // Span (not div) so MentionPill can render the avatar inline inside a
-  // markdown <p>. `display: inline-flex` makes the visual layout
-  // identical to the previous div-based version while staying valid as a
-  // <p> descendant — React was throwing
+  // Span (not div) so MentionPill can render the avatar inline inside
+  // a markdown <p>. `inline-flex` gives the same visual layout while
+  // staying valid as a <p> descendant — React was throwing
   // "<div> cannot be a descendant of <p>" hydration warnings before.
   return (
     <span
@@ -51,36 +71,31 @@ export const RoomAvatar = memo(function RoomAvatar({
           }}
         />
       ) : (
-        <span
-          className="flex h-full w-full items-center justify-center font-semibold text-white"
-          style={{
-            background: bg,
-            fontSize: size * 0.36,
-          }}
-        >
-          {initials}
-        </span>
+        <LetterAvatar
+          name={name}
+          userId={userId}
+          isAgent={isAgent}
+          size={size}
+          // Suppress LetterAvatar's own rounded-full so the parent
+          // span's `borderRadius` (50% for DM, 8px for room)
+          // controls the shape end-to-end. Avoids a circle-inside-
+          // square seam for non-DM contexts.
+          className="!rounded-none"
+          alt={name}
+        />
       )}
     </span>
   );
 });
 
-function getInitials(name: string): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/[\s_-]+/);
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
-
 /**
- * Cosmic AI gradient palette keyed off the name hash. The brand-aligned
- * pairs read like "energy" — purples, cyans, mints — keeping room
- * avatars cohesive with the rest of the gradient-driven UI rather than
- * the previous flat bright primaries.
+ * Cosmic AI gradient palette keyed off the name hash. Brand-aligned
+ * pairs read like "energy" — purples, cyans, mints — keeping per-
+ * sender colour cues cohesive with the rest of the UI.
  *
- * Exported so other components (e.g. MessageBubble's brand stripe) can
- * reuse the same color for the same name without duplicating the
- * hash-and-palette dance.
+ * Exported so other components (e.g. `MessageBubble`'s left-edge
+ * brand stripe) can reuse the same colour for the same name without
+ * duplicating the hash-and-palette dance.
  */
 export const AVATAR_GRADIENTS = [
   "linear-gradient(135deg, #6C5CE7, #3B82F6)", // human-blue (default)

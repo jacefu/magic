@@ -1,6 +1,13 @@
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "path";
 
+// Spec 023 §6.1 — Linux is the only platform where Electron requires
+// us to set the BrowserWindow icon explicitly; macOS pulls it from
+// the .app bundle, Windows from the .exe resources. Reference the
+// resources/ asset that ships with the app rather than the build/
+// asset that's only present in packaged builds.
+const linuxIconPath = join(__dirname, "../../resources/icon-light.png");
+
 import { registerIPCHandlers } from "./ipc/registry.js";
 import { createWindowHandlers } from "./ipc/window.js";
 import { createSettingsHandlers } from "./ipc/settings.js";
@@ -46,6 +53,7 @@ function createWindow(): BrowserWindow {
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     trafficLightPosition: { x: 12, y: 12 },
     backgroundColor: "#111827",
+    icon: process.platform === "linux" ? linuxIconPath : undefined,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,

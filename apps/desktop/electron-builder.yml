@@ -12,12 +12,19 @@ mac:
     - dmg
     - zip
   notarize: false
+  # Spec 023 §6.1 — macOS dock / Finder icon.
+  icon: build/icon.icns
 win:
   target:
     - nsis
+  # Spec 023 §6.1 — Windows taskbar / installer icon.
+  icon: build/icon.ico
   nsis:
     oneClick: false
     allowToChangeInstallationDirectory: true
+linux:
+  # Spec 023 §6.1 — Linux launcher icon.
+  icon: build/icon.png
 publish:
   provider: github
   owner: magic-platform

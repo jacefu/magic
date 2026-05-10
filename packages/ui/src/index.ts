@@ -159,6 +159,13 @@ export {
 export type { OnlineStatus } from "./lib/presenceUtils.js";
 export { applyTheme, watchSystemTheme, useTheme } from "./lib/theme.js";
 
+// Spec 023 — letter-based default avatars + Magic App icon.
+export { LetterAvatar } from "./avatar/LetterAvatar.js";
+export { getDefaultAvatarLetter } from "./avatar/getDefaultAvatarLetter.js";
+export { MagicAppIcon } from "./branding/MagicAppIcon.js";
+export { useThemeMode } from "./hooks/useThemeMode.js";
+export type { ThemeMode } from "./hooks/useThemeMode.js";
+
 // Mentions
 export { MentionAutocomplete } from "./mentions/MentionAutocomplete.js";
 export { MentionItem } from "./mentions/MentionItem.js";

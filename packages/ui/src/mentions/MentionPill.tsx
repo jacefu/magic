@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { getClient, hasClient, useAuthStore } from "@magic/matrix-client";
 import { RoomAvatar } from "../rooms/RoomAvatar.js";
+import { getAgentInfo } from "../lib/agentDetection.js";
 
 interface MentionPillProps {
   userId: string;
@@ -56,6 +57,8 @@ export const MentionPill = memo(function MentionPill({
         avatarMxc={avatarMxc}
         isDirect
         size={18}
+        isAgent={getAgentInfo(userId).isAgent}
+        userId={userId}
       />
       <span>@{displayName}</span>
     </span>

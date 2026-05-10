@@ -55,6 +55,8 @@ export function DMSettingsPanel({
               avatarMxc={peer.avatarMxc}
               isDirect
               size={56}
+              isAgent={peer.isAgent}
+              userId={peer.userId}
             />
             <div className="flex items-center gap-1.5">
               <p

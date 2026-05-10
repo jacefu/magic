@@ -127,6 +127,8 @@ function MemberRow({
         avatarMxc={member.avatarMxc}
         isDirect
         size={24}
+        isAgent={member.isAgent}
+        userId={member.userId}
       />
       <span
         className="flex-1 truncate text-[12px]"
