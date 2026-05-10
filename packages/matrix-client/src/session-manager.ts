@@ -9,6 +9,7 @@ import {
   loadPersistedSessions as loadEncryptedSessions,
   savePersistedSessions as saveEncryptedSessions,
 } from "./session-persistence.js";
+import { recordInstanceLogin } from "./recent-instances.js";
 import { useAuthStore } from "./stores/authStore.js";
 import { useDmStore } from "./stores/dmStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
@@ -231,6 +232,19 @@ export async function addServer(
     });
 
   void persistSessions();
+
+  // Remember this instance for the WelcomePage quick-connect list.
+  // Survives logout — the recent-instances store is independent of the
+  // (encrypted) sessions blob.
+  recordInstanceLogin({
+    url: homeserver,
+    username,
+    name: serverName,
+    initial: session.serverInitial,
+    color: session.serverColor ?? "#5865F2",
+    iconDataUrl: null,
+  });
+
   return sessionId;
 }
 

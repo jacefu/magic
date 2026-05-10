@@ -1,5 +1,9 @@
-import { useState, type FormEvent } from "react";
-import { addServer } from "@magic/matrix-client";
+import { useMemo, useState, type FormEvent } from "react";
+import {
+  addServer,
+  getRecentInstances,
+  type RecentInstance,
+} from "@magic/matrix-client";
 import { MagicAppIcon } from "../branding/MagicAppIcon.js";
 
 /**
@@ -8,34 +12,14 @@ import { MagicAppIcon } from "../branding/MagicAppIcon.js";
  * Layout:
  *   ┌────┬───────────────────────────────┐
  *   │ +  │   Logo + connect form +       │
- *   │    │   "or quick-connect" presets  │
+ *   │    │   "recent instances" history  │
  *   └────┴───────────────────────────────┘
  *
  * Once `addServer` succeeds, sessionStore has its first session and
- * AuthGuard re-renders into the main UI.
+ * AuthGuard re-renders into the main UI. The quick-connect list at the
+ * bottom is dynamic — it shows Magic instances the user has logged in
+ * to before (recorded by `addServer` and persisted across logouts).
  */
-
-interface QuickServer {
-  name: string;
-  url: string;
-  initial: string;
-  color: string;
-}
-
-const QUICK_SERVERS: QuickServer[] = [
-  {
-    name: "HiClaw 本地开发",
-    url: "https://matrix-local.hiclaw.io:18080",
-    initial: "H",
-    color: "#23A55A",
-  },
-  {
-    name: "Matrix.org 公共服务器",
-    url: "https://matrix.org",
-    initial: "M",
-    color: "#5865F2",
-  },
-];
 
 export function WelcomePage() {
   const [homeserver, setHomeserver] = useState("");
@@ -43,6 +27,14 @@ export function WelcomePage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Read once on mount — WelcomePage unmounts as soon as a session is
+  // added (AuthGuard swaps in MainLayout), and re-mounts only after
+  // logout, at which point the list is freshly read again.
+  const recentInstances = useMemo<RecentInstance[]>(
+    () => getRecentInstances(),
+    [],
+  );
 
   const canSubmit =
     homeserver.trim() !== "" &&
@@ -204,58 +196,71 @@ export function WelcomePage() {
               </button>
             </form>
 
-            <div className="my-5 flex items-center gap-3">
-              <div
-                className="h-px flex-1"
-                style={{
-                  background:
-                    "linear-gradient(90deg, transparent, var(--border-default), transparent)",
-                }}
-              />
-              <span className="text-[11px] text-[var(--text-tertiary)]">或快速连接</span>
-              <div
-                className="h-px flex-1"
-                style={{
-                  background:
-                    "linear-gradient(90deg, transparent, var(--border-default), transparent)",
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              {QUICK_SERVERS.map((server) => (
-                <button
-                  key={server.url}
-                  type="button"
-                  onClick={() => {
-                    setHomeserver(server.url);
-                    setError(null);
-                  }}
-                  disabled={isLoading}
-                  className="flex w-full items-center gap-3 rounded-lg border-[0.5px]
-                             border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5
-                             text-left transition-colors
-                             hover:border-[var(--border-active)] hover:bg-[var(--ws-icon-bg)]
-                             disabled:opacity-50"
-                >
+            {recentInstances.length > 0 && (
+              <>
+                <div className="my-5 flex items-center gap-3">
                   <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white"
-                    style={{ backgroundColor: server.color }}
-                  >
-                    {server.initial}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-[var(--text-primary)]">
-                      {server.name}
-                    </p>
-                    <p className="truncate text-[11px] text-[var(--text-tertiary)]">
-                      {server.url}
-                    </p>
-                  </div>
-                  <span className="text-sm text-[var(--text-tertiary)]">→</span>
-                </button>
-              ))}
-            </div>
+                    className="h-px flex-1"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, transparent, var(--border-default), transparent)",
+                    }}
+                  />
+                  <span className="text-[11px] text-[var(--text-tertiary)]">最近登录</span>
+                  <div
+                    className="h-px flex-1"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, transparent, var(--border-default), transparent)",
+                    }}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  {recentInstances.map((instance) => (
+                    <button
+                      key={instance.url}
+                      type="button"
+                      onClick={() => {
+                        setHomeserver(instance.url);
+                        setUsername(instance.username);
+                        setError(null);
+                      }}
+                      disabled={isLoading}
+                      className="flex w-full items-center gap-3 rounded-lg border-[0.5px]
+                                 border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5
+                                 text-left transition-colors
+                                 hover:border-[var(--border-active)] hover:bg-[var(--ws-icon-bg)]
+                                 disabled:opacity-50"
+                    >
+                      {instance.iconDataUrl ? (
+                        <img
+                          src={instance.iconDataUrl}
+                          alt=""
+                          className="h-8 w-8 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white"
+                          style={{ backgroundColor: instance.color }}
+                        >
+                          {instance.initial}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
+                          {instance.name}
+                        </p>
+                        <p className="truncate text-[11px] text-[var(--text-tertiary)]">
+                          {instance.username} · {instance.url}
+                        </p>
+                      </div>
+                      <span className="text-sm text-[var(--text-tertiary)]">→</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <p className="mt-6 text-[11px] text-[var(--text-tertiary)]">

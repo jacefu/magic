@@ -1,19 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const { addServerMock } = vi.hoisted(() => ({
+const { addServerMock, getRecentInstancesMock } = vi.hoisted(() => ({
   addServerMock: vi.fn(),
+  getRecentInstancesMock: vi.fn(),
 }));
 
 vi.mock("@magic/matrix-client", async (orig) => {
   const actual = await orig<typeof import("@magic/matrix-client")>();
-  return { ...actual, addServer: addServerMock };
+  return {
+    ...actual,
+    addServer: addServerMock,
+    getRecentInstances: getRecentInstancesMock,
+  };
 });
 
 import { WelcomePage } from "../../src/auth/WelcomePage.js";
 
 beforeEach(() => {
   addServerMock.mockReset();
+  getRecentInstancesMock.mockReset();
+  getRecentInstancesMock.mockReturnValue([]);
 });
 
 afterEach(() => {
@@ -21,25 +28,54 @@ afterEach(() => {
 });
 
 describe("WelcomePage", () => {
-  it("renders the brand mark + connect form + quick-connect presets", () => {
+  it("renders the brand mark + connect form (no recent history → no quick-connect)", () => {
     render(<WelcomePage />);
     expect(screen.getByText("欢迎使用 MAGIC")).toBeTruthy();
     expect(screen.getByText("连接 Magic 实例")).toBeTruthy();
-    expect(screen.getByText("HiClaw 本地开发")).toBeTruthy();
-    expect(screen.getByText("Matrix.org 公共服务器")).toBeTruthy();
+    expect(screen.queryByText("最近登录")).toBeNull();
   });
 
-  it("clicking a quick-connect preset fills the homeserver field", () => {
+  it("renders recent-instances list when history exists", () => {
+    getRecentInstancesMock.mockReturnValue([
+      {
+        url: "https://matrix.example.com",
+        username: "alice",
+        name: "matrix",
+        initial: "M",
+        color: "#23A55A",
+        lastUsedAt: 1_700_000_000_000,
+      },
+    ]);
+    render(<WelcomePage />);
+    expect(screen.getByText("最近登录")).toBeTruthy();
+    expect(screen.getByText("matrix")).toBeTruthy();
+    expect(screen.getByText(/alice · https:\/\/matrix\.example\.com/)).toBeTruthy();
+  });
+
+  it("clicking a recent entry fills homeserver and username", () => {
+    getRecentInstancesMock.mockReturnValue([
+      {
+        url: "https://matrix.example.com",
+        username: "alice",
+        name: "matrix",
+        initial: "M",
+        color: "#23A55A",
+        lastUsedAt: 1_700_000_000_000,
+      },
+    ]);
     render(<WelcomePage />);
     const homeserverInput = screen.getByPlaceholderText(
       "https://matrix.magic.com",
     ) as HTMLInputElement;
+    const usernameInput = screen.getByPlaceholderText(
+      "@user:magic.com 或 user",
+    ) as HTMLInputElement;
     expect(homeserverInput.value).toBe("");
+    expect(usernameInput.value).toBe("");
 
-    fireEvent.click(screen.getByText("HiClaw 本地开发"));
-    expect(homeserverInput.value).toBe(
-      "https://matrix-local.hiclaw.io:18080",
-    );
+    fireEvent.click(screen.getByText("matrix"));
+    expect(homeserverInput.value).toBe("https://matrix.example.com");
+    expect(usernameInput.value).toBe("alice");
   });
 
   it("submit is disabled until all three fields are filled", () => {

@@ -91,6 +91,14 @@ export type { NotificationLevel } from "./stores/notificationStore.js";
 // Agent registry
 export { fetchAgentRegistry } from "./agent-registry.js";
 
+// Recent instances (WelcomePage quick-connect history)
+export {
+  getRecentInstances,
+  recordInstanceLogin,
+  removeRecentInstance,
+} from "./recent-instances.js";
+export type { RecentInstance } from "./recent-instances.js";
+
 // Serializers
 export { serializeEvent, serializeRoomMember } from "./serializers.js";
 export type { SerializedMember } from "./serializers.js";
