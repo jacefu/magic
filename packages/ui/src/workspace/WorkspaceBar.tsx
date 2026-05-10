@@ -120,16 +120,13 @@ function MagicBrandIcon({
         type="button"
         onClick={onClick}
         title="Magic 设置"
-        className="flex h-[52px] w-[52px] items-center justify-center
-                   overflow-hidden rounded-[16px] transition-opacity hover:opacity-90"
+        className="flex h-11 w-11 items-center justify-center
+                   overflow-hidden rounded-[14px] transition-opacity hover:opacity-90"
       >
-        {/* Brand mark gets a slightly bigger slot than the 44px
-            session icons below it — Discord does the same with the
-            home button so the workspace's primary affordance reads
-            as "first among equals" rather than blending into the
-            list. Border radius bumps up proportionally to keep the
-            corner curve visually consistent. */}
-        <MagicAppIcon size={52} />
+        {/* 40px icon inside a 44px slot — slightly inset so the
+            brand mark sits as a "peer" to the 44px session icons
+            below rather than dominating them. */}
+        <MagicAppIcon size={40} />
       </button>
     </div>
   );

@@ -18,7 +18,13 @@ export { createDM } from "./dm.js";
 export { sendTextMessage, sendReply, sendReadReceipt, sendTyping, paginateBackwards } from "./messages.js";
 
 // Files
-export { uploadAndSendFile, mxcToHttp, fetchAuthenticatedMedia } from "./files.js";
+export {
+  uploadAndSendFile,
+  mxcToHttp,
+  fetchAuthenticatedMedia,
+  updateProfileDisplayName,
+  updateProfileAvatar,
+} from "./files.js";
 
 // Magic custom events
 export {
@@ -73,6 +79,7 @@ export {
   createSessionId,
   onRestoreProgress,
   cleanupAllPollers,
+  updateServerAppearance,
 } from "./session-manager.js";
 export type { RestoreProgress } from "./session-manager.js";
 export type { RoomData } from "./stores/roomStore.js";

@@ -1,4 +1,55 @@
 import { getClient } from "./client.js";
+import { useSessionStore } from "./stores/sessionStore.js";
+import { useAuthStore } from "./stores/authStore.js";
+
+/**
+ * Update the current user's Matrix display name + reflect the
+ * change locally so any UI watching the auth/session store updates
+ * immediately (rather than waiting for the homeserver to echo the
+ * profile event back through sync).
+ */
+export async function updateProfileDisplayName(
+  displayName: string,
+): Promise<void> {
+  const client = getClient();
+  await client.setDisplayName(displayName);
+  const session = useSessionStore.getState().getActiveSession();
+  if (session) {
+    useSessionStore.getState().updateSession(session.id, { displayName });
+  }
+  useAuthStore.getState().setUser({
+    userId: useAuthStore.getState().userId ?? "",
+    homeserver: useAuthStore.getState().homeserver ?? "",
+    displayName,
+    avatarMxc: useAuthStore.getState().avatarMxc ?? undefined,
+  });
+}
+
+/**
+ * Upload an image to the homeserver media repo and use the
+ * resulting `mxc://` URL as the current user's avatar. Mirrors the
+ * change into the local stores like `updateProfileDisplayName`.
+ */
+export async function updateProfileAvatar(file: File): Promise<string> {
+  const client = getClient();
+  const upload = await client.uploadContent(file, {
+    name: file.name,
+    type: file.type,
+  });
+  const mxc = (upload as { content_uri: string }).content_uri;
+  await client.setAvatarUrl(mxc);
+  const session = useSessionStore.getState().getActiveSession();
+  if (session) {
+    useSessionStore.getState().updateSession(session.id, { avatarMxc: mxc });
+  }
+  useAuthStore.getState().setUser({
+    userId: useAuthStore.getState().userId ?? "",
+    homeserver: useAuthStore.getState().homeserver ?? "",
+    displayName: useAuthStore.getState().displayName ?? undefined,
+    avatarMxc: mxc,
+  });
+  return mxc;
+}
 
 export async function uploadAndSendFile(
   roomId: string,

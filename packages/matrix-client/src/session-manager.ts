@@ -254,6 +254,27 @@ export function switchSession(targetSessionId: string): void {
 }
 
 /**
+ * Update the workspace-rail appearance of a logged-in session
+ * (display name, single-letter avatar, colour) and persist the
+ * change so it survives a relaunch. The serverName / serverInitial
+ * / serverColor fields already live on the persisted shape — this
+ * helper just bundles the store mutation + save.
+ */
+export async function updateServerAppearance(
+  sessionId: string,
+  updates: {
+    serverName?: string;
+    serverInitial?: string;
+    serverColor?: string | null;
+  },
+): Promise<void> {
+  const session = useSessionStore.getState().sessions[sessionId];
+  if (!session) return;
+  useSessionStore.getState().updateSession(sessionId, updates);
+  await persistSessions();
+}
+
+/**
  * Logout and remove a server. If it was the active session, the next
  * session in the list (if any) is activated; otherwise auth state
  * resets.

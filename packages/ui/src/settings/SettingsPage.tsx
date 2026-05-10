@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NotificationSettings } from "../notifications/NotificationSettings.js";
+import { DialogOverlay } from "../common/DialogOverlay.js";
 import { SettingsNav, type SettingsTab } from "./SettingsNav.js";
 import { SettingsSection } from "./SettingsSection.js";
 import { AccountSection } from "./sections/AccountSection.js";
@@ -22,82 +23,84 @@ const TAB_TITLES: Record<SettingsTab, string> = {
 };
 
 /**
- * Full-screen Discord-style settings overlay.
+ * Centered settings dialog.
  *
  * Layout:
- *   ┌─────────┬──────────────────────────┬───────┐
- *   │  nav    │     content area          │  ✕   │
- *   └─────────┴──────────────────────────┴───────┘
+ *   ┌────────────┬────────────────────────┬───┐
+ *   │  nav       │    content area        │ ✕ │
+ *   └────────────┴────────────────────────┴───┘
  *
- * ESC closes; the close button is in the top-right gutter so the
- * content column stays a fixed reading width.
+ * Wrapped in DialogOverlay (portal + ESC + click-outside dismissal).
+ * Was full-screen before — now a centered floating window so the
+ * underlying chat stays partially visible and switching back is one
+ * click. Sized with a generous max but always inside a viewport
+ * margin so it doesn't get clipped on small screens.
  */
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50 flex bg-[var(--bg-primary)]">
-      {/* Left gutter — pads the nav so it sits flush to the centre column */}
+    <DialogOverlay onClose={onClose}>
       <div
-        className="flex justify-end bg-[var(--bg-glass)]"
-        style={{ flex: "1 0 218px" }}
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[90vh] w-full max-w-[960px] overflow-hidden rounded-[14px] border-[0.5px] border-[var(--border-default)]"
+        style={{
+          background: "var(--bg-primary)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          boxShadow: "0 24px 48px rgba(0,0,0,0.4)",
+          animation: "fade-in-up 0.2s ease-out",
+          height: "min(720px, 90vh)",
+        }}
       >
-        <SettingsNav activeTab={activeTab} onTabChange={setActiveTab} />
-      </div>
+        {/* Nav rail — fixed width inside the dialog */}
+        <div
+          className="shrink-0 overflow-y-auto bg-[var(--bg-glass)]"
+          style={{ width: 220 }}
+        >
+          <SettingsNav activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
 
-      {/* Centre content */}
-      <div
-        className="flex"
-        style={{ flex: "1 1 800px", maxWidth: "740px" }}
-      >
-        <SettingsSection title={TAB_TITLES[activeTab]}>
-          {activeTab === "account" && <AccountSection />}
-          {activeTab === "servers" && <ServersSection />}
-          {activeTab === "appearance" && <AppearanceSection />}
-          {activeTab === "notifications" && <NotificationSettings />}
-          {activeTab === "language" && <LanguageSection />}
-          {activeTab === "security" && <SecuritySection />}
-        </SettingsSection>
+        {/* Content */}
+        <div className="flex min-w-0 flex-1 overflow-hidden">
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <SettingsSection title={TAB_TITLES[activeTab]}>
+              {activeTab === "account" && <AccountSection />}
+              {activeTab === "servers" && <ServersSection />}
+              {activeTab === "appearance" && <AppearanceSection />}
+              {activeTab === "notifications" && <NotificationSettings />}
+              {activeTab === "language" && <LanguageSection />}
+              {activeTab === "security" && <SecuritySection />}
+            </SettingsSection>
+          </div>
 
-        {/* Close button — vertically aligned with the title */}
-        <div className="flex shrink-0 items-start gap-2 pr-4 pt-16">
-          <button
-            type="button"
-            onClick={onClose}
-            title="关闭设置 (ESC)"
-            className="flex h-9 w-9 items-center justify-center rounded-full
-                       border border-[var(--text-tertiary)] text-[var(--text-secondary)]
-                       transition-colors hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          {/* Close button */}
+          <div className="flex shrink-0 items-start gap-2 pr-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              title="关闭设置 (ESC)"
+              className="flex h-8 w-8 items-center justify-center rounded-full
+                         border border-[var(--text-tertiary)] text-[var(--text-secondary)]
+                         transition-colors hover:border-[var(--text-primary)] hover:text-[var(--text-primary)]"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-          <span className="mt-2.5 text-[10px] text-[var(--text-tertiary)]">ESC</span>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
-
-      {/* Right gutter — eats the remaining space so the content stays
-          left-aligned within its 740px column */}
-      <div style={{ flex: "1 0 0" }} />
-    </div>
+    </DialogOverlay>
   );
 }
