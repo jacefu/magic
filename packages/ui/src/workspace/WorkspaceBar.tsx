@@ -120,10 +120,15 @@ function MagicBrandIcon({
         type="button"
         onClick={onClick}
         title="Magic 设置"
-        className="flex h-11 w-11 items-center justify-center rounded-[14px]
-                   transition-opacity hover:opacity-90"
+        className="flex h-11 w-11 items-center justify-center overflow-hidden
+                   rounded-[14px] transition-opacity hover:opacity-90"
       >
-        <MagicAppIcon size={36} />
+        {/* Icon fills the 44px slot so the brand mark carries the
+            same visual weight as the session icons below it (which
+            are also 44px). The previous 36px was a leftover from the
+            v1 layout where the icon sat inside a gradient circle and
+            needed inset padding. */}
+        <MagicAppIcon size={44} />
       </button>
     </div>
   );
