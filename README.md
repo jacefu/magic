@@ -1,7 +1,3 @@
-<div align="center">
-
-<img src="docs/assets/logo.png" alt="Magic Client" width="120" />
-
 # Magic Client
 
 **为 Multi-Agent 时代而生的协同 IM 客户端**
@@ -337,15 +333,6 @@ Magic Client 站在以下伟大开源项目的肩膀上：
 特别感谢：
 - [Higress](https://higress.cn) 团队提供的 AI 网关与治理能力
 - [AgentScope](https://github.com/your-org/agentscope) 社区的协作
-
----
-
-## 📮 联系我们
-
-- 📧 Email: [your-email@example.com](mailto:your-email@example.com)
-- 💬 Matrix: [#magic:matrix.org](https://matrix.to/#/#magic:matrix.org)
-- 🌐 官网: [https://magic.your-domain.com](https://magic.your-domain.com)
-- 🐦 GitHub Discussions: [magic-client/discussions](https://github.com/your-org/magic-client/discussions)
 
 ---
 
