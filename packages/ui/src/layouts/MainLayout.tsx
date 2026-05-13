@@ -65,8 +65,8 @@ export function MainLayout() {
 
         {/* Column 2: room list + user panel */}
         <div className="flex w-[240px] shrink-0 flex-col" style={glassStyle}>
-          {/* Header — workspace name dropdown + invite */}
-          <div className="flex h-12 items-center justify-between border-b border-[var(--border-default)] px-3">
+          {/* Header — workspace name dropdown */}
+          <div className="flex h-12 items-center border-b border-[var(--border-default)] px-3">
             <button className="flex min-w-0 items-center gap-1 text-[13.5px] font-semibold text-[var(--text-primary)] transition-colors hover:text-[var(--brand-purple)]">
               <span className="truncate">Magic 工作区</span>
               <svg
@@ -77,24 +77,6 @@ export function MainLayout() {
                 strokeWidth={2.5}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            <button
-              title="邀请成员"
-              className="rounded p-1 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.8}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                />
               </svg>
             </button>
           </div>
