@@ -182,6 +182,15 @@ export interface PersistedSession {
    * fallback.
    */
   iconDataUrl?: string | null;
+  /**
+   * `cryptoDatabasePrefix` passed to `client.initRustCrypto`. Set per
+   * session so concurrent clients don't fight for a single shared
+   * `matrix-js-sdk::*` IndexedDB store — that contention caused the
+   * second AddServerDialog to hang at "连接中…". Sessions persisted
+   * before this field existed leave it unset and continue using the
+   * legacy default DB so their crypto state isn't orphaned.
+   */
+  cryptoPrefix?: string;
   addedAt: number;
 }
 

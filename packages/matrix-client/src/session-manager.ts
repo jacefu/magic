@@ -177,7 +177,28 @@ export async function addServer(
     timelineSupport: true,
     useAuthorizationHeader: true,
   });
-  await client.initRustCrypto();
+  // Without `cryptoDatabasePrefix`, every session's crypto store lands
+  // in the same `matrix-js-sdk::matrix-sdk-crypto` IndexedDB DB. When a
+  // first session is already actively syncing it holds locks on that
+  // DB, and the second `initRustCrypto` deadlocks ("连接中…" forever).
+  // Use the session id as a prefix so each session has its own DB.
+  // Wrapped in withTimeout for belt-and-suspenders so any future
+  // contention still surfaces as a recoverable error.
+  const cryptoPrefix = sessionId;
+  try {
+    await withTimeout(
+      client.initRustCrypto({ cryptoDatabasePrefix: cryptoPrefix }),
+      INIT_CRYPTO_TIMEOUT_MS,
+      "加密初始化超时，请重试或重启客户端",
+    );
+  } catch (err) {
+    try {
+      client.stopClient();
+    } catch {
+      /* best-effort */
+    }
+    throw err;
+  }
   clients.set(sessionId, client);
 
   const serverName = deriveServerName(homeserver);
@@ -192,6 +213,7 @@ export async function addServer(
     serverName,
     serverInitial: serverName.charAt(0).toUpperCase() || "?",
     serverColor: pickColor(homeserver),
+    cryptoPrefix,
     syncState: "STOPPED",
     initialSyncComplete: false,
     unreadCount: 0,
@@ -438,6 +460,7 @@ export async function restoreAllSessions(): Promise<void> {
         serverInitial: s.serverInitial,
         serverColor: s.serverColor,
         iconDataUrl: s.iconDataUrl ?? null,
+        cryptoPrefix: s.cryptoPrefix,
         syncState: "STOPPED",
         initialSyncComplete: false,
         unreadCount: 0,
@@ -474,7 +497,14 @@ export async function restoreAllSessions(): Promise<void> {
         useAuthorizationHeader: true,
       });
       await withTimeout(
-        client.initRustCrypto(),
+        // session.cryptoPrefix is undefined for pre-isolation sessions
+        // — passing undefined falls back to matrix-js-sdk's legacy
+        // shared default DB so their existing crypto state still loads.
+        client.initRustCrypto(
+          session.cryptoPrefix
+            ? { cryptoDatabasePrefix: session.cryptoPrefix }
+            : undefined,
+        ),
         INIT_CRYPTO_TIMEOUT_MS,
         `initRustCrypto timed out for ${session.serverName}`,
       );
@@ -743,6 +773,7 @@ async function persistSessions(): Promise<void> {
     serverName: s.serverName,
     serverInitial: s.serverInitial,
     serverColor: s.serverColor,
+    cryptoPrefix: s.cryptoPrefix,
     addedAt: s.addedAt,
   }));
   const activeSessionId = useSessionStore.getState().activeSessionId;

@@ -20,6 +20,11 @@ export interface ServerSession {
    *  URL. When set, supersedes `serverInitial` + `serverColor` in
    *  the rail render. */
   iconDataUrl?: string | null;
+  /** `cryptoDatabasePrefix` for matrix-js-sdk's rust crypto store. Set
+   *  per session so concurrent clients use isolated IndexedDB DBs and
+   *  don't deadlock during `initRustCrypto`. Missing = legacy default
+   *  DB (sessions persisted before this field existed). */
+  cryptoPrefix?: string;
   syncState: SyncState;
   /**
    * Latches `true` the first time the session reaches PREPARED. Used by
