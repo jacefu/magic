@@ -25,18 +25,20 @@ import { settingsStore } from "./store.js";
 
 let mainWindow: BrowserWindow | null = null;
 
-// Spec 022 v3 §5.1.2 — broadcast bind/unbind/file-tree refresh to
-// every renderer via the workspace:tree-changed channel. The
-// renderer's useWorkspaceBinding picks this up to refresh its local
-// view; the actual Matrix-side announcement is fired from the bind
-// dialog (see §5.2.3), not from here.
-const workspace = new WorkspaceManager((roomId, binding, files) => {
+// Spec 022 v6 §6.5 — broadcast every binding lifecycle event to every
+// renderer via the workspace:change channel. The renderer's
+// useWorkspaceBinding picks this up to refresh its local view, and
+// useWorkspaceInjection uses the "unbind" kind to drop projection
+// dedupe state. Tree contents themselves are *not* shipped here —
+// the renderer always pulls a fresh scanTree() before the next send
+// so the cache is the single source of truth.
+const workspace = new WorkspaceManager((roomId, binding, kind) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
-      win.webContents.send("workspace:tree-changed", {
+      win.webContents.send("workspace:change", {
         roomId,
         binding,
-        files,
+        kind,
       });
     }
   }

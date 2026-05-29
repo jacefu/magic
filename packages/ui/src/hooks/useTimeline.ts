@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useRoomStore, useTypingStore } from "@magic/matrix-client";
-import type { SerializedMatrixEvent } from "@magic/shared-types";
+import {
+  AGENTTEAMS_WORKSPACE,
+  type SerializedMatrixEvent,
+} from "@magic/shared-types";
 
 export type TimelineItem =
   | { type: "message"; event: SerializedMatrixEvent; showSender: boolean; isOwn: boolean }
@@ -77,6 +80,17 @@ export function useTimeline({
         lastSender = "";
       }
 
+      // Treat workspace projection messages AND room state events
+      // (member joins/leaves, topic/name changes, encryption notices)
+      // as "transparent" for the sender-grouping chain. They render in
+      // their own pill / card style with no avatar, so updating
+      // `lastSender` would silently swallow the avatar+name of the
+      // next real message — exactly the bug we keep hitting where a
+      // user's reply appears headerless right after a "X joined"
+      // pill.
+      const isProjection = isWorkspaceProjection(event);
+      const isTransparent = isProjection || isStateEvent;
+
       const sameGroup =
         event.sender === lastSender &&
         event.timestamp - lastTs < 5 * 60 * 1000;
@@ -84,12 +98,14 @@ export function useTimeline({
       result.push({
         type: "message",
         event,
-        showSender: !sameGroup,
+        showSender: isTransparent ? false : !sameGroup,
         isOwn: event.sender === currentUserId,
       });
 
-      lastSender = event.sender;
-      lastTs = event.timestamp;
+      if (!isTransparent) {
+        lastSender = event.sender;
+        lastTs = event.timestamp;
+      }
     }
 
     if (typingUsers.length > 0) {
@@ -132,6 +148,11 @@ function computeFirstUnreadIndex(
     return i;
   }
   return -1;
+}
+
+function isWorkspaceProjection(event: SerializedMatrixEvent): boolean {
+  const content = event.content as Record<string, unknown> | undefined;
+  return !!content && !!content[AGENTTEAMS_WORKSPACE.PROJECTION];
 }
 
 function isStateType(type: string): boolean {

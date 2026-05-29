@@ -68,31 +68,33 @@ const electronAPI: IElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke("app:get-version"),
   getPlatform: () => ipcRenderer.invoke("app:get-platform"),
 
-  // ---- Workspace (Spec 022 v3) ----
+  // ---- Workspace (Spec 022 v6 — context injection) ----
   workspace: {
     pickFolder: () => ipcRenderer.invoke("workspace:pickFolder"),
-    scanFolder: (folderPath) =>
-      ipcRenderer.invoke("workspace:scanFolder", folderPath),
     bind: (roomId, folderPath, boundBy) =>
       ipcRenderer.invoke("workspace:bind", roomId, folderPath, boundBy),
     unbind: (roomId) => ipcRenderer.invoke("workspace:unbind", roomId),
     getBinding: (roomId) =>
       ipcRenderer.invoke("workspace:getBinding", roomId),
-    getFileTree: (roomId) =>
-      ipcRenderer.invoke("workspace:getFileTree", roomId),
-    revealInFinder: (roomId) =>
-      ipcRenderer.invoke("workspace:revealInFinder", roomId),
+    scanTree: (roomId) =>
+      ipcRenderer.invoke("workspace:scanTree", roomId),
+    getSystemContext: (roomId) =>
+      ipcRenderer.invoke("workspace:getSystemContext", roomId),
+    setBindingContext: (roomId, context) =>
+      ipcRenderer.invoke("workspace:setBindingContext", roomId, context),
+    getGlobalContext: () =>
+      ipcRenderer.invoke("workspace:getGlobalContext"),
+    setGlobalContext: (text) =>
+      ipcRenderer.invoke("workspace:setGlobalContext", text),
     readFile: (roomId, relPath) =>
       ipcRenderer.invoke("workspace:readFile", roomId, relPath),
-    setAutoAttach: (roomId, enabled) =>
-      ipcRenderer.invoke("workspace:setAutoAttach", roomId, enabled),
-    getAutoAttach: (roomId) =>
-      ipcRenderer.invoke("workspace:getAutoAttach", roomId),
-    onTreeChanged: (cb) => {
+    revealInFinder: (roomId) =>
+      ipcRenderer.invoke("workspace:revealInFinder", roomId),
+    onChange: (cb) => {
       const handler = (_event: Electron.IpcRendererEvent, data: any) =>
         cb(data);
-      ipcRenderer.on("workspace:tree-changed", handler);
-      return () => ipcRenderer.off("workspace:tree-changed", handler);
+      ipcRenderer.on("workspace:change", handler);
+      return () => ipcRenderer.off("workspace:change", handler);
     },
   },
 };

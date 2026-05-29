@@ -93,6 +93,50 @@ function withTimeout<T>(
 }
 
 /**
+ * matrix-rust-sdk-crypto persists two IndexedDB databases per
+ * `cryptoDatabasePrefix`: `{prefix}::matrix-sdk-crypto` (the main
+ * key/session blob) and `{prefix}::matrix-sdk-crypto-meta` (lock
+ * metadata). `client.clearStores()` doesn't touch them — it only
+ * wipes the JS-side stores — so logout leaves the crypto DB sitting
+ * around. On the next /login the new device id collides with the
+ * stale account and the SDK throws "the account in the store doesn't
+ * match the account in the constructor". Best-effort delete on every
+ * removeServer keeps the slate clean.
+ *
+ * `deleteDatabase` returns success even if the DB doesn't exist, and
+ * fires `onblocked` when another connection (i.e. an active
+ * MatrixClient that hasn't released its handles yet) is still
+ * holding the DB. We treat all three outcomes as "moved on" — the
+ * caller has already torn down user-visible state and a stuck DB
+ * just becomes a small orphan that'll get cleaned up on the next
+ * sweep.
+ */
+async function deleteCryptoDatabases(prefix: string): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  const names = [
+    `${prefix}::matrix-sdk-crypto`,
+    `${prefix}::matrix-sdk-crypto-meta`,
+  ];
+  await Promise.all(
+    names.map(
+      (name) =>
+        new Promise<void>((resolve) => {
+          let req: IDBOpenDBRequest;
+          try {
+            req = indexedDB.deleteDatabase(name);
+          } catch {
+            resolve();
+            return;
+          }
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+          req.onblocked = () => resolve();
+        }),
+    ),
+  );
+}
+
+/**
  * Reported by `restoreAllSessions` once per session as it goes. `null`
  * is emitted when the restore loop finishes (or there's nothing to
  * restore) so the UI can clear the splash.
@@ -177,14 +221,26 @@ export async function addServer(
     timelineSupport: true,
     useAuthorizationHeader: true,
   });
-  // Without `cryptoDatabasePrefix`, every session's crypto store lands
-  // in the same `matrix-js-sdk::matrix-sdk-crypto` IndexedDB DB. When a
-  // first session is already actively syncing it holds locks on that
-  // DB, and the second `initRustCrypto` deadlocks ("连接中…" forever).
-  // Use the session id as a prefix so each session has its own DB.
-  // Wrapped in withTimeout for belt-and-suspenders so any future
+  // Two layers of isolation in the crypto-store prefix:
+  //
+  //   1. `sessionId` keeps concurrent sessions to *different*
+  //      homeservers from sharing the same IndexedDB DB — without it
+  //      the second `initRustCrypto` would deadlock ("连接中…" forever)
+  //      waiting on the first session's locks.
+  //
+  //   2. `response.device_id` keeps consecutive logins to the *same*
+  //      homeserver from inheriting the previous device's persisted
+  //      account. The Rust SDK's store has a safety check that throws
+  //      `the account in the store doesn't match the account in the
+  //      constructor: expected …:OLD, got …:NEW` whenever we open a
+  //      store seeded with a stale device. Picking a per-device prefix
+  //      side-steps that entirely — each /login call gets a fresh DB,
+  //      and the old DB becomes a (small) orphan that removeServer
+  //      will sweep on next logout.
+  //
+  // Wrapped in withTimeout below for belt-and-suspenders so any future
   // contention still surfaces as a recoverable error.
-  const cryptoPrefix = sessionId;
+  const cryptoPrefix = `${sessionId}_${response.device_id}`;
   try {
     await withTimeout(
       client.initRustCrypto({ cryptoDatabasePrefix: cryptoPrefix }),
@@ -329,6 +385,13 @@ export async function removeServer(sessionId: string): Promise<void> {
   const wasActive =
     useSessionStore.getState().activeSessionId === sessionId;
 
+  // Capture the crypto-store prefix *before* the session record gets
+  // wiped from the store — we need it later to delete the persistent
+  // IndexedDB so the next /login for this homeserver doesn't trip on
+  // a stale account record.
+  const cryptoPrefixToDelete =
+    useSessionStore.getState().sessions[sessionId]?.cryptoPrefix ?? null;
+
   bridgeCleanups.get(sessionId)?.();
   bridgeCleanups.delete(sessionId);
   sessionWatchers.get(sessionId)?.();
@@ -390,6 +453,14 @@ export async function removeServer(sessionId: string): Promise<void> {
       /* best-effort */
     }
   }
+
+  // Step 4 — delete the rust-crypto IndexedDB databases for this
+  // session's prefix. Must come *after* stopClient + clearStores so
+  // the SDK has released its IDB handles; otherwise deleteDatabase
+  // fires `onblocked` and the orphan survives.
+  if (cryptoPrefixToDelete) {
+    await deleteCryptoDatabases(cryptoPrefixToDelete);
+  }
 }
 
 /**
@@ -399,6 +470,13 @@ export async function removeServer(sessionId: string): Promise<void> {
  * editing electron-store / localStorage.
  */
 export async function clearAllSessions(): Promise<void> {
+  // Snapshot every active session's crypto prefix before we tear
+  // anything down so the IDB sweep at the end gets the full list
+  // even after the store is reset.
+  const allPrefixes = Object.values(useSessionStore.getState().sessions)
+    .map((s) => s.cryptoPrefix)
+    .filter((p): p is string => typeof p === "string");
+
   const ids = Array.from(clients.keys());
   for (const id of ids) {
     bridgeCleanups.get(id)?.();
@@ -426,6 +504,7 @@ export async function clearAllSessions(): Promise<void> {
   useTypingStore.getState().reset();
   useAuthStore.getState().reset();
   await saveEncryptedSessions([], null);
+  await Promise.all(allPrefixes.map((p) => deleteCryptoDatabases(p)));
 }
 
 /**

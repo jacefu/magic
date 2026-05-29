@@ -1,4 +1,4 @@
-import { isValidElement, useMemo, type ReactElement } from "react";
+import { Fragment, isValidElement, useMemo, type ReactElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -6,6 +6,8 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { Components } from "react-markdown";
 import { getClient, hasClient } from "@magic/matrix-client";
 import { MentionPill } from "../mentions/MentionPill.js";
+import { ToolCallsCard } from "./ToolCallsCard.js";
+import { splitToolCallSegments } from "./parseToolCalls.js";
 
 interface TextMessageProps {
   body: string;
@@ -207,11 +209,25 @@ export function TextMessage({
     },
   };
 
+  // Split into [markdown | toolCalls] segments. Consecutive
+  // `🔧 toolname\n\`\`\`...\`\`\`` blocks collapse into a Claude
+  // Code-style folded card so agent tool chains don't drown out the
+  // actual answer; everything else renders as ordinary markdown.
+  const segments = useMemo(() => splitToolCallSegments(source), [source]);
+
   return (
     <div className="max-w-none break-words text-[15px] leading-[1.55] text-[var(--text-primary)]">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {source}
-      </ReactMarkdown>
+      {segments.map((seg, i) =>
+        seg.type === "tools" ? (
+          <ToolCallsCard key={i} calls={seg.calls} />
+        ) : (
+          <Fragment key={i}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+              {seg.content}
+            </ReactMarkdown>
+          </Fragment>
+        ),
+      )}
     </div>
   );
 }

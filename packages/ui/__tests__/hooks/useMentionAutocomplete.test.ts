@@ -31,6 +31,7 @@ function makeMember(overrides: Partial<RoomMember> = {}): RoomMember {
       nameColor: "#DBDEE1",
     },
     powerLevel: 0,
+    isSelf: false,
     ...overrides,
   };
 }

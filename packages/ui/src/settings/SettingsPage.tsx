@@ -8,6 +8,7 @@ import { AppearanceSection } from "./sections/AppearanceSection.js";
 import { LanguageSection } from "./sections/LanguageSection.js";
 import { SecuritySection } from "./sections/SecuritySection.js";
 import { ServersSection } from "./sections/ServersSection.js";
+import { WorkspaceContextSection } from "./sections/WorkspaceContextSection.js";
 
 interface SettingsPageProps {
   onClose: () => void;
@@ -18,6 +19,7 @@ const TAB_TITLES: Record<SettingsTab, string> = {
   servers: "Magic 实例",
   appearance: "外观",
   notifications: "通知",
+  workspace: "工作区上下文",
   language: "语言",
   security: "设备管理",
 };
@@ -69,6 +71,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
               {activeTab === "servers" && <ServersSection />}
               {activeTab === "appearance" && <AppearanceSection />}
               {activeTab === "notifications" && <NotificationSettings />}
+              {activeTab === "workspace" && <WorkspaceContextSection />}
               {activeTab === "language" && <LanguageSection />}
               {activeTab === "security" && <SecuritySection />}
             </SettingsSection>

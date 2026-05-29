@@ -25,15 +25,21 @@ export type { Theme, Language } from "./hooks/useSettings.js";
 // Workspace (spec 016)
 export { AddServerDialog } from "./workspace/AddServerDialog.js";
 
-// Workspace folder binding (spec 022 v3 — Matrix-native attachments)
+// Workspace context injection (spec 022 v6 — body-level system prompt)
 export { BindFolderButton } from "./workspace/BindFolderButton.js";
 export { BindFolderConfirmDialog } from "./workspace/BindFolderConfirmDialog.js";
 export { WorkspaceSection } from "./workspace/WorkspaceSection.js";
 export { WorkspaceIndicator } from "./workspace/WorkspaceIndicator.js";
-export { WorkspaceFilePicker } from "./workspace/WorkspaceFilePicker.js";
+export { WorkspaceFileCard } from "./workspace/WorkspaceFileCard.js";
+export { WorkspaceContextBadge } from "./workspace/WorkspaceContextBadge.js";
 export { useWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
 export type { UseWorkspaceBinding } from "./hooks/useWorkspaceBinding.js";
-export { useMessageInterceptor } from "./hooks/useMessageInterceptor.js";
+export {
+  useWorkspaceInjection,
+  stripWorkspaceContext,
+  detectFilePaths,
+} from "./hooks/useWorkspaceInjection.js";
+export { WorkspaceContextSection } from "./settings/sections/WorkspaceContextSection.js";
 
 // Layouts
 export { MainLayout } from "./layouts/MainLayout.js";
@@ -77,6 +83,10 @@ export { ChatTimeline } from "./chat/ChatTimeline.js";
 export { MessageBubble } from "./chat/MessageBubble.js";
 export { MessageContent } from "./chat/MessageContent.js";
 export { TextMessage } from "./chat/TextMessage.js";
+export { ToolCallsCard } from "./chat/ToolCallsCard.js";
+export type { ToolCall } from "./chat/ToolCallsCard.js";
+export { splitToolCallSegments } from "./chat/parseToolCalls.js";
+export type { ToolCallSegment } from "./chat/parseToolCalls.js";
 export { ImageMessage } from "./chat/ImageMessage.js";
 export { FileMessage } from "./chat/FileMessage.js";
 export { DateSeparator } from "./chat/DateSeparator.js";

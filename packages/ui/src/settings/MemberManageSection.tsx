@@ -90,7 +90,9 @@ export function MemberManageSection({
           <MemberRow
             key={m.userId}
             member={m}
-            canKick={settings.canKick && m.userId !== ""}
+            // Self can't be "kicked" — leaving the room is a separate
+            // action surfaced from the room settings panel.
+            canKick={settings.canKick && !m.isSelf}
             isBusy={busyUserId === m.userId}
             onKick={() => void handleKick(m.userId)}
           />
@@ -139,6 +141,14 @@ function MemberRow({
         }
       >
         {member.displayName}
+        {member.isSelf && (
+          <span
+            className="ml-1 text-[10px]"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            （我）
+          </span>
+        )}
       </span>
       <AgentTag agentInfo={member.agentInfo} size="sm" />
       {canKick && (

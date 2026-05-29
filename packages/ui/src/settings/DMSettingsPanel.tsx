@@ -37,10 +37,16 @@ export function DMSettingsPanel({
   const myUserId = useAuthStore((s) => s.userId);
   const members = useRoomMembers(roomId);
 
-  // The DM peer is whichever joined member isn't us. `useRoomMembers`
-  // already excludes the current user, so the first entry is the
-  // peer (if there is one).
-  const peer = useMemo(() => members[0] ?? null, [members]);
+  // The DM peer is whichever joined member isn't us. As of the v6
+  // member-panel changes useRoomMembers includes self too, so we
+  // filter explicitly here. The note-to-self DM falls back to
+  // surfacing yourself as the peer (the "this is a chat with
+  // yourself" hint below covers that case).
+  const peer = useMemo(() => {
+    const other = members.find((m) => !m.isSelf);
+    if (other) return other;
+    return members[0] ?? null;
+  }, [members]);
 
   return (
     <div className="space-y-1 p-3">

@@ -18,6 +18,7 @@ import {
 } from "@magic/shared-types";
 import { useSyncStore, type SyncState } from "./stores/syncStore.js";
 import { useRoomStore } from "./stores/roomStore.js";
+import { useSessionStore } from "./stores/sessionStore.js";
 import { useTypingStore } from "./stores/typingStore.js";
 import { useAgentStore } from "./stores/agentStore.js";
 import { useInviteStore, type RoomInvite } from "./stores/inviteStore.js";
@@ -118,6 +119,43 @@ export function bridgeToStores(
     }
     useRoomStore.getState().addMessage(sessionId, room.roomId, serialized);
     notificationCallback?.(serialized);
+
+    // Local unread bump — Tuwunel (and some other homeservers) don't
+    // reliably push `unread_notifications` in /sync, so the SDK's
+    // RoomEvent.UnreadNotifications never fires and the badge would
+    // stay at 0 forever. Counting messages we see here as they arrive
+    // is independent of the server and matches what the user expects:
+    // any message from someone else, in a room they're not currently
+    // viewing, bumps the count.
+    //
+    // We take Math.max with the server-provided count so the
+    // server's number still wins when it *does* land (e.g. it might
+    // already reflect mentions/highlights we'd otherwise miss).
+    const ownUserId = client.getUserId();
+    const isOwn = ownUserId !== null && event.getSender() === ownUserId;
+    const sessionState = useSessionStore.getState();
+    const roomState = useRoomStore.getState();
+    const isCurrentlyViewing =
+      sessionState.activeSessionId === sessionId &&
+      roomState.activeRoomId === room.roomId;
+    const isCountableMessage =
+      event.getType() === EventType.RoomMessage ||
+      event.getType() === "m.room.encrypted";
+    if (!isOwn && !isCurrentlyViewing && isCountableMessage) {
+      const current = roomState.sessionRooms[sessionId]?.[room.roomId];
+      const localTotal = (current?.unreadCount ?? 0) + 1;
+      const localHighlight = current?.highlightCount ?? 0;
+      const serverTotal =
+        room.getUnreadNotificationCount(NotificationCountType.Total) ?? 0;
+      const serverHighlight =
+        room.getUnreadNotificationCount(NotificationCountType.Highlight) ?? 0;
+      roomState.setUnreadCount(
+        sessionId,
+        room.roomId,
+        Math.max(localTotal, serverTotal),
+        Math.max(localHighlight, serverHighlight),
+      );
+    }
   };
   client.on(RoomEvent.Timeline, onTimeline);
 

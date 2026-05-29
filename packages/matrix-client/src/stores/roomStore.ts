@@ -118,6 +118,24 @@ function relinkActiveRooms(s: RoomStoreState): void {
   }
 }
 
+/**
+ * Reset the unread/highlight count on whichever room is currently
+ * active. Called after every navigation that lands on a new room
+ * (setActiveRoom / goBack / goForward) so the badge clears the
+ * instant the user opens a chat — independent of whether the
+ * server pushes back an `unread_notifications` echo.
+ */
+function clearUnreadForActive(s: RoomStoreState): void {
+  if (!s.activeRoomId || !s.activeSessionId) return;
+  const partition = s.sessionRooms[s.activeSessionId];
+  const room = partition?.[s.activeRoomId];
+  if (!room) return;
+  if (room.unreadCount === 0 && room.highlightCount === 0) return;
+  room.unreadCount = 0;
+  room.highlightCount = 0;
+  relinkActiveRooms(s);
+}
+
 export const useRoomStore = create<RoomStoreState>()(
   immer((set) => ({
     sessionRooms: {},
@@ -166,6 +184,12 @@ export const useRoomStore = create<RoomStoreState>()(
         if (s.activeRoomId !== null) s.backStack.push(s.activeRoomId);
         s.forwardStack = [];
         s.activeRoomId = roomId;
+        // ChatTimeline still ships an m.read receipt to the server,
+        // but we don't wait for the server's `unread_notifications`
+        // echo — Tuwunel in particular often doesn't echo it, and
+        // the badge would otherwise stay lit while the user is
+        // staring straight at the room.
+        clearUnreadForActive(s);
       }),
 
     goBack: () =>
@@ -174,6 +198,7 @@ export const useRoomStore = create<RoomStoreState>()(
         const prev = s.backStack.pop()!;
         if (s.activeRoomId !== null) s.forwardStack.push(s.activeRoomId);
         s.activeRoomId = prev;
+        clearUnreadForActive(s);
       }),
 
     goForward: () =>
@@ -182,6 +207,7 @@ export const useRoomStore = create<RoomStoreState>()(
         const next = s.forwardStack.pop()!;
         if (s.activeRoomId !== null) s.backStack.push(s.activeRoomId);
         s.activeRoomId = next;
+        clearUnreadForActive(s);
       }),
 
     upsertRoom: (sessionId, roomId, data) =>

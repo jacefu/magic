@@ -3,13 +3,16 @@ import type { IPCModule } from "./registry.js";
 import type { WorkspaceManager } from "../workspace/WorkspaceManager.js";
 
 /**
- * Spec 022 v3 § 5.1.1 — IPC surface for the workspace module.
+ * Spec 022 v6 § 6.5 — IPC surface for the workspace context injector.
+ *
  * Channel namespace `workspace:<verb>` matches the existing
  * `settings:get`, `matrix:login`, etc. convention.
  *
  * Renderer-side callers:
- *   - useWorkspaceBinding (binding lifecycle UI hook)
- *   - useMessageInterceptor (calls workspace:readFile when sending)
+ *   - useWorkspaceInjection.sendWithContext (every user message)
+ *   - useWorkspaceInjection effect           (file projection on path-mention)
+ *   - WorkspaceSection / settings sections   (binding/global context editors)
+ *   - BindFolderButton                       (bind / unbind / pick folder)
  */
 export function createWorkspaceHandlers(
   workspace: WorkspaceManager,
@@ -22,14 +25,11 @@ export function createWorkspaceHandlers(
       ) => {
         const result = await dialog.showOpenDialog(win, {
           properties: ["openDirectory", "createDirectory"],
-          title: "选择要绑定的本地文件夹",
+          title: "选择要绑定的本地工作区",
         });
         if (result.canceled || result.filePaths.length === 0) return null;
         return result.filePaths[0];
       },
-
-      "workspace:scanFolder": (folderPath: string) =>
-        workspace.scanFolder(folderPath),
 
       "workspace:bind": (
         roomId: string,
@@ -42,25 +42,25 @@ export function createWorkspaceHandlers(
       "workspace:getBinding": (roomId: string) =>
         workspace.getBinding(roomId),
 
-      "workspace:getFileTree": (roomId: string) =>
-        workspace.getFileTree(roomId),
+      "workspace:scanTree": (roomId: string) => workspace.scanTree(roomId),
+
+      "workspace:getSystemContext": (roomId: string) =>
+        workspace.getSystemContext(roomId),
+
+      "workspace:setBindingContext": (roomId: string, context: string) =>
+        workspace.setBindingContext(roomId, context),
+
+      "workspace:getGlobalContext": () => workspace.getGlobalContext(),
+
+      "workspace:setGlobalContext": (text: string) =>
+        workspace.setGlobalContext(text),
+
+      "workspace:readFile": (roomId: string, relPath: string) =>
+        workspace.readFile(roomId, relPath),
 
       "workspace:revealInFinder": (roomId: string) => {
         workspace.revealInFinder(roomId);
       },
-
-      // Spec §5.2.1 — useMessageInterceptor calls this for every
-      // detected / explicitly-attached path right before sending.
-      "workspace:readFile": (roomId: string, relPath: string) =>
-        workspace.readFile(roomId, relPath),
-
-      // Spec §3.6 — auto-attach toggle.
-      "workspace:setAutoAttach": (roomId: string, enabled: boolean) => {
-        workspace.setAutoAttach(roomId, enabled);
-      },
-
-      "workspace:getAutoAttach": (roomId: string) =>
-        workspace.getAutoAttach(roomId),
     },
   };
 }

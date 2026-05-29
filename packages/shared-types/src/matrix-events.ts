@@ -6,13 +6,20 @@ export const MAGIC_EVENTS = {
   SOUL_CONTENT: "com.magic.soul.content",
   MEMORY_CONTENT: "com.magic.memory.content",
   HEARTBEAT: "com.magic.heartbeat",
-  // Spec 022 v3 — workspace folder binding state event. v3 dropped
-  // the read_request / read_response / list_request / list_response /
-  // tree_chunk types from v2 because Agents weren't going to
-  // implement them; v3 ships file content as native Matrix
-  // attachments instead. The state event survives so multi-device
-  // / multi-client setups stay in sync about which room is bound.
-  WORKSPACE_BINDING: "com.magic.workspace.binding",
+} as const;
+
+/** Spec 022 v6 — workspace context injection markers. These are *not*
+ *  state events; they ride as content fields on regular m.room.message
+ *  events so Agents read the body as-is (zero protocol changes) and
+ *  the UI uses the marker to fold/hide the auto-injected payload. */
+export const AGENTTEAMS_WORKSPACE = {
+  /** Tag on a user message whose body had a `<workspace_context>`
+   *  block prepended. UI strips the block before rendering. */
+  INJECTED: "com.agentteams.workspace.injected",
+  /** Tag on a reactive file-content message the renderer emits when
+   *  somebody mentions a path. UI folds these into a small card and
+   *  the detector skips them to avoid infinite loops. */
+  PROJECTION: "com.agentteams.workspace.projection",
 } as const;
 
 export const AgentStatusEvent = z.object({
@@ -44,31 +51,14 @@ export const SoulContentEvent = z.object({
 });
 export type SoulContentEvent = z.infer<typeof SoulContentEvent>;
 
-// ---- Spec 022 v3: workspace folder binding ----
-
-const WorkspaceFileEntrySchema = z.object({
-  path: z.string(),
-  size: z.number(),
-  mtime: z.number(),
-});
-export type WorkspaceFileEntrySchema = z.infer<typeof WorkspaceFileEntrySchema>;
-
-/**
- * State event posted by the Magic client when a user binds a folder.
- * Lightweight in v3: just metadata, no file tree (tree is shipped via
- * a regular m.text announcement message and Matrix-native attachments
- * the user triggers later — see spec §3.3).
- */
-export const WorkspaceBindingEvent = z.object({
-  bound: z.boolean(),
-  displayName: z.string().optional(),
-  boundBy: z.string().optional(),
-  boundAt: z.number().optional(),
-  fileCount: z.number().optional(),
-});
-export type WorkspaceBindingEvent = z.infer<typeof WorkspaceBindingEvent>;
-
-// v2 schemas (read_request / read_response / list_request /
-// list_response / tree_chunk) were removed — v3 ships file content
-// as native Matrix m.file / m.image / inline-code-block messages
-// instead, so there's no custom payload shape to validate.
+// ---- Spec 022 v6: workspace context injection ----
+//
+// No room state events are emitted for workspace bindings: the
+// binding is App-local (lives in `~/.agentteams/workspaces.json`)
+// and other devices/sessions infer it from the per-message
+// `com.agentteams.workspace.injected` content marker.
+//
+// The two markers (INJECTED, PROJECTION) are declared above on the
+// `AGENTTEAMS_WORKSPACE` constant — they're plain content fields on
+// regular `m.room.message` events so Agents don't need a schema or
+// parser at all (they just read the body).

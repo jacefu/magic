@@ -44,7 +44,9 @@ export function useMentionAutocomplete({
       result.push({ type: "room", label: "全体成员" });
     }
 
+    // Skip self — @-mentioning yourself is never the user's intent.
     const filtered = members.filter((m) => {
+      if (m.isSelf) return false;
       const name = m.displayName.toLowerCase();
       const userId = m.userId.toLowerCase();
       return name.includes(q) || userId.includes(q);

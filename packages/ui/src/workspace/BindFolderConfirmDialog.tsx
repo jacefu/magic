@@ -1,12 +1,10 @@
 import { useState } from "react";
-import type { WorkspaceScanResult } from "@magic/shared-types";
 import { DialogOverlay } from "../common/DialogOverlay.js";
 
 interface BindFolderConfirmDialogProps {
   folderPath: string;
-  scan: WorkspaceScanResult;
   /** Display name for the room/peer the folder will bind to. Used in
-   *  the "manager 可访问" line so the user sees who specifically can
+   *  the "附带给 Agent" copy so the user sees who specifically can
    *  read their files. */
   peerLabel: string;
   onCancel: () => void;
@@ -14,13 +12,13 @@ interface BindFolderConfirmDialogProps {
 }
 
 /**
- * Spec 022 § 4.2 — final confirmation step before publishing the
- * Matrix state event. Heavy on copy that explicitly tells the user
- * "files stay on your machine" so the threat model is unambiguous.
+ * Spec 022 v6 §7.1 — confirmation step before the binding lands in
+ * `~/.agentteams/workspaces.json`. Heavy on copy that explicitly
+ * spells out the threat model: every future user message in this
+ * room will silently carry the dir tree + project notes to the Agent.
  */
 export function BindFolderConfirmDialog({
   folderPath,
-  scan,
   peerLabel,
   onCancel,
   onConfirm,
@@ -58,7 +56,7 @@ export function BindFolderConfirmDialog({
         }}
       >
         <h2 className="text-[15px] font-semibold text-[var(--text-primary)]">
-          绑定本地文件夹到此对话？
+          绑定本地工作区到此对话？
         </h2>
 
         <div
@@ -75,38 +73,27 @@ export function BindFolderConfirmDialog({
           >
             {folderPath}
           </p>
-          <p
-            className="mt-2 text-[11.5px]"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            扫描到 {scan.fileCount} 个文件 ({formatSize(scan.totalSize)})
-            {scan.ignoredCount > 0 && (
-              <>
-                ，已自动忽略 {scan.ignoredCount} 项
-              </>
-            )}
-            {scan.truncated && (
-              <span style={{ color: "var(--color-warning)" }}>
-                （文件数太多，仅扫描前 {scan.fileCount} 个）
-              </span>
-            )}
-          </p>
         </div>
 
         <div className="mt-3 space-y-1.5 text-[11.5px] leading-relaxed">
           <p style={{ color: "var(--text-secondary)" }}>工作方式：</p>
-          <Bullet>文件保留在你的电脑上</Bullet>
           <Bullet>
-            当你的消息提到文件路径时，Magic 会<strong>自动把文件内容附到消息中</strong>
-            发给 <span className="font-medium">{peerLabel}</span>
+            你每次发消息时，目录结构会作为上下文
+            <strong>自动附带给 {peerLabel}</strong>
+            （你看不到，聊天区干净）
           </Bullet>
-          <Bullet>你也可以点 📁 按钮显式选择文件</Bullet>
-          <Bullet>自动附加可在设置中关闭</Bullet>
+          <Bullet>
+            你或 Agent 提到某文件路径，该文件内容会自动提供
+          </Bullet>
+          <Bullet>文件保留在你电脑上</Bullet>
+          <Bullet>
+            可在设置里给这个绑定填项目说明，会一起附带给 Agent
+            （不碰你的文件夹）
+          </Bullet>
+          <Bullet>自动排除 .env / .ssh / node_modules 等敏感与噪音项</Bullet>
         </div>
 
-        <label
-          className="mt-3 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--bg-surface)]"
-        >
+        <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--bg-surface)]">
           <input
             type="checkbox"
             checked={understood}
@@ -168,12 +155,4 @@ function Bullet({ children }: { children: React.ReactNode }) {
       <span className="flex-1">{children}</span>
     </p>
   );
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }

@@ -1,5 +1,8 @@
 import { memo } from "react";
-import type { SerializedMatrixEvent } from "@magic/shared-types";
+import {
+  AGENTTEAMS_WORKSPACE,
+  type SerializedMatrixEvent,
+} from "@magic/shared-types";
 import {
   getClient,
   hasClient,
@@ -10,6 +13,9 @@ import { RoomAvatar, pickGradient } from "../rooms/RoomAvatar.js";
 import { MessageContent } from "./MessageContent.js";
 import { AgentTag } from "../agents/AgentTag.js";
 import { getAgentInfo } from "../lib/agentDetection.js";
+import { stripWorkspaceContext } from "../hooks/useWorkspaceInjection.js";
+import { WorkspaceFileCard } from "../workspace/WorkspaceFileCard.js";
+import { WorkspaceContextBadge } from "../workspace/WorkspaceContextBadge.js";
 
 interface MessageBubbleProps {
   event: SerializedMatrixEvent;
@@ -49,10 +55,52 @@ export const MessageBubble = memo(function MessageBubble({
     event.type === "m.room.message" || event.type === "m.room.encrypted";
   if (!isMessage) return <SystemEventLine event={event} />;
 
-  // Spec 022 v3 §5.2.6 — extract the workspace-attachment metadata
-  // up front so the chip strip below has structured access to it
-  // without re-parsing the raw event.content payload.
-  const workspaceAttached = parseWorkspaceAttached(
+  // Spec 022 v6 §6.4 — file projection: render the body as a folded
+  // card so the user isn't drowned in raw file dumps. Agent still sees
+  // the full body in the raw event.
+  const projection = parseProjection(
+    event.content as Record<string, unknown> | undefined,
+  );
+  if (projection) {
+    if (projection.kind === "unbind") {
+      return (
+        <div
+          className="flex justify-center px-4 py-2 text-[10.5px]"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          {(event.content?.body as string | undefined) ?? ""}
+        </div>
+      );
+    }
+    if (projection.kind === "file_error") {
+      return (
+        <div
+          className="mx-4 my-1 rounded-md px-3 py-1.5 text-[11px]"
+          style={{
+            background: "var(--bg-surface)",
+            color: "var(--color-danger)",
+          }}
+        >
+          {(event.content?.body as string | undefined) ?? `📄 ${projection.path}`}
+        </div>
+      );
+    }
+    // kind === "file"
+    return (
+      <div className="px-4">
+        <WorkspaceFileCard
+          path={projection.path}
+          size={projection.size}
+          rawBody={(event.content?.body as string | undefined) ?? ""}
+        />
+      </div>
+    );
+  }
+
+  // Spec 022 v6 §6.4 — user message with auto-injected
+  // `<workspace_context>` block: strip the block from the rendered
+  // body, surface a small badge so the user knows it went out attached.
+  const injected = parseInjected(
     event.content as Record<string, unknown> | undefined,
   );
 
@@ -166,53 +214,27 @@ export const MessageBubble = memo(function MessageBubble({
               {senderName}
             </button>
             <AgentTag agentInfo={agentInfo} size="sm" />
+            {injected && (
+              <WorkspaceContextBadge
+                workspace={injected.workspace}
+                contextLength={injected.contextLength}
+              />
+            )}
             <span className="ml-1 text-[10px] text-[var(--text-tertiary)]">
               {time}
             </span>
           </div>
         )}
         <div className="text-[13px] leading-[1.5] text-[var(--text-primary)]">
-          {/* Spec 022 v3 §5.2.6 — when the message carries workspace
-              attachments, render the user-typed text *only* (truncated
-              at the separator the interceptor inserts) and surface the
-              attached files as chips below. The full body — code
-              blocks included — stays in the raw event so the Agent's
-              LLM sees everything. */}
-          {workspaceAttached ? (
-            <>
-              <MessageContent
-                event={event}
-                isOwn={isOwn}
-                searchQuery={searchQuery}
-                bodyOverride={truncateBeforeSeparator(
-                  (event.content?.body as string | undefined) ?? "",
-                )}
-              />
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {workspaceAttached.files.map((f) => (
-                  <span
-                    key={f.path}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px]"
-                    style={{
-                      background: "var(--bg-surface)",
-                      border: "0.5px solid var(--border-default)",
-                      color: "var(--text-secondary)",
-                    }}
-                    title={
-                      f.inlined
-                        ? `${f.path} · 已内联到消息正文 · ${formatChipSize(f.size)}`
-                        : `${f.path} · 已作为附件上传 · ${formatChipSize(f.size)}`
-                    }
-                  >
-                    <span aria-hidden>📄</span>
-                    <span className="font-mono">{f.path}</span>
-                    <span style={{ color: "var(--text-tertiary)" }}>
-                      · {formatChipSize(f.size)}
-                    </span>
-                  </span>
-                ))}
-              </div>
-            </>
+          {injected ? (
+            <MessageContent
+              event={event}
+              isOwn={isOwn}
+              searchQuery={searchQuery}
+              bodyOverride={stripWorkspaceContext(
+                (event.content?.body as string | undefined) ?? "",
+              )}
+            />
           ) : (
             <MessageContent
               event={event}
@@ -308,7 +330,16 @@ function getSystemEventText(event: SerializedMatrixEvent): string | null {
     case "m.room.member": {
       const membership = event.content.membership as string;
       if (membership === "join") return `${sender} 加入了房间`;
-      if (membership === "leave") return `${sender} 离开了房间`;
+      if (membership === "leave") {
+        // Suppress stale leaves: if the sender is currently joined to
+        // this room, this event is from a prior session (they left and
+        // later rejoined). Showing "X 离开了房间" right above their
+        // brand-new message is the bug we keep hitting. For the
+        // typical leave/rejoin case event.sender == state_key, so this
+        // is sufficient without enriching the serializer.
+        if (isCurrentlyJoined(event.roomId, event.sender)) return null;
+        return `${sender} 离开了房间`;
+      }
       if (membership === "invite") return `${sender} 被邀请加入`;
       return null;
     }
@@ -320,6 +351,18 @@ function getSystemEventText(event: SerializedMatrixEvent): string | null {
       return "已启用端到端加密";
     default:
       return null;
+  }
+}
+
+function isCurrentlyJoined(roomId: string, userId: string): boolean {
+  if (!hasClient()) return false;
+  try {
+    const room = getClient().getRoom(roomId);
+    if (!room) return false;
+    const member = room.getMember(userId);
+    return member?.membership === "join";
+  } catch {
+    return false;
   }
 }
 
@@ -390,63 +433,62 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-// ---- Spec 022 v3 §5.2.6 helpers ----
+// ---- Spec 022 v6 §6.4 helpers ----
 
-interface WorkspaceAttachedFile {
-  path: string;
-  size: number;
-  inlined: boolean;
+interface InjectedMeta {
+  workspace: string;
+  contextLength?: number;
 }
 
-interface WorkspaceAttachedMeta {
-  workspaceName: string;
-  files: WorkspaceAttachedFile[];
-}
-
-/** Pluck the typed shape out of the loose `event.content`. We don't
- *  trust upstream, so each field is guarded — a malformed payload
- *  collapses to `null` and the bubble falls back to the default
- *  rendering instead of crashing. */
-function parseWorkspaceAttached(
+/** Pluck the v6 injected-context marker. Each field is guarded so a
+ *  malformed payload collapses to `null` (the bubble falls back to
+ *  default rendering) instead of crashing. */
+function parseInjected(
   content: Record<string, unknown> | undefined,
-): WorkspaceAttachedMeta | null {
+): InjectedMeta | null {
   if (!content) return null;
-  const raw = content["com.magic.workspace.attached"];
+  const raw = content[AGENTTEAMS_WORKSPACE.INJECTED];
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
-  const files = obj.files;
-  if (!Array.isArray(files)) return null;
-  const parsed: WorkspaceAttachedFile[] = [];
-  for (const f of files) {
-    if (!f || typeof f !== "object") continue;
-    const entry = f as Record<string, unknown>;
-    if (typeof entry.path !== "string") continue;
-    parsed.push({
-      path: entry.path,
-      size: typeof entry.size === "number" ? entry.size : 0,
-      inlined: !!entry.inlined,
-    });
-  }
-  if (parsed.length === 0) return null;
+  const workspace =
+    typeof obj.workspace === "string" ? obj.workspace : "";
+  if (!workspace) return null;
   return {
-    workspaceName:
-      typeof obj.workspaceName === "string" ? obj.workspaceName : "",
-    files: parsed,
+    workspace,
+    contextLength:
+      typeof obj.contextLength === "number" ? obj.contextLength : undefined,
   };
 }
 
-/** The interceptor delimits user-typed text from the inlined code
- *  blocks with `\n\n────────`. Slice at the first occurrence so the
- *  human view doesn't see the raw code dump. Falls back to the full
- *  body when the separator is absent (paranoid). */
-function truncateBeforeSeparator(body: string): string {
-  const sep = "\n\n────────";
-  const idx = body.indexOf(sep);
-  return idx === -1 ? body : body.slice(0, idx);
-}
+type ProjectionMeta =
+  | { kind: "file"; path: string; size: number; mtime: number }
+  | { kind: "file_error"; path: string }
+  | { kind: "unbind" };
 
-function formatChipSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+/** Pluck the v6 file-projection marker. The shape depends on `kind`
+ *  so we discriminate up front. */
+function parseProjection(
+  content: Record<string, unknown> | undefined,
+): ProjectionMeta | null {
+  if (!content) return null;
+  const raw = content[AGENTTEAMS_WORKSPACE.PROJECTION];
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const kind = obj.kind;
+  if (kind === "file") {
+    const path = typeof obj.path === "string" ? obj.path : "";
+    if (!path) return null;
+    return {
+      kind: "file",
+      path,
+      size: typeof obj.size === "number" ? obj.size : 0,
+      mtime: typeof obj.mtime === "number" ? obj.mtime : 0,
+    };
+  }
+  if (kind === "file_error") {
+    const path = typeof obj.path === "string" ? obj.path : "";
+    return { kind: "file_error", path };
+  }
+  if (kind === "unbind") return { kind: "unbind" };
+  return null;
 }

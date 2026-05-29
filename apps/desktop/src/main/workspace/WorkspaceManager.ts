@@ -1,38 +1,27 @@
 import * as path from "path";
+import * as os from "os";
 import * as fs from "fs/promises";
 import type { Dirent } from "fs";
-import { app, shell } from "electron";
+import { shell } from "electron";
 import chokidar, { type FSWatcher } from "chokidar";
 import { IgnoreEngine } from "./IgnoreEngine.js";
 
 /**
- * Spec 022 v3 — workspace folder binding manager.
+ * Spec 022 v6 — workspace context injection manager.
  *
- * Per-room binding store, file tree cache, watcher, and on-demand
- * single-file reader. The renderer's useMessageInterceptor calls
- * `readFile()` when a user message references a workspace path; the
- * file then rides the chat as a Matrix-native attachment / inline
- * code block.
+ * Stores binding records + global ignore/system-prompt under
+ * `~/.agentteams/` (the App's global home, deliberately *not* in
+ * Electron's userData and *not* inside the bound folder itself).
  *
- * Deliberately minimal compared to v2 — no access log, no notify
- * tracker, no read/list request dispatch. The renderer drives all
- * file output; this module just answers "give me this file" and
- * keeps the cached file tree fresh.
+ * Renderer code reaches in for three things on every user message:
+ *   1. scanTree(roomId)        — current directory snapshot (5s cache)
+ *   2. getSystemContext(roomId) — global agentteams.md + per-binding ctx
+ *   3. readFile(roomId, path)   — reactive file projection
+ *
+ * No file content is cached in this layer — chokidar invalidates the
+ * tree cache on add/unlink so the next scan is always fresh, and
+ * readFile always hits disk.
  */
-
-export interface FileEntry {
-  path: string;
-  size: number;
-  mtime: number;
-}
-
-export interface ScanResult {
-  fileCount: number;
-  totalSize: number;
-  ignoredCount: number;
-  files: FileEntry[];
-  truncated: boolean;
-}
 
 export interface Binding {
   roomId: string;
@@ -40,41 +29,64 @@ export interface Binding {
   displayName: string;
   boundBy: string;
   boundAt: number;
-  fileCount: number;
-  totalSize: number;
-  ignorePatterns: string[];
-  /** Spec §3.6 — when off, useMessageInterceptor only attaches files
-   *  the user *explicitly* picked via 📁; auto-detection from text
-   *  is skipped. */
-  autoAttach: boolean;
+  /** Per-binding system prompt edited from the App settings panel.
+   *  Stored in workspaces.json under this binding — never written
+   *  back into the user's bound folder. */
+  context?: string;
+}
+
+export interface FileNode {
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  mtime: number;
+}
+
+export interface TreeResult {
+  nodes: FileNode[];
+  truncated: boolean;
+}
+
+export interface SystemContext {
+  global: string | null;
+  binding: string | null;
 }
 
 export interface ReadResult {
   ok: boolean;
-  /** base64-encoded file bytes — IPC can't ferry a Buffer directly. */
-  contentBase64?: string;
-  encoding?: "utf-8" | "base64";
+  isText?: boolean;
+  /** UTF-8 text body when isText. */
+  content?: string;
+  /** base64 bytes when binary. IPC can't ferry a Buffer directly. */
+  base64?: string;
   size?: number;
   mtime?: number;
-  isText?: boolean;
   error?: string;
 }
+
+export type ChangeKind = "bind" | "tree-changed" | "unbind" | "context-changed";
 
 export type BindingChangedHandler = (
   roomId: string,
   binding: Binding | null,
-  files: FileEntry[],
+  kind: ChangeKind,
 ) => void;
 
 export class WorkspaceManager {
   private bindings = new Map<string, Binding>();
-  private fileTrees = new Map<string, FileEntry[]>();
+  private treeCache = new Map<
+    string,
+    { nodes: FileNode[]; truncated: boolean; ts: number }
+  >();
   private watchers = new Map<string, FSWatcher>();
+  private configDir: string;
   private storageFile: string;
-  private onBindingChanged: BindingChangedHandler;
+  private globalIgnoreFile: string;
+  private globalContextFile: string;
+  private onChange: BindingChangedHandler;
 
-  // Spec §6.4 — defaults block secrets, build artifacts, and VCS noise.
-  // Users can layer their own `.magicignore` on top.
+  // Spec §8 — default ignores: secrets, build artefacts, VCS noise.
+  // Layered on top by the global `~/.agentteams/ignore` file (if present).
   private readonly DEFAULT_IGNORES = [
     "node_modules/**",
     ".git/**",
@@ -120,62 +132,64 @@ export class WorkspaceManager {
     ".kube/config",
   ];
 
-  // Spec §6.1 — main-process hard upper bound. Renderer has its own
-  // tighter caps (5 MB auto-attach, 1 MB total per message).
-  private readonly MAX_READ_SIZE = 10 * 1024 * 1024;
+  // Spec §8 — per-file 5 MB cap. Larger files surface a "文件过大" error
+  // back to the renderer so the projection layer can fall back to an
+  // m.file upload rather than embedding inline.
+  private readonly MAX_FILE_READ = 5 * 1024 * 1024;
 
-  // Scan-time guards so a giant tree can't hang the bind flow.
-  private readonly MAX_FILE_COUNT = 10000;
-  private readonly MAX_TOTAL_SIZE = 5 * 1024 * 1024 * 1024;
+  // Spec §6.1 — keep tree injections compact; 500 entries cover the
+  // vast majority of real-world projects and the LLM context window
+  // can't usefully consume more.
+  private readonly MAX_TREE_FILES = 500;
 
-  // chokidar republish debounce — most editors emit 3-5 events per save.
+  // Cache TTL is short on purpose: chokidar `add`/`unlink` invalidate
+  // immediately, so the only thing the TTL guards against is a burst
+  // of message sends within the same render frame.
+  private readonly TREE_CACHE_TTL = 5000;
+
+  // Spec §8 — single context segment capped at 8 KB so users can't
+  // accidentally paste an entire book into the per-binding context
+  // field and DoS the LLM.
+  private readonly MAX_CONTEXT_LEN = 8 * 1024;
+
+  // chokidar emits 3-5 events per save in most editors; coalesce.
   private readonly RESCAN_DEBOUNCE_MS = 2000;
 
-  constructor(onBindingChanged: BindingChangedHandler) {
-    this.storageFile = path.join(
-      app.getPath("userData"),
-      "magic-workspaces.json",
-    );
-    this.onBindingChanged = onBindingChanged;
+  constructor(onChange: BindingChangedHandler) {
+    this.configDir = path.join(os.homedir(), ".agentteams");
+    this.storageFile = path.join(this.configDir, "workspaces.json");
+    this.globalIgnoreFile = path.join(this.configDir, "ignore");
+    this.globalContextFile = path.join(this.configDir, "agentteams.md");
+    this.onChange = onChange;
   }
 
   async load(): Promise<void> {
+    await fs.mkdir(this.configDir, { recursive: true }).catch(() => {
+      /* best effort */
+    });
     try {
       const raw = await fs.readFile(this.storageFile, "utf-8");
-      const parsed = JSON.parse(raw) as { bindings?: Record<string, Binding> };
-      if (parsed.bindings) {
-        for (const [roomId, binding] of Object.entries(parsed.bindings)) {
-          // Backfill autoAttach for older payloads where it was absent.
-          if (typeof binding.autoAttach !== "boolean") {
-            binding.autoAttach = true;
-          }
-          this.bindings.set(roomId, binding);
+      const parsed = JSON.parse(raw) as {
+        bindings?: Record<string, Binding>;
+      };
+      for (const [rid, b] of Object.entries(parsed.bindings ?? {})) {
+        try {
+          await fs.access(b.localPath);
+          this.bindings.set(rid, b);
+          await this.startWatching(rid, b);
+        } catch {
+          console.warn(`[workspace] bound path missing: ${b.localPath}`);
         }
       }
     } catch {
       /* fresh install */
     }
-
-    // Restore file watchers + re-scan trees so the in-memory cache is
-    // populated before the first IPC call.
-    for (const [roomId, binding] of this.bindings.entries()) {
-      try {
-        await fs.access(binding.localPath);
-        const scan = await this.scanFolder(binding.localPath);
-        this.fileTrees.set(roomId, scan.files);
-        await this.startWatching(roomId, binding);
-      } catch {
-        console.warn(
-          `[workspace] bound path missing on startup: ${binding.localPath}`,
-        );
-      }
-    }
   }
 
   async shutdown(): Promise<void> {
-    for (const watcher of this.watchers.values()) {
+    for (const w of this.watchers.values()) {
       try {
-        await watcher.close();
+        await w.close();
       } catch {
         /* best effort */
       }
@@ -184,30 +198,129 @@ export class WorkspaceManager {
   }
 
   private async save(): Promise<void> {
+    await fs.mkdir(this.configDir, { recursive: true }).catch(() => {
+      /* best effort */
+    });
     const data = {
-      version: 3,
+      version: 6,
       bindings: Object.fromEntries(this.bindings.entries()),
     };
     await fs.writeFile(this.storageFile, JSON.stringify(data, null, 2));
   }
 
-  // ---------- public surface called over IPC ----------
+  // ===== Binding lifecycle =====
 
-  async scanFolder(folderPath: string): Promise<ScanResult> {
-    const ignore = new IgnoreEngine(this.DEFAULT_IGNORES);
+  async bind(
+    roomId: string,
+    localPath: string,
+    boundBy: string,
+  ): Promise<Binding> {
+    const stat = await fs.stat(localPath);
+    if (!stat.isDirectory()) throw new Error("选择的不是文件夹");
+    if (this.bindings.has(roomId)) await this.unbind(roomId, true);
+
+    const binding: Binding = {
+      roomId,
+      localPath,
+      displayName: path.basename(localPath),
+      boundBy,
+      boundAt: Date.now(),
+    };
+    this.bindings.set(roomId, binding);
+    await this.save();
+    await this.startWatching(roomId, binding);
+    this.onChange(roomId, binding, "bind");
+    return binding;
+  }
+
+  async unbind(roomId: string, silent = false): Promise<void> {
+    const w = this.watchers.get(roomId);
+    if (w) {
+      try {
+        await w.close();
+      } catch {
+        /* best effort */
+      }
+      this.watchers.delete(roomId);
+    }
+    const previous = this.bindings.get(roomId) ?? null;
+    this.bindings.delete(roomId);
+    this.treeCache.delete(roomId);
+    await this.save();
+    if (!silent) this.onChange(roomId, previous, "unbind");
+  }
+
+  getBinding(roomId: string): Binding | null {
+    return this.bindings.get(roomId) ?? null;
+  }
+
+  revealInFinder(roomId: string): void {
+    const b = this.bindings.get(roomId);
+    if (b) void shell.openPath(b.localPath);
+  }
+
+  // ===== Per-binding context (set from app settings) =====
+
+  async setBindingContext(
+    roomId: string,
+    context: string,
+  ): Promise<Binding | null> {
+    const b = this.bindings.get(roomId);
+    if (!b) return null;
+    b.context = context.slice(0, this.MAX_CONTEXT_LEN);
+    await this.save();
+    this.onChange(roomId, b, "context-changed");
+    return b;
+  }
+
+  // ===== Global context (~/.agentteams/agentteams.md) =====
+
+  async getGlobalContext(): Promise<string> {
     try {
-      const dotIgnore = await fs.readFile(
-        path.join(folderPath, ".magicignore"),
-        "utf-8",
-      );
-      ignore.addPatterns(dotIgnore.split(/\r?\n/));
+      return await fs.readFile(this.globalContextFile, "utf-8");
     } catch {
-      /* no .magicignore → defaults only */
+      return "";
+    }
+  }
+
+  async setGlobalContext(text: string): Promise<void> {
+    await fs.mkdir(this.configDir, { recursive: true }).catch(() => {
+      /* best effort */
+    });
+    await fs.writeFile(this.globalContextFile, text);
+  }
+
+  /** Composite "system prompt" feed: global agentteams.md (if any) +
+   *  per-binding context (if any). Both clamped to MAX_CONTEXT_LEN so
+   *  one huge file can't blow up every message. */
+  async getSystemContext(roomId: string): Promise<SystemContext> {
+    const binding = this.bindings.get(roomId);
+    let global: string | null = null;
+    try {
+      const txt = await fs.readFile(this.globalContextFile, "utf-8");
+      global = txt.slice(0, this.MAX_CONTEXT_LEN);
+    } catch {
+      global = null;
+    }
+    const bindingCtx = binding?.context
+      ? binding.context.slice(0, this.MAX_CONTEXT_LEN)
+      : null;
+    return { global, binding: bindingCtx };
+  }
+
+  // ===== Tree scan (lazy, cached, watcher-invalidated) =====
+
+  async scanTree(roomId: string): Promise<TreeResult> {
+    const binding = this.bindings.get(roomId);
+    if (!binding) return { nodes: [], truncated: false };
+
+    const cached = this.treeCache.get(roomId);
+    if (cached && Date.now() - cached.ts < this.TREE_CACHE_TTL) {
+      return { nodes: cached.nodes, truncated: cached.truncated };
     }
 
-    const files: FileEntry[] = [];
-    let totalSize = 0;
-    let ignoredCount = 0;
+    const ignore = await this.buildIgnore();
+    const nodes: FileNode[] = [];
     let truncated = false;
 
     const walk = async (dir: string): Promise<void> => {
@@ -218,180 +331,80 @@ export class WorkspaceManager {
       } catch {
         return;
       }
-      for (const entry of entries) {
+      entries.sort((a, b) => {
+        if (a.isDirectory() !== b.isDirectory()) {
+          return a.isDirectory() ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      for (const e of entries) {
         if (truncated) break;
-        const fullPath = path.join(dir, entry.name);
-        const relPath = path
-          .relative(folderPath, fullPath)
+        const full = path.join(dir, e.name);
+        const rel = path
+          .relative(binding.localPath, full)
           .replace(/\\/g, "/");
-        if (ignore.matches(relPath)) {
-          ignoredCount++;
-          continue;
-        }
-        if (entry.isDirectory()) {
-          await walk(fullPath);
-        } else if (entry.isFile()) {
-          try {
-            const stat = await fs.stat(fullPath);
-            files.push({
-              path: relPath,
-              size: stat.size,
-              mtime: stat.mtimeMs,
-            });
-            totalSize += stat.size;
-            if (
-              files.length >= this.MAX_FILE_COUNT ||
-              totalSize >= this.MAX_TOTAL_SIZE
-            ) {
-              truncated = true;
-              break;
-            }
-          } catch {
-            /* unreadable — skip */
+        if (!rel || ignore.matches(rel)) continue;
+        try {
+          const st = await fs.stat(full);
+          nodes.push({
+            path: rel,
+            isDirectory: e.isDirectory(),
+            size: st.size,
+            mtime: st.mtimeMs,
+          });
+          if (nodes.length >= this.MAX_TREE_FILES) {
+            truncated = true;
+            break;
           }
+          if (e.isDirectory()) await walk(full);
+        } catch {
+          /* unreadable — skip */
         }
       }
     };
 
-    await walk(folderPath);
-
-    return {
-      fileCount: files.length,
-      totalSize,
-      ignoredCount,
-      files,
-      truncated,
-    };
+    await walk(binding.localPath);
+    this.treeCache.set(roomId, { nodes, truncated, ts: Date.now() });
+    return { nodes, truncated };
   }
 
-  async bind(
-    roomId: string,
-    folderPath: string,
-    boundBy: string,
-  ): Promise<{ binding: Binding; files: FileEntry[] }> {
-    const stat = await fs.stat(folderPath);
-    if (!stat.isDirectory()) {
-      throw new Error("选择的不是文件夹");
-    }
+  // ===== Single-file read for reactive projection =====
 
-    if (this.bindings.has(roomId)) {
-      await this.unbind(roomId);
-    }
-
-    const scan = await this.scanFolder(folderPath);
-
-    const binding: Binding = {
-      roomId,
-      localPath: folderPath,
-      displayName: path.basename(folderPath),
-      boundBy,
-      boundAt: Date.now(),
-      fileCount: scan.fileCount,
-      totalSize: scan.totalSize,
-      ignorePatterns: this.DEFAULT_IGNORES,
-      // Spec §3.6 — auto-attach defaults on; user can flip in settings.
-      autoAttach: true,
-    };
-
-    this.bindings.set(roomId, binding);
-    this.fileTrees.set(roomId, scan.files);
-    await this.save();
-
-    // Renderer-side handler picks this up and ships the bind
-    // announcement message + state event (§5.2.3).
-    this.onBindingChanged(roomId, binding, scan.files);
-
-    await this.startWatching(roomId, binding);
-
-    return { binding, files: scan.files };
-  }
-
-  async unbind(roomId: string): Promise<void> {
-    const watcher = this.watchers.get(roomId);
-    if (watcher) {
-      try {
-        await watcher.close();
-      } catch {
-        /* best effort */
-      }
-      this.watchers.delete(roomId);
-    }
-    this.bindings.delete(roomId);
-    this.fileTrees.delete(roomId);
-    await this.save();
-    this.onBindingChanged(roomId, null, []);
-  }
-
-  getBinding(roomId: string): Binding | null {
-    return this.bindings.get(roomId) ?? null;
-  }
-
-  getFileTree(roomId: string): FileEntry[] {
-    return this.fileTrees.get(roomId) ?? [];
-  }
-
-  revealInFinder(roomId: string): void {
-    const binding = this.bindings.get(roomId);
-    if (binding) shell.openPath(binding.localPath);
-  }
-
-  setAutoAttach(roomId: string, enabled: boolean): void {
-    const binding = this.bindings.get(roomId);
-    if (!binding) return;
-    binding.autoAttach = enabled;
-    // Fire-and-forget save; the in-memory toggle takes effect
-    // immediately and persistence is best-effort.
-    this.save().catch(() => {
-      /* swallow */
-    });
-    this.onBindingChanged(
-      roomId,
-      binding,
-      this.fileTrees.get(roomId) ?? [],
-    );
-  }
-
-  getAutoAttach(roomId: string): boolean {
-    return this.bindings.get(roomId)?.autoAttach ?? false;
-  }
-
-  /**
-   * Spec §5.1.2 — single-file read used by useMessageInterceptor.
-   *
-   * Three guards: (a) `resolveSafePath` rejects `..` traversal,
-   * (b) the per-binding ignore engine blocks anything the user
-   * shielded (.env, *.key etc.) even if they explicitly pick it,
-   * (c) the per-request size cap is `MAX_READ_SIZE`. Renderer
-   * applies tighter limits on top.
-   */
   async readFile(roomId: string, relPath: string): Promise<ReadResult> {
     const binding = this.bindings.get(roomId);
     if (!binding) return { ok: false, error: "未绑定" };
 
-    const safe = this.resolveSafePath(binding.localPath, relPath);
+    const safe = this.resolveSafe(binding.localPath, relPath);
     if (!safe) return { ok: false, error: "路径越界" };
 
-    const ignore = new IgnoreEngine(binding.ignorePatterns);
+    const ignore = await this.buildIgnore();
     if (ignore.matches(relPath)) {
       return { ok: false, error: "文件被忽略列表排除" };
     }
 
     try {
-      const stat = await fs.stat(safe);
-      if (!stat.isFile()) return { ok: false, error: "不是文件" };
-      if (stat.size > this.MAX_READ_SIZE) {
-        return { ok: false, error: `文件过大（${stat.size} 字节）` };
+      const st = await fs.stat(safe);
+      if (!st.isFile()) return { ok: false, error: "不是文件" };
+      if (st.size > this.MAX_FILE_READ) {
+        return { ok: false, error: `文件过大（${this.fmtSize(st.size)}）` };
       }
       const buf = await fs.readFile(safe);
       const isText = this.detectIsText(buf);
-      return {
-        ok: true,
-        contentBase64: buf.toString("base64"),
-        encoding: isText ? "utf-8" : "base64",
-        size: buf.length,
-        mtime: stat.mtimeMs,
-        isText,
-      };
+      return isText
+        ? {
+            ok: true,
+            isText: true,
+            content: buf.toString("utf-8"),
+            size: st.size,
+            mtime: st.mtimeMs,
+          }
+        : {
+            ok: true,
+            isText: false,
+            base64: buf.toString("base64"),
+            size: st.size,
+            mtime: st.mtimeMs,
+          };
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
       if (e.code === "ENOENT") return { ok: false, error: "文件不存在" };
@@ -399,26 +412,33 @@ export class WorkspaceManager {
     }
   }
 
-  // ---------- internals ----------
+  // ===== Internals =====
 
-  /** Reject relPath that escapes the binding root. Two-stage: normalize
-   *  away `..` segments + require the resolved path to live at-or-
-   *  below the root. */
-  private resolveSafePath(rootPath: string, relPath: string): string | null {
-    const normalized = path.normalize(relPath ?? "").replace(/^[\\/]+/, "");
+  private async buildIgnore(): Promise<IgnoreEngine> {
+    const ignore = new IgnoreEngine(this.DEFAULT_IGNORES);
+    try {
+      const txt = await fs.readFile(this.globalIgnoreFile, "utf-8");
+      ignore.addPatterns(txt.split(/\r?\n/));
+    } catch {
+      /* no global ignore — defaults only */
+    }
+    return ignore;
+  }
+
+  /** Two-stage path safety: normalize away `..` and require the
+   *  resolved absolute path to live at-or-below the binding root. */
+  private resolveSafe(root: string, rel: string): string | null {
+    const normalized = path.normalize(rel ?? "").replace(/^[\\/]+/, "");
     if (normalized.split(path.sep).includes("..")) return null;
-    const resolved = path.resolve(rootPath, normalized);
-    if (
-      resolved !== rootPath &&
-      !resolved.startsWith(rootPath + path.sep)
-    ) {
+    const resolved = path.resolve(root, normalized);
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
       return null;
     }
     return resolved;
   }
 
-  private detectIsText(content: Buffer): boolean {
-    const sample = content.subarray(0, Math.min(content.length, 8192));
+  private detectIsText(buf: Buffer): boolean {
+    const sample = buf.subarray(0, Math.min(buf.length, 8192));
     if (sample.includes(0)) return false;
     try {
       const decoded = sample.toString("utf-8");
@@ -429,11 +449,17 @@ export class WorkspaceManager {
     }
   }
 
+  private fmtSize(b: number): string {
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / 1024 / 1024).toFixed(1)} MB`;
+  }
+
   private async startWatching(
     roomId: string,
     binding: Binding,
   ): Promise<void> {
-    const ignore = new IgnoreEngine(binding.ignorePatterns);
+    const ignore = await this.buildIgnore();
     const watcher = chokidar.watch(binding.localPath, {
       ignored: (filePath: string) => {
         if (filePath === binding.localPath) return false;
@@ -448,33 +474,22 @@ export class WorkspaceManager {
       awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
     });
 
-    let debounceTimer: NodeJS.Timeout | null = null;
-    const triggerRescan = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(async () => {
-        try {
-          const scan = await this.scanFolder(binding.localPath);
-          binding.fileCount = scan.fileCount;
-          binding.totalSize = scan.totalSize;
-          this.fileTrees.set(roomId, scan.files);
-          await this.save();
-          // Spec §5.1.2 — v3 only refreshes the cache on watcher
-          // events. Notifying renderer keeps the UI's file tree in
-          // sync (so the 📁 picker shows newly-added files); we do
-          // *not* spam Matrix with a fresh announcement on every
-          // change.
-          this.onBindingChanged(roomId, binding, scan.files);
-        } catch (err) {
-          console.error("[workspace] rescan failed:", err);
-        }
+    let timer: NodeJS.Timeout | null = null;
+    const debounced = (): void => {
+      this.treeCache.delete(roomId);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        this.onChange(roomId, binding, "tree-changed");
       }, this.RESCAN_DEBOUNCE_MS);
     };
-
-    watcher.on("add", triggerRescan);
-    watcher.on("change", triggerRescan);
-    watcher.on("unlink", triggerRescan);
-    watcher.on("addDir", triggerRescan);
-    watcher.on("unlinkDir", triggerRescan);
+    watcher.on("add", debounced);
+    watcher.on("unlink", debounced);
+    watcher.on("addDir", debounced);
+    watcher.on("unlinkDir", debounced);
+    // `change` events (file content modified in-place) also invalidate
+    // the tree cache because mtimes shift — that's load-bearing for
+    // the projection-dedup check on the renderer side.
+    watcher.on("change", debounced);
 
     this.watchers.set(roomId, watcher);
   }

@@ -44,30 +44,31 @@ export interface IElectronAPI {
   getAppVersion: () => Promise<string>;
   getPlatform: () => Promise<string>;
 
-  // ---- Workspace folder binding (Spec 022 v3) ----
+  // ---- Workspace context injection (Spec 022 v6) ----
   /**
-   * Per-channel sub-namespace so the binding lifecycle and file IO
-   * stay grouped. Renderer consumes via `window.electronAPI.workspace.*`.
+   * Per-channel sub-namespace so the binding lifecycle, tree scan,
+   * system-prompt editor, and reactive file reader stay grouped.
+   * Renderer consumes via `window.electronAPI.workspace.*`.
    *
-   * v3 dropped the access-log / notify-tracker / list-dir surface from
-   * v2 — Agents weren't going to implement the read_request protocol,
-   * so the renderer ships file content as native Matrix attachments
-   * instead. Surface is correspondingly smaller.
+   * v6 deletes the file-picker / autoAttach / fileCount / ignorePatterns
+   * surface from v3 — the workspace context is injected straight into
+   * every user message body so the Agent reads it as part of the
+   * prompt, no explicit attachments required. Surface is correspondingly
+   * smaller and centred on tree+context fetches plus a single-file
+   * reactive reader for path-mention projection.
    */
   workspace: WorkspaceAPI;
 }
 
-export interface WorkspaceFileEntry {
+export interface WorkspaceFileNode {
   path: string;
+  isDirectory: boolean;
   size: number;
   mtime: number;
 }
 
-export interface WorkspaceScanResult {
-  fileCount: number;
-  totalSize: number;
-  ignoredCount: number;
-  files: WorkspaceFileEntry[];
+export interface WorkspaceTreeResult {
+  nodes: WorkspaceFileNode[];
   truncated: boolean;
 }
 
@@ -77,61 +78,68 @@ export interface WorkspaceBinding {
   displayName: string;
   boundBy: string;
   boundAt: number;
-  fileCount: number;
-  totalSize: number;
-  ignorePatterns: string[];
-  /** Spec §3.6 — when off, useMessageInterceptor only attaches files
-   *  the user explicitly picked via 📁 button; auto-detection from
-   *  message text is skipped. */
-  autoAttach: boolean;
+  /** Per-binding system prompt edited via the App settings panel.
+   *  Stored under the binding in `~/.agentteams/workspaces.json`. */
+  context?: string;
+}
+
+export interface WorkspaceSystemContext {
+  /** Body of `~/.agentteams/agentteams.md`, capped at 8 KB. */
+  global: string | null;
+  /** Per-binding context, capped at 8 KB. */
+  binding: string | null;
 }
 
 export interface WorkspaceReadResult {
   ok: boolean;
-  /** base64-encoded raw file bytes — IPC can't ship a Buffer directly. */
-  contentBase64?: string;
-  encoding?: "utf-8" | "base64";
+  isText?: boolean;
+  /** UTF-8 text body when isText. */
+  content?: string;
+  /** base64 bytes when binary. IPC can't ship a Buffer directly. */
+  base64?: string;
   size?: number;
   mtime?: number;
-  isText?: boolean;
   error?: string;
 }
 
-export interface WorkspaceBindResult {
-  binding: WorkspaceBinding;
-  files: WorkspaceFileEntry[];
+export type WorkspaceChangeKind =
+  | "bind"
+  | "tree-changed"
+  | "unbind"
+  | "context-changed";
+
+export interface WorkspaceChangePayload {
+  roomId: string;
+  binding: WorkspaceBinding | null;
+  kind: WorkspaceChangeKind;
 }
 
 export interface WorkspaceAPI {
   pickFolder: () => Promise<string | null>;
-  scanFolder: (folderPath: string) => Promise<WorkspaceScanResult>;
   bind: (
     roomId: string,
     folderPath: string,
     boundBy: string,
-  ) => Promise<WorkspaceBindResult>;
+  ) => Promise<WorkspaceBinding>;
   unbind: (roomId: string) => Promise<void>;
   getBinding: (roomId: string) => Promise<WorkspaceBinding | null>;
-  getFileTree: (roomId: string) => Promise<WorkspaceFileEntry[]>;
-  revealInFinder: (roomId: string) => Promise<void>;
-  /** Spec §5.2.1 — useMessageInterceptor's read path. */
+  scanTree: (roomId: string) => Promise<WorkspaceTreeResult>;
+  getSystemContext: (roomId: string) => Promise<WorkspaceSystemContext>;
+  setBindingContext: (
+    roomId: string,
+    context: string,
+  ) => Promise<WorkspaceBinding | null>;
+  getGlobalContext: () => Promise<string>;
+  setGlobalContext: (text: string) => Promise<void>;
   readFile: (
     roomId: string,
     relPath: string,
   ) => Promise<WorkspaceReadResult>;
-  /** Spec §3.6 — auto-attach toggle. */
-  setAutoAttach: (roomId: string, enabled: boolean) => Promise<void>;
-  getAutoAttach: (roomId: string) => Promise<boolean>;
-  /** main → renderer push: bind / unbind / watcher republish. The
-   *  payload carries the canonical binding + current file tree so
-   *  the renderer can rehydrate without a follow-up IPC roundtrip. */
-  onTreeChanged: (
-    cb: (payload: {
-      roomId: string;
-      binding: WorkspaceBinding | null;
-      files: WorkspaceFileEntry[];
-    }) => void,
-  ) => () => void;
+  revealInFinder: (roomId: string) => Promise<void>;
+  /** main → renderer push: bind / unbind / watcher republish /
+   *  context-changed. Renderer rehydrates from the canonical binding
+   *  in the payload. */
+  onChange: (cb: (payload: WorkspaceChangePayload) => void) => () => void;
 }
 
 export interface LoginResponse {

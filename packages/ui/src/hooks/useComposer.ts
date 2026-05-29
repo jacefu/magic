@@ -6,7 +6,7 @@ import {
   useUIStore,
 } from "@magic/matrix-client";
 import { useTypingNotifier } from "./useTypingNotifier.js";
-import { useMessageInterceptor } from "./useMessageInterceptor.js";
+import { useWorkspaceInjection } from "./useWorkspaceInjection.js";
 import { hasMentions, parseMentions } from "../lib/mentionParser.js";
 
 interface UseComposerOptions {
@@ -17,24 +17,11 @@ interface UseComposerOptions {
    * message you just shipped (Spec 019 FIX-3).
    */
   onSent?: () => void;
-  /**
-   * Spec 022 v3 — paths the user picked through the 📁 button.
-   * Always attached even when the user message text doesn't
-   * mention them, and not subject to the autoAttach toggle.
-   */
-  getExplicitAttachments?: () => string[];
-  /** Cleared on successful send. */
-  onAfterSend?: () => void;
 }
 
 const drafts = new Map<string, string>();
 
-export function useComposer({
-  roomId,
-  onSent,
-  getExplicitAttachments,
-  onAfterSend,
-}: UseComposerOptions) {
+export function useComposer({ roomId, onSent }: UseComposerOptions) {
   const [value, setValue] = useState(() => drafts.get(roomId) ?? "");
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -47,7 +34,10 @@ export function useComposer({
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
 
   const { notifyTyping, stopTyping } = useTypingNotifier(roomId);
-  const { sendWithWorkspace } = useMessageInterceptor();
+  // Spec 022 v6 §6.2 — every user message routed through the
+  // workspace-injection sender so bound rooms automatically pick up
+  // the live dir tree + system prompts.
+  const { sendWithContext } = useWorkspaceInjection();
 
   // Inject text from external sources (sender-name click, emoji picker, …)
   // at the current cursor position. Auto-pads with a leading space so
@@ -113,34 +103,30 @@ export function useComposer({
     try {
       // Resolve plain "@displayName" → `[@displayName](userId)` so
       // parseMentions can extract the m.mentions structure. When the
-      // text has any mentions, sendWithWorkspace receives the
-      // pre-parsed body + formatted_body + mentions and splices them
-      // onto the outgoing event.
+      // text has any mentions, sendWithContext receives the pre-parsed
+      // body + formatted_body + mentions and splices them onto the
+      // outgoing event.
       const resolved = resolveMentionsToPlaceholders(text, roomId);
-      const explicitAttachments = getExplicitAttachments?.() ?? [];
       if (hasMentions(resolved)) {
         const parsed = parseMentions(resolved);
-        await sendWithWorkspace({
+        await sendWithContext({
           roomId,
           text: parsed.body,
-          explicitAttachments,
           replyToEventId: replyToEventId ?? undefined,
           formattedBody: parsed.formattedBody,
           mentions: parsed.mentions,
         });
         if (replyToEventId) setReplyTo(null);
       } else {
-        await sendWithWorkspace({
+        await sendWithContext({
           roomId,
           text,
-          explicitAttachments,
           replyToEventId: replyToEventId ?? undefined,
         });
         if (replyToEventId) setReplyTo(null);
       }
       setValue("");
       drafts.delete(roomId);
-      onAfterSend?.();
       inputRef.current?.focus();
       // Defer the scroll-to-bottom callback so the just-sent event has
       // a chance to round-trip through the bridge → roomStore →
@@ -165,9 +151,7 @@ export function useComposer({
     setReplyTo,
     stopTyping,
     onSent,
-    sendWithWorkspace,
-    getExplicitAttachments,
-    onAfterSend,
+    sendWithContext,
   ]);
 
   const cancelReply = useCallback(() => {

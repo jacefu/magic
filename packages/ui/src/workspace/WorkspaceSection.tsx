@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useWorkspaceBinding } from "../hooks/useWorkspaceBinding.js";
 import { SectionTitle } from "../settings/roomSettingsPrimitives.js";
 import { BindFolderButton } from "./BindFolderButton.js";
@@ -12,35 +13,59 @@ interface WorkspaceSectionProps {
 }
 
 /**
- * Spec 022 v3 §3.6 / §4.3 — settings-panel block for the workspace
- * binding. Shows the bound folder summary, reveal-in-Finder, unbind,
- * and (new in v3) the auto-attach toggle. The access log from v2 is
- * gone because v3 doesn't field read requests anymore.
+ * Spec 022 v6 §7.2 — room-settings block for the bound workspace.
+ * Replaces the v3 auto-attach toggle with a project-context editor:
+ * users describe the project once and that text rides along with
+ * every future message in this room.
  */
 export function WorkspaceSection({
   roomId,
   peerLabel = "Agent",
 }: WorkspaceSectionProps) {
-  const { binding, loading, unbind, revealInFinder, setAutoAttach } =
+  const { binding, loading, unbind, revealInFinder, setBindingContext } =
     useWorkspaceBinding(roomId);
+
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Reset the editor draft whenever the binding underneath changes
+  // (room switch, context edit from another window).
+  useEffect(() => {
+    setDraft(binding?.context ?? "");
+    setSaved(false);
+  }, [binding?.roomId, binding?.context]);
 
   if (!isElectron()) {
     return (
       <div>
-        <SectionTitle>本地文件夹</SectionTitle>
+        <SectionTitle>本地工作区</SectionTitle>
         <p
           className="px-2 text-[10.5px]"
           style={{ color: "var(--text-tertiary)" }}
         >
-          仅桌面版支持绑定本地文件夹
+          仅桌面版支持绑定本地工作区
         </p>
       </div>
     );
   }
 
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await setBindingContext(draft);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const dirty = draft !== (binding?.context ?? "");
+
   return (
     <div>
-      <SectionTitle>本地文件夹</SectionTitle>
+      <SectionTitle>本地工作区</SectionTitle>
 
       {loading ? (
         <p
@@ -55,13 +80,13 @@ export function WorkspaceSection({
             className="text-[11.5px]"
             style={{ color: "var(--text-secondary)" }}
           >
-            尚未绑定本地文件夹。绑定后当你的消息提到文件路径时，
-            Magic 会自动把文件内容附到消息中发给 {peerLabel}。
+            尚未绑定本地工作区。绑定后，你的每条消息都会自动附带目录结构 +
+            项目说明给 {peerLabel}，{peerLabel} 提到文件路径时还会自动把文件内容投回会话。
           </p>
           <BindFolderButton roomId={roomId} peerLabel={peerLabel} />
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div
             className="rounded-lg p-2.5"
             style={{ background: "var(--bg-surface)" }}
@@ -75,12 +100,6 @@ export function WorkspaceSection({
               style={{ color: "var(--text-tertiary)" }}
             >
               {binding.localPath}
-            </p>
-            <p
-              className="mt-1.5 text-[10.5px]"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              {binding.fileCount} 个文件 · {formatSize(binding.totalSize)}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <button
@@ -101,43 +120,68 @@ export function WorkspaceSection({
             </div>
           </div>
 
-          {/* Spec §3.6 — auto-attach toggle. When off, only files
-              picked through the 📁 button get attached. */}
-          <label
-            className="flex cursor-pointer items-center justify-between gap-2 rounded-lg p-2.5 transition-colors hover:bg-[var(--bg-hover)]"
-            style={{ background: "var(--bg-surface)" }}
-          >
-            <span className="flex-1">
+          {/* Per-binding context — saved into the workspaces.json record
+              under this binding, never written into the user's folder. */}
+          <div className="space-y-1.5">
+            <label
+              className="block text-[11.5px] font-medium"
+              style={{ color: "var(--text-primary)" }}
+            >
+              项目说明（仅此绑定）
+            </label>
+            <p
+              className="text-[10.5px]"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              在这里说明项目用途、技术栈、风格偏好等。会作为系统提示词的一部分附带给
+              {" "}{peerLabel}，最多 8KB。
+            </p>
+            <textarea
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setSaved(false);
+              }}
+              maxLength={8 * 1024}
+              rows={5}
+              placeholder="例如：Flask 后端项目，认证用 JWT，遵循 PEP8，legacy/ 目录不要改"
+              className="w-full resize-y rounded-md px-2.5 py-2 text-[12px] outline-none transition-colors focus:border-[var(--border-active)]"
+              style={{
+                background: "var(--bg-surface)",
+                border: "0.5px solid var(--border-default)",
+                color: "var(--text-primary)",
+                fontFamily: "var(--font-sans)",
+                minHeight: 96,
+              }}
+            />
+            <div className="flex items-center justify-between">
               <span
-                className="text-[11.5px] font-medium"
-                style={{ color: "var(--text-primary)" }}
-              >
-                自动附加
-              </span>
-              <span
-                className="mt-0.5 block text-[10px]"
+                className="text-[10px]"
                 style={{ color: "var(--text-tertiary)" }}
               >
-                当我的消息提到 workspace 中的文件路径时，自动读取并附加文件内容
+                {draft.length} / {8 * 1024} 字符
+                {saved && !dirty && (
+                  <span
+                    className="ml-2"
+                    style={{ color: "var(--color-success)" }}
+                  >
+                    已保存
+                  </span>
+                )}
               </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={binding.autoAttach}
-              onChange={(e) => void setAutoAttach(e.target.checked)}
-              className="h-3.5 w-3.5 cursor-pointer accent-[var(--brand-purple)]"
-            />
-          </label>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!dirty || saving}
+                className="rounded-md px-3 py-1 text-[11px] font-medium text-white transition-opacity disabled:opacity-40"
+                style={{ background: "var(--gradient-button)" }}
+              >
+                {saving ? "保存中…" : "保存"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }

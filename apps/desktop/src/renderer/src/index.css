@@ -14,19 +14,21 @@
 /* ===== Dark theme (default) ===== */
 :root,
 [data-theme="dark"] {
-  /* Backgrounds */
-  --bg-deepest: rgba(12, 12, 18, 0.95);
-  --bg-glass: rgba(18, 18, 26, 0.85);
-  --bg-primary: rgba(15, 15, 21, 0.95);
-  --bg-surface: rgba(255, 255, 255, 0.04);
-  --bg-hover: rgba(255, 255, 255, 0.03);
-  --bg-panel: rgba(12, 12, 18, 0.6);
+  /* Backgrounds — neutral dark-gray palette (no blue tint), referenced
+     from the Magic AI platform reference UI: deepest rail #141414,
+     sidebars #1a1a1a, content area #222. */
+  --bg-deepest: #141414;
+  --bg-glass: rgba(26, 26, 26, 0.95);
+  --bg-primary: #1f1f1f;
+  --bg-surface: rgba(255, 255, 255, 0.05);
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-panel: rgba(26, 26, 26, 0.8);
   --bg-active: linear-gradient(
     135deg,
-    rgba(108, 92, 231, 0.12),
+    rgba(108, 92, 231, 0.14),
     rgba(0, 180, 216, 0.08)
   );
-  --bg-base: #0f0f14;
+  --bg-base: #141414;
 
   /* Text */
   --text-primary: rgba(255, 255, 255, 0.85);
@@ -80,7 +82,7 @@
 
   /* Workspace icon */
   --ws-icon-bg: rgba(255, 255, 255, 0.06);
-  --ws-icon-active-inner: #1a1a24;
+  --ws-icon-active-inner: #1f1f1f;
 
   /* @mention */
   --mention-bg: linear-gradient(

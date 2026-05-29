@@ -28,16 +28,18 @@ describe("UnreadBadge", () => {
     expect(screen.getByText("99")).toBeTruthy();
   });
 
-  it("uses --badge-muted by default (no highlight)", () => {
+  it("uses solid --color-danger (red) by default for visibility", () => {
     render(<UnreadBadge count={3} />);
     const badge = screen.getByText("3");
-    expect(badge.style.background).toBe("var(--badge-muted)");
-    expect(badge.style.color).toBe("var(--badge-muted-color)");
+    expect(badge.style.background).toBe("var(--color-danger)");
+    // White text comes from the `text-white` Tailwind class, not an
+    // inline style — so we only assert the background here.
   });
 
-  it("uses --gradient-badge when highlight is true", () => {
+  it("uses --gradient-badge with glow when highlight is true", () => {
     render(<UnreadBadge count={3} highlight={true} />);
     const badge = screen.getByText("3");
     expect(badge.style.background).toBe("var(--gradient-badge)");
+    expect(badge.style.boxShadow).toContain("rgba");
   });
 });

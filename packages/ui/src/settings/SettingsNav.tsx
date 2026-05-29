@@ -3,6 +3,7 @@ export type SettingsTab =
   | "servers"
   | "appearance"
   | "notifications"
+  | "workspace"
   | "language"
   | "security";
 
@@ -23,7 +24,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "应用设置",
-    items: [{ key: "language", label: "语言" }],
+    items: [
+      { key: "workspace", label: "工作区上下文" },
+      { key: "language", label: "语言" },
+    ],
   },
   {
     label: "安全",

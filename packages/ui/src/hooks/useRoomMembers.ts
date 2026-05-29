@@ -16,6 +16,10 @@ export interface RoomMember {
   agentRuntime?: AgentInfo["runtime"];
   agentInfo: AgentInfo;
   powerLevel: number;
+  /** True when this row represents the locally-logged-in user. The
+   *  MemberPanel uses this to suffix "(我)" and to skip the
+   *  start-DM action (no point DMing yourself). */
+  isSelf: boolean;
 }
 
 export function useRoomMembers(roomId: string | null): RoomMember[] {
@@ -37,9 +41,11 @@ export function useRoomMembers(roomId: string | null): RoomMember[] {
     const room = client.getRoom(roomId);
     if (!room) return [];
 
+    // Spec 022 v6 follow-up — include the local user. Sort puts
+    // agents first, then the local user, then everyone else, so a
+    // human visually sees "AI teammates → me → other humans".
     return room
       .getJoinedMembers()
-      .filter((m) => m.userId !== currentUserId)
       .map((member): RoomMember => {
         const info = getAgentInfo(member.userId, roomId);
         return {
@@ -50,10 +56,12 @@ export function useRoomMembers(roomId: string | null): RoomMember[] {
           agentRuntime: info.runtime,
           agentInfo: info,
           powerLevel: member.powerLevel,
+          isSelf: member.userId === currentUserId,
         };
       })
       .sort((a, b) => {
         if (a.isAgent !== b.isAgent) return a.isAgent ? -1 : 1;
+        if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1;
         return a.displayName.localeCompare(b.displayName);
       });
   }, [

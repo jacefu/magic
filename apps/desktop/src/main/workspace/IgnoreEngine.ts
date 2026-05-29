@@ -1,9 +1,9 @@
 import { minimatch } from "minimatch";
 
 /**
- * Spec 022 § 5.1.3 — minimatch-backed ignore evaluator. Both the
+ * Spec 022 v6 — minimatch-backed ignore evaluator. Both the
  * `DEFAULT_IGNORES` baseline (set by WorkspaceManager) and any user-
- * provided `.magicignore` entries flow through here.
+ * provided patterns from `~/.agentteams/ignore` flow through here.
  *
  * Patterns follow the standard glob shape (`node_modules/**`, `.env`,
  * `*.pem`, `id_rsa*`). A relative POSIX path is considered ignored if
